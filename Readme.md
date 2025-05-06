@@ -2,7 +2,8 @@
 
 A powerful and flexible node-based visual editor library built with ImGui. This library provides a complete framework for creating node-based interfaces for visual programming, data flow systems, and other node-graph applications.
 
-![Node Editor Preview](preview.png)
+![image](https://github.com/user-attachments/assets/014c36a4-a828-40a8-8c7c-93b6b96146fe)
+
 
 ## Features
 
