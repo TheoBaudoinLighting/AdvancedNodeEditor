@@ -1,0 +1,5 @@
+# ANE gitignore
+
+.idea/*
+
+cmake-build-debug/*
