@@ -9,7 +9,7 @@ option(USE_SYSTEM_SDL2 "Use system SDL2 instead of downloading" OFF)
 
 # === Executable ===
 add_executable(AdvancedNodeEditor
-        main.cpp
+        exemple/main_exemple.cpp
         AdvancedNodeEditor/AdvancedNodeEditor.cpp
         AdvancedNodeEditor/AdvancedNodeEditor.h
 )
