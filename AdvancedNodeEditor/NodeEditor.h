@@ -11,7 +11,7 @@ class NodeEditor {
 public:
     using NodeCallback = std::function<void(int nodeId)>;
     using ConnectionCallback = std::function<void(int connectionId)>;
-    using CanConnectCallback = std::function<bool(const Pin& startPin, const Pin& endPin)>;
+    using CanConnectCallback = std::function<bool(const ANE::Pin& startPin, const ANE::Pin& endPin)>;
 
     NodeEditor();
     ~NodeEditor();
@@ -26,10 +26,10 @@ public:
     const Node* getNode(int nodeId) const;
     const std::vector<Node>& getNodes() const;
 
-    int addPin(int nodeId, const std::string& name, bool isInput, PinType type = PinType::Flow, PinShape shape = PinShape::Circle);
+    int addPin(int nodeId, const std::string& name, bool isInput, PinType type = PinType::Blue, PinShape shape = PinShape::Circle);
     void removePin(int nodeId, int pinId);
-    Pin* getPin(int nodeId, int pinId);
-    const Pin* getPin(int nodeId, int pinId) const;
+    ANE::Pin* getPin(int nodeId, int pinId);
+    const ANE::Pin* getPin(int nodeId, int pinId) const;
 
     int addConnection(int startNodeId, int startPinId, int endNodeId, int endPinId);
     void removeConnection(int connectionId);
@@ -74,7 +74,7 @@ public:
     int getHoveredPinId() const;
     int getHoveredConnectionId() const;
     int getHoveredGroupId() const;
-    
+
     void selectConnection(int connectionId, bool append = false);
     void deselectConnection(int connectionId);
     void deselectAllConnections();
@@ -141,11 +141,11 @@ private:
     void drawDragConnection(ImDrawList* drawList, const ImVec2& canvasPos);
     std::string pinTypeToString(PinType type) const;
 
-    ImVec2 getPinPos(const Node& node, const Pin& pin, const ImVec2& canvasPos) const;
-    bool isPinHovered(const Node& node, const Pin& pin, const ImVec2& canvasPos);
+    ImVec2 getPinPos(const Node& node, const ANE::Pin& pin, const ImVec2& canvasPos) const;
+    bool isPinHovered(const Node& node, const ANE::Pin& pin, const ImVec2& canvasPos);
     bool isConnectionHovered(const Connection& connection, const ImVec2& canvasPos);
     bool doesConnectionExist(int startNodeId, int startPinId, int endNodeId, int endPinId) const;
-    bool canCreateConnection(const Pin& startPin, const Pin& endPin) const;
+    bool canCreateConnection(const ANE::Pin& startPin, const ANE::Pin& endPin) const;
     void createConnection(int startNodeId, int startPinId, int endNodeId, int endPinId);
 
     bool isPointInRect(const ImVec2& point, const ImVec2& rectMin, const ImVec2& rectMax) const;
@@ -163,43 +163,43 @@ namespace ANE {
 class NodeEditor {
 public:
     using CanConnectCallback = std::function<bool(const Pin& startPin, const Pin& endPin)>;
-    
+
     NodeEditor();
     ~NodeEditor();
-    
+
     void beginFrame();
     void render();
     void endFrame();
-    
+
     int addNode(const std::string& name, const std::string& type, const Vec2& position);
     Node* getNode(int nodeId);
     void removeNode(int nodeId);
-    
-    int addPin(int nodeId, const std::string& name, bool isInput, PinType type = PinType::Flow, PinShape shape = PinShape::Circle);
+
+    int addPin(int nodeId, const std::string& name, bool isInput, PinType type = PinType::Blue, PinShape shape = PinShape::Circle);
     Pin* getPin(int nodeId, int pinId);
-    
+
     int addConnection(int startNodeId, int startPinId, int endNodeId, int endPinId);
     void removeConnection(int connectionId);
-    
+
     int addGroup(const std::string& name, const Vec2& position, const Vec2& size);
     Group* getGroup(int groupId);
     void addNodeToGroup(int nodeId, int groupId);
-    
+
     void selectNode(int nodeId, bool append = false);
     std::vector<int> getSelectedNodes() const;
-    
+
     void centerView();
     void setViewScale(float scale);
     float getViewScale() const;
-    
+
     void setStyle(const EditorStyle& style);
     EditorStyle getStyle() const;
-    
+
     void setCanConnectCallback(CanConnectCallback callback);
-    
+
 private:
     NodeEditorCore::NodeEditor m_editor;
-    
+
     NodeEditorCore::NodeEditorStyle convertToInternalStyle(const EditorStyle& style) const;
     EditorStyle convertToAPIStyle(const NodeEditorCore::NodeEditorStyle& style) const;
 };

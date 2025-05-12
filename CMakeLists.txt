@@ -26,6 +26,16 @@ add_executable(AdvancedNodeEditor
         AdvancedNodeEditor/NodeEditorInteractions.cpp
         AdvancedNodeEditor/NodeEditorDrawing.cpp
         AdvancedNodeEditor/NodeEditorDrawNodes.cpp
+        AdvancedNodeEditor/NodeEditorModel.h
+        AdvancedNodeEditor/NodeEditorController.h
+        AdvancedNodeEditor/NodeEditorView.h
+        AdvancedNodeEditor/NodeEditorModel.cpp
+        AdvancedNodeEditor/NodeEditorController.cpp
+        AdvancedNodeEditor/NodeEditorView.cpp
+        AdvancedNodeEditor/INodeEditorController.h
+        AdvancedNodeEditor/Conversions.cpp
+        AdvancedNodeEditor/NodeEditorOperations.cpp
+        AdvancedNodeEditor/NodeEditorUtilities.cpp
 )
 
 # === FetchContent for ImGui and SDL2 ===

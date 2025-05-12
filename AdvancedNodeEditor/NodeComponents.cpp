@@ -2,28 +2,12 @@
 
 namespace NodeEditorCore {
 
-Pin::Pin(int id, const std::string& name, bool isInput, PinType type)
-    : id(id), name(name), label(name), isInput(isInput), type(type), shape(PinShape::Circle)
-    , connected(false)
-{
-    switch (type) {
-        case PinType::Flow:    color = Color(0.9f, 0.3f, 0.3f); break;
-        case PinType::Bool:    color = Color(0.95f, 0.95f, 0.65f); break;
-        case PinType::Int:     color = Color(0.3f, 0.8f, 0.3f); break;
-        case PinType::Float:   color = Color(0.65f, 0.83f, 0.95f); break;
-        case PinType::String:  color = Color(0.8f, 0.3f, 0.8f); break;
-        case PinType::Vec2:    color = Color(0.8f, 0.4f, 0.2f); break;
-        case PinType::Vec3:    color = Color(0.75f, 0.95f, 0.75f); break;
-        case PinType::Vec4:    color = Color(0.4f, 0.4f, 0.8f); break;
-        case PinType::Color:   color = Color(0.8f, 0.3f, 0.3f); break;
-        default:               color = Color(0.7f, 0.7f, 0.7f); break;
-    }
-}
+// L'implémentation de Pin est maintenant dans le header
 
 Node::Node(int id, const std::string& name, const std::string& type, const Vec2& pos)
     : id(id), name(name), type(type), position(pos), size(140.0f, 28.0f)
     , selected(false), disabled(false), groupId(-1), isTemplate(false), isCurrentFlag(false)
-    , labelPosition(NodeLabelPosition::Right)
+    , labelPosition(NodeLabelPosition::Right), isSubgraph(false), subgraphId(-1)
 {
 }
 
@@ -60,13 +44,19 @@ Group::Group(int id, const std::string& name, const Vec2& pos, const Vec2& size)
     color = Color(0.3f, 0.3f, 0.4f, 0.4f);
 }
 
+Subgraph::Subgraph(int id, const std::string& name)
+    : id(id), name(name)
+{
+}
+
 }
 
 namespace ANE {
 
 Node::Node(int id, const std::string& name, const std::string& type)
-    : id(id), name(name), type(type), labelPosition(NodeLabelPosition::Right), 
-      disabled(false), isTemplate(false), isCurrentFlag(false) {
+    : id(id), name(name), type(type), labelPosition(NodeLabelPosition::Right),
+      disabled(false), isTemplate(false), isCurrentFlag(false), isSubgraph(false),
+      subgraphId(-1), position(0.0f, 0.0f), size(140.0f, 28.0f), selected(false) {
 }
 
 void Node::setIconSymbol(const std::string& symbol) {
@@ -89,12 +79,16 @@ void Node::setCurrentFlag(bool value) {
     isCurrentFlag = value;
 }
 
-Pin::Pin(int id, const std::string& name, bool isInput, PinType type, PinShape shape)
-    : id(id), name(name), isInput(isInput), type(type), shape(shape) {
+void Node::setAsSubgraph(bool value, int id) {
+    isSubgraph = value;
+    if (value && id >= 0) {
+        subgraphId = id;
+    }
 }
 
 Group::Group(int id, const std::string& name)
-    : id(id), name(name), collapsed(false), style(GroupStyle::Default) {
+    : id(id), name(name), collapsed(false), style(GroupStyle::Default),
+      selected(false), position(0.0f, 0.0f), size(200.0f, 150.0f) {
     color = Color(0.2f, 0.2f, 0.25f, 0.25f);
 }
 
@@ -108,6 +102,10 @@ void Group::setStyle(GroupStyle newStyle) {
 
 void Group::setCollapsed(bool value) {
     collapsed = value;
+}
+
+Subgraph::Subgraph(int id, const std::string& name)
+    : id(id), name(name) {
 }
 
 }

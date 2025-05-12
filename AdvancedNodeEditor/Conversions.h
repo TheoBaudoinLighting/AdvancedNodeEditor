@@ -3,6 +3,7 @@
 
 #include "ANETypes.h"
 #include "CoreTypes.h"
+#include "StyleDefinitions.h"
 
 namespace NodeEditorCore {
 
@@ -19,6 +20,9 @@ namespace NodeEditorCore {
     inline ANE::PinShape convertToANEPinShape(PinShape s) { return static_cast<ANE::PinShape>(s); }
     inline ANE::NodeLabelPosition convertToANENodeLabelPosition(NodeLabelPosition p) { return static_cast<ANE::NodeLabelPosition>(p); }
     inline ANE::GroupStyle convertToANEGroupStyle(GroupStyle s) { return static_cast<ANE::GroupStyle>(s); }
+
+    NodeEditorStyle convertToInternalStyle(const ANE::EditorStyle& style);
+    ANE::EditorStyle convertToAPIStyle(const NodeEditorStyle& internalStyle);
 
 }
 

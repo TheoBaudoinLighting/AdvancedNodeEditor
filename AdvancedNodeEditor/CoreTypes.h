@@ -5,6 +5,8 @@
 #include <vector>
 #include <unordered_map>
 #include <unordered_set>
+#include <map>
+#include <any>
 #include <imgui.h>
 #include "ANETypes.h"
 
@@ -34,16 +36,16 @@ struct Color {
 };
 
 enum class PinType {
-    Flow,
-    Bool,
-    Int,
-    Float,
-    String,
-    Vec2,
-    Vec3,
-    Vec4,
-    Color,
-    Object,
+    Blue,
+    Red,
+    Green,
+    Yellow,
+    Purple,
+    Cyan,
+    Orange,
+    White,
+    Black,
+    Gray,
     Custom
 };
 
@@ -101,7 +103,47 @@ namespace internal {
         Color tooltipBg;
         Color tooltipText;
     };
+
+    struct Layer {
+        int zOrder;
+        bool visible;
+        std::string name;
+        std::function<void(ImDrawList*, const ImVec2&)> drawCallback;
+
+        Layer() : zOrder(0), visible(true), name("") {}  // Ajouté
+        Layer(const std::string& name, int zOrder, std::function<void(ImDrawList*, const ImVec2&)> callback)
+            : name(name), zOrder(zOrder), visible(true), drawCallback(callback) {}
+    };
 }
+
+struct Metadata {
+    std::map<std::string, std::any> attributes;
+
+    template<typename T>
+    void setAttribute(const std::string& key, const T& value) {
+        attributes[key] = value;
+    }
+
+    template<typename T>
+    T getAttribute(const std::string& key, const T& defaultValue = T()) const {
+        auto it = attributes.find(key);
+        if (it != attributes.end()) {
+            try {
+                return std::any_cast<T>(it->second);
+            } catch (const std::bad_any_cast&) {
+            }
+        }
+        return defaultValue;
+    }
+
+    bool hasAttribute(const std::string& key) const {
+        return attributes.find(key) != attributes.end();
+    }
+
+    void removeAttribute(const std::string& key) {
+        attributes.erase(key);
+    }
+};
 
 }
 

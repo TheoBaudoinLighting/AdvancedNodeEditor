@@ -89,17 +89,23 @@ int NodeEditor::addPin(int nodeId, const std::string& name, bool isInput, PinTyp
     if (!node) return -1;
     
     int pinId = m_state.nextPinId++;
-    Pin pin(pinId, name, isInput, type);
+    Pin pin(pinId, name, isInput, type, shape);
+
+    pin.id = pinId;
+    pin.name = name;
+    pin.isInput = isInput;
+    pin.type = type;
+    pin.shape = shape;
     
     if (shape == PinShape::Circle) {
         switch (type) {
-            case PinType::Float:
+            case PinType::Yellow:
                 pin.shape = PinShape::Square;
                 break;
-            case PinType::Vec3:
+            case PinType::Orange:
                 pin.shape = PinShape::Triangle;
                 break;
-            case PinType::Bool:
+            case PinType::Red:
                 pin.shape = PinShape::Diamond;
                 break;
             default:
@@ -141,18 +147,38 @@ void NodeEditor::removePin(int nodeId, int pinId) {
         node->outputs.end());
 }
 
-Pin* NodeEditor::getPin(int nodeId, int pinId) {
+ANE::Pin* NodeEditor::getPin(int nodeId, int pinId) {
     Node* node = getNode(nodeId);
     if (!node) return nullptr;
-    
-    return node->findPin(pinId);
+
+    Pin* internalPin = node->findPin(pinId);
+    if (!internalPin) return nullptr;
+
+    static ANE::Pin apiPin;
+    apiPin.id = internalPin->id;
+    apiPin.name = internalPin->name;
+    apiPin.isInput = internalPin->isInput;
+    apiPin.type = static_cast<ANE::PinType>(internalPin->type);
+    apiPin.shape = static_cast<ANE::PinShape>(internalPin->shape);
+
+    return &apiPin;
 }
 
-const Pin* NodeEditor::getPin(int nodeId, int pinId) const {
+const ANE::Pin* NodeEditor::getPin(int nodeId, int pinId) const {
     const Node* node = getNode(nodeId);
     if (!node) return nullptr;
-    
-    return node->findPin(pinId);
+
+    const Pin* internalPin = node->findPin(pinId);
+    if (!internalPin) return nullptr;
+
+    static ANE::Pin apiPin;
+    apiPin.id = internalPin->id;
+    apiPin.name = internalPin->name;
+    apiPin.isInput = internalPin->isInput;
+    apiPin.type = static_cast<ANE::PinType>(internalPin->type);
+    apiPin.shape = static_cast<ANE::PinShape>(internalPin->shape);
+
+    return &apiPin;
 }
 
 int NodeEditor::getHoveredNodeId() const {

@@ -7,68 +7,73 @@ int NodeEditor::addConnection(int startNodeId, int startPinId, int endNodeId, in
     if (doesConnectionExist(startNodeId, startPinId, endNodeId, endPinId)) {
         return -1;
     }
-    
-    const Pin* startPin = getPin(startNodeId, startPinId);
-    const Pin* endPin = getPin(endNodeId, endPinId);
-    
-    if (!startPin || !endPin) {
+
+    const ANE::Pin* apiStartPin = getPin(startNodeId, startPinId);
+    const ANE::Pin* apiEndPin = getPin(endNodeId, endPinId);
+
+    if (!apiStartPin || !apiEndPin) {
         return -1;
     }
-    
-    if (startPin->isInput || !endPin->isInput) {
+
+    if (apiStartPin->isInput || !apiEndPin->isInput) {
         return -1;
     }
-    
-    if (!canCreateConnection(*startPin, *endPin)) {
+
+    if (!canCreateConnection(*apiStartPin, *apiEndPin)) {
         return -1;
     }
-    
+
     int connectionId = m_state.nextConnectionId++;
     m_state.connections.emplace_back(connectionId, startNodeId, startPinId, endNodeId, endPinId);
-    
-    Pin* startPinMutable = getPin(startNodeId, startPinId);
-    Pin* endPinMutable = getPin(endNodeId, endPinId);
-    
-    if (startPinMutable) startPinMutable->connected = true;
-    if (endPinMutable) endPinMutable->connected = true;
-    
+
+    Node* startNode = getNode(startNodeId);
+    Node* endNode = getNode(endNodeId);
+    Pin* startPinInternal = startNode ? startNode->findPin(startPinId) : nullptr;
+    Pin* endPinInternal = endNode ? endNode->findPin(endPinId) : nullptr;
+
+    if (startPinInternal) startPinInternal->connected = true;
+    if (endPinInternal) endPinInternal->connected = true;
+
     if (m_state.connectionCreatedCallback) {
         m_state.connectionCreatedCallback(connectionId);
     }
-    
+
     return connectionId;
 }
 
 void NodeEditor::removeConnection(int connectionId) {
     auto it = std::find_if(m_state.connections.begin(), m_state.connections.end(),
                           [connectionId](const Connection& conn) { return conn.id == connectionId; });
-    
+
     if (it != m_state.connections.end()) {
-        Pin* startPin = getPin(it->startNodeId, it->startPinId);
-        Pin* endPin = getPin(it->endNodeId, it->endPinId);
-        
+        Node* startNode = getNode(it->startNodeId);
+        Node* endNode = getNode(it->endNodeId);
+
+        Pin* startPinInternal = startNode ? startNode->findPin(it->startPinId) : nullptr;
+        Pin* endPinInternal = endNode ? endNode->findPin(it->endPinId) : nullptr;
+
         bool startPinConnected = false;
         bool endPinConnected = false;
-        
+
         for (const auto& conn : m_state.connections) {
             if (conn.id == connectionId) continue;
-            
+
             if (conn.startNodeId == it->startNodeId && conn.startPinId == it->startPinId) {
                 startPinConnected = true;
             }
-            
+
             if (conn.endNodeId == it->endNodeId && conn.endPinId == it->endPinId) {
                 endPinConnected = true;
             }
         }
-        
-        if (startPin && !startPinConnected) startPin->connected = false;
-        if (endPin && !endPinConnected) endPin->connected = false;
-        
+
+        if (startPinInternal && !startPinConnected) startPinInternal->connected = false;
+        if (endPinInternal && !endPinConnected) endPinInternal->connected = false;
+
         if (m_state.connectionRemovedCallback) {
             m_state.connectionRemovedCallback(connectionId);
         }
-        
+
         m_state.connections.erase(it);
     }
 }
@@ -109,29 +114,29 @@ bool NodeEditor::doesConnectionExist(int startNodeId, int startPinId, int endNod
                      });
 }
 
-bool NodeEditor::canCreateConnection(const Pin& startPin, const Pin& endPin) const {
+bool NodeEditor::canCreateConnection(const ANE::Pin& startPin, const ANE::Pin& endPin) const {
     if (startPin.isInput == endPin.isInput) {
         return false;
     }
-    
+
     if (m_state.canConnectCallback) {
-        const Pin& outputPin = startPin.isInput ? endPin : startPin;
-        const Pin& inputPin = startPin.isInput ? startPin : endPin;
+        const ANE::Pin& outputPin = startPin.isInput ? endPin : startPin;
+        const ANE::Pin& inputPin = startPin.isInput ? startPin : endPin;
         return m_state.canConnectCallback(outputPin, inputPin);
     }
-    
-    return startPin.type == endPin.type || 
-           startPin.type == PinType::Flow || 
-           endPin.type == PinType::Flow;
+
+    return static_cast<PinType>(startPin.type) == static_cast<PinType>(endPin.type) ||
+           static_cast<PinType>(startPin.type) == PinType::Blue ||
+           static_cast<PinType>(endPin.type) == PinType::Blue;
 }
 
 void NodeEditor::createConnection(int startNodeId, int startPinId, int endNodeId, int endPinId) {
-    const Pin* startPin = getPin(startNodeId, startPinId);
-    const Pin* endPin = getPin(endNodeId, endPinId);
-    
-    if (!startPin || !endPin) return;
-    
-    if (startPin->isInput) {
+    const ANE::Pin* apiStartPin = getPin(startNodeId, startPinId);
+    const ANE::Pin* apiEndPin = getPin(endNodeId, endPinId);
+
+    if (!apiStartPin || !apiEndPin) return;
+
+    if (apiStartPin->isInput) {
         std::swap(startNodeId, endNodeId);
         std::swap(startPinId, endPinId);
     }
