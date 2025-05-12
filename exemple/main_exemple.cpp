@@ -13,7 +13,7 @@
  */
 
 
-#include "../AdvancedNodeEditor/AdvancedNodeEditor.h"
+#include "../AdvancedNodeEditor/NodeEditor.h"
 #include <imgui.h>
 #include <backends/imgui_impl_sdl2.h>
 #include <backends/imgui_impl_opengl3.h>

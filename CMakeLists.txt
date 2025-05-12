@@ -10,8 +10,22 @@ option(USE_SYSTEM_SDL2 "Use system SDL2 instead of downloading" OFF)
 # === Executable ===
 add_executable(AdvancedNodeEditor
         exemple/main_exemple.cpp
-        AdvancedNodeEditor/AdvancedNodeEditor.cpp
-        AdvancedNodeEditor/AdvancedNodeEditor.h
+        AdvancedNodeEditor/ANETypes.h
+        AdvancedNodeEditor/CoreTypes.h
+        AdvancedNodeEditor/Conversions.h
+        AdvancedNodeEditor/StyleDefinitions.cpp
+        AdvancedNodeEditor/StyleDefinitions.h
+        AdvancedNodeEditor/NodeComponents.cpp
+        AdvancedNodeEditor/NodeComponents.h
+        AdvancedNodeEditor/NodeEditorState.cpp
+        AdvancedNodeEditor/NodeEditor.h
+        AdvancedNodeEditor/NodeEditorConnections.cpp
+        AdvancedNodeEditor/NodeEditorGroups.cpp
+        AdvancedNodeEditor/NodeEditorRendering.cpp
+        AdvancedNodeEditor/PublicAPI.cpp
+        AdvancedNodeEditor/NodeEditorInteractions.cpp
+        AdvancedNodeEditor/NodeEditorDrawing.cpp
+        AdvancedNodeEditor/NodeEditorDrawNodes.cpp
 )
 
 # === FetchContent for ImGui and SDL2 ===
