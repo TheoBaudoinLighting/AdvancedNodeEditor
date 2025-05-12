@@ -212,14 +212,18 @@ bool NodeEditor::enterSubgraph(int subgraphId) {
 }
 
 bool NodeEditor::exitSubgraph() {
-    if (m_currentSubgraphId < 0 || m_subgraphStack.empty()) {
+    if (m_currentSubgraphId < 0) {
         return false;
     }
     
     saveSubgraphViewState(m_currentSubgraphId);
     
-    int parentSubgraphId = m_subgraphStack.top();
-    m_subgraphStack.pop();
+    int parentSubgraphId = -1;  
+    if (!m_subgraphStack.empty()) {
+        parentSubgraphId = m_subgraphStack.top();
+        m_subgraphStack.pop();
+    }
+    
     m_currentSubgraphId = parentSubgraphId;
     
     restoreSubgraphViewState(m_currentSubgraphId);
@@ -300,13 +304,15 @@ void NodeEditor::saveSubgraphViewState(int subgraphId) {
     }
     
     float viewScale = getViewScale();
-    Vec2 viewPosition = it->second->viewPosition;
+    Vec2 viewPosition = getViewPosition();
     
     it->second->setViewState(viewPosition, viewScale);
 }
 
 void NodeEditor::restoreSubgraphViewState(int subgraphId) {
     if (subgraphId < 0) {
+        setViewScale(1.0f);
+        setViewPosition(Vec2(0, 0));
         return;
     }
     
@@ -316,7 +322,7 @@ void NodeEditor::restoreSubgraphViewState(int subgraphId) {
     }
     
     setViewScale(it->second->viewScale);
-    centerView();
+    setViewPosition(it->second->viewPosition);
 }
 
 NodeEditorCore::NodeEditorStyle NodeEditor::convertToInternalStyle(const EditorStyle& style) const {

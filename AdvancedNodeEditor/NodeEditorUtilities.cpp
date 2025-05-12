@@ -3,61 +3,6 @@
 
 namespace NodeEditorCore {
 
-void NodeEditor::drawGroups(ImDrawList* drawList, const ImVec2& canvasPos) {
-    for (const auto& group : m_state.groups) {
-        ImVec2 groupPos = canvasToScreen(group.position).toImVec2();
-        ImVec2 groupSize = Vec2(group.size.x * m_state.viewScale, group.size.y * m_state.viewScale).toImVec2();
-        
-        float headerHeight = 30.0f * m_state.viewScale;
-        
-        ImU32 fillColor = IM_COL32(group.color.r * 255, group.color.g * 255, group.color.b * 255, group.color.a * 255);
-        ImU32 borderColor = group.selected ? 
-                         IM_COL32(255, 255, 255, 100) : 
-                         IM_COL32(group.color.r * 255 * 0.8f, group.color.g * 255 * 0.8f, group.color.b * 255 * 0.8f, 100);
-        
-        ImU32 headerColor = IM_COL32(
-            group.color.r * 255 * 1.2f,
-            group.color.g * 255 * 1.2f,
-            group.color.b * 255 * 1.2f,
-            group.color.a * 255
-        );
-        
-        drawList->AddRectFilled(
-            groupPos,
-            ImVec2(groupPos.x + groupSize.x, groupPos.y + groupSize.y),
-            fillColor,
-            4.0f
-        );
-        
-        drawList->AddRectFilled(
-            groupPos,
-            ImVec2(groupPos.x + groupSize.x, groupPos.y + headerHeight),
-            headerColor,
-            4.0f,
-            ImDrawFlags_RoundCornersTop
-        );
-        
-        drawList->AddRect(
-            groupPos,
-            ImVec2(groupPos.x + groupSize.x, groupPos.y + groupSize.y),
-            borderColor,
-            4.0f,
-            0,
-            1.5f
-        );
-        
-        ImVec2 textSize = ImGui::CalcTextSize(group.name.c_str());
-        float textPosX = groupPos.x + 10.0f;
-        float textPosY = groupPos.y + (headerHeight - textSize.y) * 0.5f;
-        
-        drawList->AddText(
-            ImVec2(textPosX, textPosY),
-            IM_COL32(255, 255, 255, 220),
-            group.name.c_str()
-        );
-    }
-}
-
 std::string NodeEditor::pinTypeToString(PinType type) const {
     switch (type) {
         case PinType::Blue:    return "Blue";
@@ -187,4 +132,4 @@ void NodeEditor::drawPinShape(ImDrawList* drawList, const ImVec2& center, float 
     }
 }
 
-}
+} 

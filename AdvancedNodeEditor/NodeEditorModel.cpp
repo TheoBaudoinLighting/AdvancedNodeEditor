@@ -477,23 +477,100 @@ void NodeEditorModel::addEventListener(EventType type, EventCallback callback) {
 }
 
 void NodeEditorModel::removeEventListener(EventType type, EventCallback callback) {
-    m_eventListeners[type].clear();
+    auto& listeners = m_eventListeners[type];
+    listeners.pop_back();
 }
 
 void NodeEditorModel::dispatchEvent(const Event& event) {
     auto it = m_eventListeners.find(event.type);
     if (it != m_eventListeners.end()) {
-        for (const auto& callback : it->second) {
-            callback(event);
+        for (const auto& listener : it->second) {
+            listener(event);
         }
     }
+}
+
+void NodeEditorModel::enterSubgraph(int subgraphId) {
+    auto subgraph = getSubgraph(subgraphId);
+    if (!subgraph) return;
     
-    auto anyIt = m_eventListeners.find(EventType::Custom);
-    if (anyIt != m_eventListeners.end()) {
-        for (const auto& callback : anyIt->second) {
-            callback(event);
-        }
+    m_state["currentSubgraphId"] = subgraphId;
+    
+    Event event(EventType::SubgraphEntered);
+    event.subgraphId = subgraphId;
+    dispatchEvent(event);
+}
+
+void NodeEditorModel::exitSubgraph() {
+    int currentSubgraphId = std::any_cast<int>(m_state["currentSubgraphId"]);
+    
+    if (currentSubgraphId < 0) return;
+    
+    auto subgraph = getSubgraph(currentSubgraphId);
+    if (!subgraph) return;
+    
+    int parentId = subgraph->parentSubgraphId;
+    
+    m_state["currentSubgraphId"] = parentId;
+    
+    Event event(EventType::SubgraphExited);
+    event.subgraphId = currentSubgraphId;
+    dispatchEvent(event);
+}
+
+int NodeEditorModel::getCurrentSubgraphId() const {
+    if (!hasState("currentSubgraphId")) {
+        return -1;
     }
+    return getState<int>("currentSubgraphId", -1);
+}
+
+void NodeEditorModel::addNodeToSubgraph(int nodeId, int subgraphId) {
+    Node* node = getNode(nodeId);
+    Subgraph* subgraph = getSubgraph(subgraphId);
+    
+    if (!node || !subgraph) return;
+    
+    node->metadata.setAttribute("subgraphId", subgraphId);
+    
+    subgraph->addNode(nodeId);
+    
+    Event event(EventType::NodeAddedToSubgraph);
+    event.nodeId = nodeId;
+    event.subgraphId = subgraphId;
+    dispatchEvent(event);
+}
+
+void NodeEditorModel::addConnectionToSubgraph(int connectionId, int subgraphId) {
+    Connection* connection = getConnection(connectionId);
+    Subgraph* subgraph = getSubgraph(subgraphId);
+    
+    if (!connection || !subgraph) return;
+    
+    connection->metadata.setAttribute("subgraphId", subgraphId);
+    
+    subgraph->addConnection(connectionId);
+    
+    Event event(EventType::ConnectionAddedToSubgraph);
+    event.connectionId = connectionId;
+    event.subgraphId = subgraphId;
+    dispatchEvent(event);
+}
+
+void NodeEditorModel::addGroupToSubgraph(int groupId, int subgraphId) {
+    Group* group = getGroup(groupId);
+    Subgraph* subgraph = getSubgraph(subgraphId);
+    
+    if (!group || !subgraph) return;
+    
+    group->metadata.setAttribute("subgraphId", subgraphId);
+    
+    subgraph->addGroup(groupId);
+    
+    Event event(EventType::GroupAddedToSubgraph);
+    event.groupId = groupId;
+    event.subgraphId = subgraphId;
+    dispatchEvent(event);
 }
 
 }

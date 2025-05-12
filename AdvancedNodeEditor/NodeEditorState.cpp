@@ -12,6 +12,7 @@ NodeEditor::State::State()
     , activeNodeId(-1), activeConnectionId(-1), activeGroupId(-1)
     , connecting(false), connectingNodeId(-1), connectingPinId(-1)
     , dragging(false), boxSelecting(false)
+    , currentSubgraphId(-1)
 {
 }
 
@@ -195,6 +196,14 @@ int NodeEditor::getHoveredConnectionId() const {
 
 int NodeEditor::getHoveredGroupId() const {
     return m_state.hoveredGroupId;
+}
+
+void NodeEditor::setCurrentSubgraphId(int subgraphId) {
+    m_state.currentSubgraphId = subgraphId;
+}
+
+int NodeEditor::getCurrentSubgraphId() const {
+    return m_state.currentSubgraphId;
 }
 
 }

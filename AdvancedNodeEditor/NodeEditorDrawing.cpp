@@ -4,7 +4,25 @@
 namespace NodeEditorCore {
 
 void NodeEditor::drawConnections(ImDrawList* drawList, const ImVec2& canvasPos) {
-    for (const auto& connection : m_state.connections) {
+    std::vector<Connection> visibleConnections;
+    int currentSubgraphId = m_state.currentSubgraphId;
+    
+    if (currentSubgraphId >= 0) {
+        std::vector<int> connectionIds = getConnectionsInSubgraph(currentSubgraphId);
+        for (const auto& connection : m_state.connections) {
+            if (std::find(connectionIds.begin(), connectionIds.end(), connection.id) != connectionIds.end()) {
+                visibleConnections.push_back(connection);
+            }
+        }
+    } else {
+        for (const auto& connection : m_state.connections) {
+            if (connection.getSubgraphId() == -1) {
+                visibleConnections.push_back(connection);
+            }
+        }
+    }
+    
+    for (const auto& connection : visibleConnections) {
         const Node* startNode = getNode(connection.startNodeId);
         const Node* endNode = getNode(connection.endNodeId);
 

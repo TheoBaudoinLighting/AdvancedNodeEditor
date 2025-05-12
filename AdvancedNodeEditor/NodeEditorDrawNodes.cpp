@@ -4,7 +4,25 @@
 namespace NodeEditorCore {
 
 void NodeEditor::drawNodes(ImDrawList* drawList, const ImVec2& canvasPos) {
-    for (const auto& node : m_state.nodes) {
+    std::vector<Node> visibleNodes;
+    int currentSubgraphId = m_state.currentSubgraphId;
+    
+    if (currentSubgraphId >= 0) {
+        std::vector<int> nodeIds = getNodesInSubgraph(currentSubgraphId);
+        for (const auto& node : m_state.nodes) {
+            if (std::find(nodeIds.begin(), nodeIds.end(), node.id) != nodeIds.end()) {
+                visibleNodes.push_back(node);
+            }
+        }
+    } else {
+        for (const auto& node : m_state.nodes) {
+            if (node.getSubgraphId() == -1) {
+                visibleNodes.push_back(node);
+            }
+        }
+    }
+    
+    for (const auto& node : visibleNodes) {
         ImVec2 nodePos = canvasToScreen(node.position).toImVec2();
         ImVec2 nodeSize = Vec2(node.size.x * m_state.viewScale, node.size.y * m_state.viewScale).toImVec2();
         

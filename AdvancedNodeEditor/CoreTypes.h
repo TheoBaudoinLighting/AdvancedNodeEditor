@@ -145,6 +145,51 @@ struct Metadata {
     }
 };
 
+enum class EventType {
+    NodeCreated,
+    NodeRemoved,
+    NodeSelected,
+    NodeDeselected,
+    NodeMoved,
+    NodeResized,
+    NodeChanged,
+    PinAdded,
+    PinRemoved,
+    PinConnected,
+    PinDisconnected,
+    ConnectionCreated,
+    ConnectionRemoved,
+    ConnectionSelected,
+    ConnectionDeselected,
+    GroupCreated,
+    GroupRemoved,
+    GroupSelected,
+    GroupDeselected,
+    ViewChanged,
+    SubgraphCreated,
+    SubgraphRemoved,
+    SubgraphEntered,
+    SubgraphExited,
+    NodeAddedToSubgraph,
+    NodeRemovedFromSubgraph,
+    ConnectionAddedToSubgraph,
+    ConnectionRemovedFromSubgraph,
+    GroupAddedToSubgraph,
+    GroupRemovedFromSubgraph
+};
+
+struct Event {
+    EventType type;
+    int nodeId = -1;
+    int pinId = -1;
+    int connectionId = -1;
+    int groupId = -1;
+    int subgraphId = -1;
+    void* data = nullptr;
+};
+
+using EventCallback = std::function<void(const Event&)>;
+
 }
 
 #endif

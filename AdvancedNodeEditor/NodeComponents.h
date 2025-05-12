@@ -80,6 +80,14 @@ struct Node {
 
     Pin* findPin(int pinId);
     const Pin* findPin(int pinId) const;
+    
+    void setSubgraphId(int id) {
+        metadata.setAttribute("subgraphId", id);
+    }
+    
+    int getSubgraphId() const {
+        return metadata.getAttribute<int>("subgraphId", -1);
+    }
 };
 
 struct Connection {
@@ -92,6 +100,14 @@ struct Connection {
     Metadata metadata;
 
     Connection(int id, int startNodeId, int startPinId, int endNodeId, int endPinId);
+    
+    void setSubgraphId(int id) {
+        metadata.setAttribute("subgraphId", id);
+    }
+    
+    int getSubgraphId() const {
+        return metadata.getAttribute<int>("subgraphId", -1);
+    }
 };
 
 struct Group {
@@ -107,6 +123,14 @@ struct Group {
     Metadata metadata;
 
     Group(int id, const std::string& name, const Vec2& pos, const Vec2& size);
+    
+    void setSubgraphId(int id) {
+        metadata.setAttribute("subgraphId", id);
+    }
+    
+    int getSubgraphId() const {
+        return metadata.getAttribute<int>("subgraphId", -1);
+    }
 };
 
 struct Subgraph {

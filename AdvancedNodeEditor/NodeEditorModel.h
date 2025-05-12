@@ -78,6 +78,14 @@ public:
     const std::map<int, std::shared_ptr<Subgraph>>& getSubgraphs() const;
     Node* createSubgraphNode(int subgraphId, const std::string& name, const Vec2& position);
     
+    void enterSubgraph(int subgraphId);
+    void exitSubgraph();
+    int getCurrentSubgraphId() const;
+    
+    void addNodeToSubgraph(int nodeId, int subgraphId);
+    void addConnectionToSubgraph(int connectionId, int subgraphId);
+    void addGroupToSubgraph(int groupId, int subgraphId);
+    
     void selectNode(int nodeId, bool append = false);
     void deselectNode(int nodeId);
     void selectAllNodes();

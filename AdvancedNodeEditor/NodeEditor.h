@@ -8,6 +8,8 @@
 #include <vector>
 #include <map>
 #include <memory>
+#include <any>
+#include <string>
 
 namespace NodeEditorCore {
 
@@ -138,6 +140,8 @@ private:
         ConnectionCallback connectionCreatedCallback;
         ConnectionCallback connectionRemovedCallback;
         CanConnectCallback canConnectCallback;
+        
+        int currentSubgraphId;
 
         State();
     };
@@ -173,6 +177,9 @@ private:
 
     ImU32 ImLerpColor(ImU32 col_a, ImU32 col_b, float t);
     ImVec2 ImBezierCubicCalc(const ImVec2& p1, const ImVec2& p2, const ImVec2& p3, const ImVec2& p4, float t);
+    
+    void setCurrentSubgraphId(int subgraphId);
+    int getCurrentSubgraphId() const;
 };
 
 }
