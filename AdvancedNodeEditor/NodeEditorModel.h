@@ -45,20 +45,17 @@ public:
     NodeEditorModel();
     ~NodeEditorModel();
     
-    // Node operations
     int addNode(const std::string& name, const std::string& type, const Vec2& position);
     void removeNode(int nodeId);
     Node* getNode(int nodeId);
     const Node* getNode(int nodeId) const;
     const std::vector<std::shared_ptr<Node>>& getNodes() const;
     
-    // Pin operations
     int addPin(int nodeId, const std::string& name, bool isInput, PinType type = PinType::Blue, PinShape shape = PinShape::Circle);
     void removePin(int nodeId, int pinId);
     Pin* getPin(int nodeId, int pinId);
     const Pin* getPin(int nodeId, int pinId) const;
     
-    // Connection operations
     int addConnection(int startNodeId, int startPinId, int endNodeId, int endPinId);
     void removeConnection(int connectionId);
     Connection* getConnection(int connectionId);
@@ -66,7 +63,6 @@ public:
     const std::vector<std::shared_ptr<Connection>>& getConnections() const;
     bool isConnected(int nodeId, int pinId) const;
     
-    // Group operations
     int addGroup(const std::string& name, const Vec2& position, const Vec2& size);
     void removeGroup(int groupId);
     Group* getGroup(int groupId);
@@ -75,7 +71,6 @@ public:
     void addNodeToGroup(int nodeId, int groupId);
     void removeNodeFromGroup(int nodeId, int groupId);
     
-    // Subgraph operations
     int createSubgraph(const std::string& name);
     void removeSubgraph(int subgraphId);
     Subgraph* getSubgraph(int subgraphId);
@@ -83,14 +78,12 @@ public:
     const std::map<int, std::shared_ptr<Subgraph>>& getSubgraphs() const;
     Node* createSubgraphNode(int subgraphId, const std::string& name, const Vec2& position);
     
-    // Selection operations
     void selectNode(int nodeId, bool append = false);
     void deselectNode(int nodeId);
     void selectAllNodes();
     void deselectAllNodes();
     std::vector<int> getSelectedNodes() const;
     
-    // State
     void setState(const std::string& key, const std::any& value);
     template<typename T>
     T getState(const std::string& key, const T& defaultValue = T()) const {
@@ -105,7 +98,6 @@ public:
     }
     bool hasState(const std::string& key) const;
     
-    // Events
     void addEventListener(EventType type, EventCallback callback);
     void removeEventListener(EventType type, EventCallback callback);
     void dispatchEvent(const Event& event);

@@ -42,7 +42,6 @@ void NodeEditorModel::removeNode(int nodeId) {
                           [nodeId](const std::shared_ptr<Node>& node) { return node->id == nodeId; });
     
     if (it != m_nodes.end()) {
-        // Remove associated connections
         m_connections.erase(
             std::remove_if(m_connections.begin(), m_connections.end(),
                          [nodeId](const std::shared_ptr<Connection>& conn) {
@@ -50,7 +49,6 @@ void NodeEditorModel::removeNode(int nodeId) {
                          }),
             m_connections.end());
         
-        // Remove from group if it's part of one
         if ((*it)->groupId >= 0) {
             auto groupIt = std::find_if(m_groups.begin(), m_groups.end(),
                                       [groupId = (*it)->groupId](const std::shared_ptr<Group>& group) { 
@@ -111,7 +109,6 @@ void NodeEditorModel::removePin(int nodeId, int pinId) {
     Node* node = getNode(nodeId);
     if (!node) return;
     
-    // Remove connections using this pin
     m_connections.erase(
         std::remove_if(m_connections.begin(), m_connections.end(),
                      [pinId](const std::shared_ptr<Connection>& conn) {
@@ -119,7 +116,6 @@ void NodeEditorModel::removePin(int nodeId, int pinId) {
                      }),
         m_connections.end());
     
-    // Remove the pin from node inputs or outputs
     auto removeFromVec = [pinId](std::vector<Pin>& pins) {
         pins.erase(
             std::remove_if(pins.begin(), pins.end(),
@@ -162,7 +158,6 @@ const Pin* NodeEditorModel::getPin(int nodeId, int pinId) const {
 }
 
 int NodeEditorModel::addConnection(int startNodeId, int startPinId, int endNodeId, int endPinId) {
-    // Check if the connection already exists
     auto existingConnection = std::find_if(m_connections.begin(), m_connections.end(),
                                          [=](const std::shared_ptr<Connection>& conn) {
                                              return conn->startNodeId == startNodeId &&
@@ -175,7 +170,6 @@ int NodeEditorModel::addConnection(int startNodeId, int startPinId, int endNodeI
         return -1;
     }
     
-    // Verify that pins exist and are compatible
     const Pin* startPin = getPin(startNodeId, startPinId);
     const Pin* endPin = getPin(endNodeId, endPinId);
     
@@ -268,7 +262,6 @@ void NodeEditorModel::removeGroup(int groupId) {
                           [groupId](const std::shared_ptr<Group>& group) { return group->id == groupId; });
     
     if (it != m_groups.end()) {
-        // Update all nodes that were in this group
         for (int nodeId : (*it)->nodes) {
             Node* node = getNode(nodeId);
             if (node) {
@@ -306,7 +299,6 @@ void NodeEditorModel::addNodeToGroup(int nodeId, int groupId) {
     
     if (!group || !node) return;
     
-    // Remove from previous group if part of one
     if (node->groupId >= 0 && node->groupId != groupId) {
         Group* oldGroup = getGroup(node->groupId);
         if (oldGroup) {
@@ -340,7 +332,6 @@ int NodeEditorModel::createSubgraph(const std::string& name) {
 void NodeEditorModel::removeSubgraph(int subgraphId) {
     auto it = m_subgraphs.find(subgraphId);
     if (it != m_subgraphs.end()) {
-        // Update all nodes that represent this subgraph
         for (auto& node : m_nodes) {
             if (node->isSubgraph && node->subgraphId == subgraphId) {
                 node->isSubgraph = false;
@@ -486,9 +477,6 @@ void NodeEditorModel::addEventListener(EventType type, EventCallback callback) {
 }
 
 void NodeEditorModel::removeEventListener(EventType type, EventCallback callback) {
-    // Note: This is a simplified implementation that doesn't actually remove the specific callback
-    // since function comparison is non-trivial. In a real implementation, you would need a way
-    // to identify and remove specific callbacks.
     m_eventListeners[type].clear();
 }
 
@@ -500,7 +488,6 @@ void NodeEditorModel::dispatchEvent(const Event& event) {
         }
     }
     
-    // Also dispatch to listeners of any event type
     auto anyIt = m_eventListeners.find(EventType::Custom);
     if (anyIt != m_eventListeners.end()) {
         for (const auto& callback : anyIt->second) {

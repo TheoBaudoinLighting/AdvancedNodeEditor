@@ -21,12 +21,10 @@ struct Pin {
     bool connected;
     Metadata metadata;
 
-    // Constructeur par défaut
     Pin()
         : id(0), name(""), label(""), isInput(false), type(PinType::Blue),
           shape(PinShape::Circle), connected(false) {}
 
-    // Constructeur à 4 paramètres
     Pin(int id, const std::string& name, bool isInput, PinType type)
         : id(id), name(name), label(name), isInput(isInput), type(type),
           shape(PinShape::Circle), connected(false) {
@@ -34,7 +32,6 @@ struct Pin {
         setColorByType();
     }
 
-    // Constructeur à 5 paramètres
     Pin(int id, const std::string& name, bool isInput, PinType type, PinShape shape)
         : id(id), name(name), label(name), isInput(isInput), type(type),
           shape(shape), connected(false) {
@@ -115,12 +112,69 @@ struct Group {
 struct Subgraph {
     int id;
     std::string name;
-    std::vector<std::shared_ptr<Node>> nodes;
-    std::vector<std::shared_ptr<Connection>> connections;
-    std::vector<std::shared_ptr<Group>> groups;
+    std::vector<int> nodeIds;
+    std::vector<int> connectionIds;
+    std::vector<int> groupIds;
+    std::vector<int> interfaceInputs;
+    std::vector<int> interfaceOutputs;
+    int parentSubgraphId;
+    std::vector<int> childSubgraphIds;
+    bool isExpanded;
+    Vec2 viewPosition;
+    float viewScale;
+    std::string description;
+    std::string category;
+    bool isTemplate;
+    std::string iconSymbol;
+    Color accentColor;
     Metadata metadata;
 
+    static int nextId;
+
     Subgraph(int id, const std::string& name);
+
+    void addNode(int nodeId);
+    void removeNode(int nodeId);
+    bool containsNode(int nodeId) const;
+    
+    void addConnection(int connectionId);
+    void removeConnection(int connectionId);
+    bool containsConnection(int connectionId) const;
+    
+    void addGroup(int groupId);
+    void removeGroup(int groupId);
+    bool containsGroup(int groupId) const;
+    
+    void exposeInput(int nodeId, int pinId);
+    void exposeOutput(int nodeId, int pinId);
+    void unexposeInput(int nodeId, int pinId);
+    void unexposeOutput(int nodeId, int pinId);
+    bool isInputExposed(int nodeId, int pinId) const;
+    bool isOutputExposed(int nodeId, int pinId) const;
+    
+    void addChildSubgraph(int subgraphId);
+    void removeChildSubgraph(int subgraphId);
+    bool containsSubgraph(int subgraphId) const;
+    
+    void setIconSymbol(const std::string& symbol);
+    void setAccentColor(const Color& color);
+    void setIsTemplate(bool isTemplate);
+    void setDescription(const std::string& desc);
+    void setCategory(const std::string& category);
+    void setViewState(const Vec2& position, float scale);
+    
+    bool validate() const;
+    std::vector<std::string> getValidationErrors() const;
+
+    template<typename T>
+    void setMetadata(const std::string& key, const T& value) {
+        metadata.setAttribute(key, value);
+    }
+
+    template<typename T>
+    T getMetadata(const std::string& key, const T& defaultValue = T()) const {
+        return metadata.getAttribute<T>(key, defaultValue);
+    }
 };
 
 }
@@ -135,11 +189,9 @@ struct Pin {
     PinShape shape;
     Metadata metadata;
 
-    // Constructeur par défaut
     Pin()
         : id(0), name(""), isInput(false), type(PinType::Blue), shape(PinShape::Circle) {}
 
-    // Constructeur principal
     Pin(int id, const std::string& name, bool isInput, PinType type, PinShape shape)
         : id(id), name(name), isInput(isInput), type(type), shape(shape) {}
 
@@ -165,9 +217,9 @@ struct Node {
     bool isCurrentFlag;
     bool isSubgraph;
     int subgraphId;
-    Vec2 position; // Ajouté
-    Vec2 size;     // Ajouté
-    bool selected; // Ajouté
+    Vec2 position;
+    Vec2 size;
+    bool selected;
     Metadata metadata;
 
     Node(int id, const std::string& name, const std::string& type);
@@ -195,10 +247,10 @@ struct Group {
     Color color;
     GroupStyle style;
     bool collapsed;
-    bool selected;        // Ajouté
-    Vec2 position;        // Ajouté
-    Vec2 size;            // Ajouté
-    std::unordered_set<int> nodes; // Ajouté
+    bool selected;
+    Vec2 position;
+    Vec2 size;
+    std::unordered_set<int> nodes;
     Metadata metadata;
 
     Group(int id, const std::string& name);
@@ -220,9 +272,59 @@ struct Group {
 struct Subgraph {
     int id;
     std::string name;
+    std::vector<int> nodeIds;
+    std::vector<int> connectionIds;
+    std::vector<int> groupIds;
+    std::vector<int> interfaceInputs;
+    std::vector<int> interfaceOutputs;
+    int parentSubgraphId;
+    std::vector<int> childSubgraphIds;
+    bool isExpanded;
+    Vec2 viewPosition;
+    float viewScale;
+    std::string description;
+    std::string category;
+    bool isTemplate;
+    std::string iconSymbol;
+    Color accentColor;
     Metadata metadata;
 
+    static int nextId;
+
     Subgraph(int id, const std::string& name);
+
+    void addNode(int nodeId);
+    void removeNode(int nodeId);
+    bool containsNode(int nodeId) const;
+    
+    void addConnection(int connectionId);
+    void removeConnection(int connectionId);
+    bool containsConnection(int connectionId) const;
+    
+    void addGroup(int groupId);
+    void removeGroup(int groupId);
+    bool containsGroup(int groupId) const;
+    
+    void exposeInput(int nodeId, int pinId);
+    void exposeOutput(int nodeId, int pinId);
+    void unexposeInput(int nodeId, int pinId);
+    void unexposeOutput(int nodeId, int pinId);
+    bool isInputExposed(int nodeId, int pinId) const;
+    bool isOutputExposed(int nodeId, int pinId) const;
+    
+    void addChildSubgraph(int subgraphId);
+    void removeChildSubgraph(int subgraphId);
+    bool containsSubgraph(int subgraphId) const;
+    
+    void setIconSymbol(const std::string& symbol);
+    void setAccentColor(const Color& color);
+    void setIsTemplate(bool isTemplate);
+    void setDescription(const std::string& desc);
+    void setCategory(const std::string& category);
+    void setViewState(const Vec2& position, float scale);
+    
+    bool validate() const;
+    std::vector<std::string> getValidationErrors() const;
 
     template<typename T>
     void setMetadata(const std::string& key, const T& value) {

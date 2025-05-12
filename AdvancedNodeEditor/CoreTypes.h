@@ -110,7 +110,7 @@ namespace internal {
         std::string name;
         std::function<void(ImDrawList*, const ImVec2&)> drawCallback;
 
-        Layer() : zOrder(0), visible(true), name("") {}  // Ajouté
+        Layer() : zOrder(0), visible(true), name("") {}
         Layer(const std::string& name, int zOrder, std::function<void(ImDrawList*, const ImVec2&)> callback)
             : name(name), zOrder(zOrder), visible(true), drawCallback(callback) {}
     };

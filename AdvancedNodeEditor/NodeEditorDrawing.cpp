@@ -15,7 +15,6 @@ void NodeEditor::drawConnections(ImDrawList* drawList, const ImVec2& canvasPos) 
 
         if (!apiStartPin || !apiEndPin) continue;
 
-        // Convertir en Pin interne pour accéder aux propriétés non exposées dans l'API
         const Pin* startPinInternal = startNode->findPin(connection.startPinId);
         const Pin* endPinInternal = endNode->findPin(connection.endPinId);
 
@@ -248,7 +247,6 @@ void NodeEditor::drawNodePins(ImDrawList* drawList, const Node& node, const ImVe
     for (size_t i = 0; i < node.inputs.size(); ++i) {
         const auto& pinInternal = node.inputs[i];
 
-        // Création d'un Pin API temporaire
         ANE::Pin apiPin;
         apiPin.id = pinInternal.id;
         apiPin.name = pinInternal.name;
@@ -313,7 +311,6 @@ void NodeEditor::drawNodePins(ImDrawList* drawList, const Node& node, const ImVe
     for (size_t i = 0; i < node.outputs.size(); ++i) {
         const auto& pinInternal = node.outputs[i];
 
-        // Création d'un Pin API temporaire
         ANE::Pin apiPin;
         apiPin.id = pinInternal.id;
         apiPin.name = pinInternal.name;

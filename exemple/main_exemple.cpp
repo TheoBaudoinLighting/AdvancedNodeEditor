@@ -1,5 +1,3 @@
-
-
 #include "../AdvancedNodeEditor/NodeEditor.h"
 #include "../AdvancedNodeEditor/NodeEditorController.h"
 #include <imgui.h>
@@ -13,42 +11,31 @@
 #include <stack>
 #include <map>
 #include <string>
+#include <cstdio>
+
+#define LOG_DEBUG(fmt, ...) printf("[DEBUG] %s:%d - " fmt "\n", __FILE__, __LINE__, ##__VA_ARGS__); fflush(stdout)
 
 namespace ANE {
     class INodeEditorController;
 }
 
-// Structure pour suivre les informations de sous-graphe
-struct SubgraphInfo {
-    int subgraphId;
-    int nodeId;
-    std::string name;
-    std::vector<int> internalNodes;
-    std::vector<int> internalConnections;
-};
-
 bool canConnect(const ANE::Pin& sourcePin, const ANE::Pin& destinationPin) {
-    // Permettre la connexion si les pins sont du même type
     if (sourcePin.type == destinationPin.type)
         return true;
 
-    // Permettre les conversions de types numériques
     if (sourcePin.type == ANE::PinType::Yellow && destinationPin.type == ANE::PinType::Green)
         return true;
     if (sourcePin.type == ANE::PinType::Green && destinationPin.type == ANE::PinType::Yellow)
         return true;
 
-    // Permettre les conversions de types vectoriels
     if (sourcePin.type == ANE::PinType::Orange && destinationPin.type == ANE::PinType::White)
         return true;
     if (sourcePin.type == ANE::PinType::White && destinationPin.type == ANE::PinType::Orange)
         return true;
 
-    // Permettre les connexions de flux
     if (sourcePin.type == ANE::PinType::Blue && destinationPin.type == ANE::PinType::Blue)
         return true;
 
-    // Interdire toutes les autres connexions
     return false;
 }
 
@@ -57,13 +44,15 @@ int main(int argc, char** argv)
     (void)argc;
     (void)argv;
 
-    // Initialiser SDL
+    LOG_DEBUG("Application started");
+
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_GAMECONTROLLER) != 0) {
-        printf("Erreur: %s\n", SDL_GetError());
+        LOG_DEBUG("SDL_Init error: %s", SDL_GetError());
+        printf("Error: %s\n", SDL_GetError());
         return 1;
     }
+    LOG_DEBUG("SDL initialized successfully");
 
-    // Configurer le contexte OpenGL
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, 0);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
@@ -72,36 +61,52 @@ int main(int argc, char** argv)
     SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
     SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
 
-    // Créer la fenêtre de l'application
     SDL_WindowFlags window_flags = (SDL_WindowFlags)(SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI);
     SDL_Window* window = SDL_CreateWindow("Advanced Node Editor with Subgraphs", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 1280, 720, window_flags);
     if (window == nullptr) {
-        printf("Erreur de création de fenêtre: %s\n", SDL_GetError());
+        LOG_DEBUG("Window creation error: %s", SDL_GetError());
+        printf("Window creation error: %s\n", SDL_GetError());
         SDL_Quit();
         return 1;
     }
+    LOG_DEBUG("SDL window created successfully");
 
-    // Créer le contexte OpenGL
     SDL_GLContext gl_context = SDL_GL_CreateContext(window);
+    if (gl_context == nullptr) {
+        LOG_DEBUG("OpenGL context creation error: %s", SDL_GetError());
+        SDL_DestroyWindow(window);
+        SDL_Quit();
+        return 1;
+    }
+    LOG_DEBUG("OpenGL context created successfully");
+    
     SDL_GL_MakeCurrent(window, gl_context);
-    SDL_GL_SetSwapInterval(1); // Activer vsync
+    SDL_GL_SetSwapInterval(1);
 
-    // Initialiser ImGui
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
+    LOG_DEBUG("ImGui context created");
     ImGuiIO& io = ImGui::GetIO();
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
 
-    // Appliquer le style ImGui et initialiser les backends
     ImGui::StyleColorsDark();
     ImGui_ImplSDL2_InitForOpenGL(window, gl_context);
     ImGui_ImplOpenGL3_Init("#version 330");
+    LOG_DEBUG("ImGui initialized successfully");
 
-    // Créer une instance de l'éditeur de nœuds et son contrôleur
+    LOG_DEBUG("Creating editor controller");
     std::shared_ptr<ANE::INodeEditorController> controller = std::make_shared<ANE::NodeEditorController>();
+    LOG_DEBUG("Creating node editor");
     ANE::NodeEditor editor;
+    LOG_DEBUG("Node editor created successfully");
 
-    // Configuration des styles pour l'éditeur
+    LOG_DEBUG("Ensuring editor starts with a clean subgraph stack");
+    while (editor.getCurrentSubgraphId() >= 0) {
+        LOG_DEBUG("Exiting unexpected active subgraph (ID: %d)", editor.getCurrentSubgraphId());
+        editor.exitSubgraph();
+    }
+    LOG_DEBUG("Editor is now in main graph level");
+
     ANE::EditorStyle style;
     style.backgroundColor = ANE::Color(0.10f, 0.11f, 0.12f, 1.00f);
     style.gridColor = ANE::Color(0.16f, 0.17f, 0.18f, 0.50f);
@@ -111,7 +116,6 @@ int main(int argc, char** argv)
     style.pinRadius = 4.0f;
     style.connectionThickness = 2.5f;
 
-    // Définir le style pour les nœuds de type Geometry
     ANE::NodeStyle geometryStyle;
     geometryStyle.baseColor = ANE::Color(0.20f, 0.25f, 0.30f, 1.0f);
     geometryStyle.headerColor = ANE::Color(0.18f, 0.22f, 0.26f, 0.8f);
@@ -122,7 +126,6 @@ int main(int argc, char** argv)
     geometryStyle.glowColor = ANE::Color(0.20f, 0.60f, 0.90f, 0.2f);
     style.nodeStyles["Geometry"] = geometryStyle;
 
-    // Définir le style pour les nœuds de type Material
     ANE::NodeStyle materialStyle;
     materialStyle.baseColor = ANE::Color(0.30f, 0.22f, 0.25f, 1.0f);
     materialStyle.headerColor = ANE::Color(0.26f, 0.18f, 0.22f, 0.8f);
@@ -133,7 +136,6 @@ int main(int argc, char** argv)
     materialStyle.glowColor = ANE::Color(0.90f, 0.30f, 0.40f, 0.2f);
     style.nodeStyles["Material"] = materialStyle;
 
-    // Définir le style pour les nœuds de type Utility
     ANE::NodeStyle utilityStyle;
     utilityStyle.baseColor = ANE::Color(0.28f, 0.28f, 0.30f, 1.0f);
     utilityStyle.headerColor = ANE::Color(0.24f, 0.24f, 0.26f, 0.8f);
@@ -144,7 +146,6 @@ int main(int argc, char** argv)
     utilityStyle.glowColor = ANE::Color(0.75f, 0.75f, 0.85f, 0.2f);
     style.nodeStyles["Utility"] = utilityStyle;
 
-    // Définir le style pour les nœuds de type Subgraph
     ANE::NodeStyle subgraphStyle;
     subgraphStyle.baseColor = ANE::Color(0.20f, 0.30f, 0.20f, 1.0f);
     subgraphStyle.headerColor = ANE::Color(0.18f, 0.26f, 0.18f, 0.8f);
@@ -155,60 +156,103 @@ int main(int argc, char** argv)
     subgraphStyle.glowColor = ANE::Color(0.40f, 0.80f, 0.40f, 0.2f);
     style.nodeStyles["Subgraph"] = subgraphStyle;
 
-    // Définir le style pour les pins de type Vec3
     ANE::PinStyle vec3Style;
     vec3Style.color = ANE::Color(0.22f, 0.70f, 0.40f, 1.0f);
     vec3Style.hoverColor = ANE::Color(0.32f, 0.80f, 0.50f, 1.0f);
     vec3Style.connectedColor = ANE::Color(0.42f, 0.90f, 0.60f, 1.0f);
     style.pinStyles["Vec3"] = vec3Style;
 
-    // Définir les styles de connexion
     style.connectionStyle.baseColor = ANE::Color(0.600f, 0.650f, 0.700f, 0.627f);
     style.connectionStyle.selectedColor = ANE::Color(0.850f, 0.800f, 1.000f, 0.941f);
     style.connectionStyle.hoveredColor = ANE::Color(0.750f, 0.750f, 0.880f, 0.863f);
     style.connectionStyle.validColor = ANE::Color(0.750f, 0.950f, 0.800f, 0.902f);
     style.connectionStyle.invalidColor = ANE::Color(0.950f, 0.750f, 0.750f, 0.784f);
 
-    // Créer des groupes de nœuds pour organiser le flux de travail
     int groupImport = editor.addGroup("1. Import & Preparation", ANE::Vec2(250, 10), ANE::Vec2(280, 380));
     int groupModeling = editor.addGroup("2. Geometric Modeling", ANE::Vec2(200, 420), ANE::Vec2(200, 400));
     int groupTextures = editor.addGroup("3. Textures & Materials", ANE::Vec2(450, 420), ANE::Vec2(200, 400));
     int groupSubgraphs = editor.addGroup("4. Subgraphs", ANE::Vec2(680, 200), ANE::Vec2(250, 250));
     int groupRendering = editor.addGroup("5. Rendering & Export", ANE::Vec2(300, 850), ANE::Vec2(180, 380));
 
-    // Structure pour gérer les sous-graphes
-    std::map<int, SubgraphInfo> subgraphs;
-    int currentSubgraphId = -1; // -1 signifie qu'on est dans le graphe principal
-    std::stack<int> subgraphStack;
+    int geometrySubgraphId;
+    int texturingSubgraphId;
+    int shadingSubgraphId;
 
-    // Identifiants pour les sous-graphes
-    const int geometrySubgraphId = 1;
-    const int texturingSubgraphId = 2;
-    const int shadingSubgraphId = 3;
-
-    // Créer les nœuds pour le graphe principal
+    LOG_DEBUG("Creating main nodes");
     int nodeCADFile = editor.addNode("Import CAD", "Utility", ANE::Vec2(300, 50));
     int nodeFBXFile = editor.addNode("Import FBX", "Utility", ANE::Vec2(300, 140));
     int nodeConvergence = editor.addNode("Convergence", "Utility", ANE::Vec2(300, 230));
     int nodePreprocess = editor.addNode("Preprocess", "Utility", ANE::Vec2(300, 320));
 
-    // Créer les nœuds qui représentent les sous-graphes dans le graphe principal
-    int geometrySubgraphNodeId = editor.addNode("Geometry Processing", "Subgraph", ANE::Vec2(720, 230));
-    int texturingSubgraphNodeId = editor.addNode("Texturing Pipeline", "Subgraph", ANE::Vec2(720, 320));
-    int shadingSubgraphNodeId = editor.addNode("Shading System", "Subgraph", ANE::Vec2(720, 410));
+    LOG_DEBUG("Creating geometry subgraph");
+    geometrySubgraphId = editor.createSubgraph("Geometry Processing");
+    LOG_DEBUG("Geometry subgraph created with ID: %d", geometrySubgraphId);
+    
+    LOG_DEBUG("Creating texturing subgraph");
+    texturingSubgraphId = editor.createSubgraph("Texturing Pipeline"); 
+    LOG_DEBUG("Texturing subgraph created with ID: %d", texturingSubgraphId);
+    
+    LOG_DEBUG("Creating shading subgraph");
+    shadingSubgraphId = editor.createSubgraph("Shading System");
+    LOG_DEBUG("Shading subgraph created with ID: %d", shadingSubgraphId);
 
-    // Créer des nœuds pour les textures et matériaux
+    LOG_DEBUG("Creating subgraph nodes in main graph");
+    
+    LOG_DEBUG("Creating subgraph nodes with manual approach");
+    int geometryNodeId = editor.addNode("Geometry Processing", "Subgraph", ANE::Vec2(720, 230));
+    int texturingNodeId = editor.addNode("Texturing Pipeline", "Subgraph", ANE::Vec2(720, 320));
+    int shadingNodeId = editor.addNode("Shading System", "Subgraph", ANE::Vec2(720, 410));
+    
+    LOG_DEBUG("Created node IDs: Geometry: %d, Texturing: %d, Shading: %d", 
+              geometryNodeId, texturingNodeId, shadingNodeId);
+    
+    controller->updateNode(geometryNodeId, [geometrySubgraphId](ANE::Node& node) {
+        node.setAsSubgraph(true, geometrySubgraphId);
+        node.setIconSymbol("G");
+    });
+    LOG_DEBUG("geometryNode configured via controller, ID: %d", geometryNodeId);
+    
+    controller->updateNode(texturingNodeId, [texturingSubgraphId](ANE::Node& node) {
+        node.setAsSubgraph(true, texturingSubgraphId);
+        node.setIconSymbol("T");
+    });
+    LOG_DEBUG("texturingNode configured via controller, ID: %d", texturingNodeId);
+    
+    controller->updateNode(shadingNodeId, [shadingSubgraphId](ANE::Node& node) {
+        node.setAsSubgraph(true, shadingSubgraphId);
+        node.setIconSymbol("S");
+    });
+    LOG_DEBUG("shadingNode configured via controller, ID: %d", shadingNodeId);
+    
+    LOG_DEBUG("Storing node-subgraph associations");
+    std::map<int, int> nodeToSubgraph;
+    nodeToSubgraph[geometryNodeId] = geometrySubgraphId;
+    nodeToSubgraph[texturingNodeId] = texturingSubgraphId;
+    nodeToSubgraph[shadingNodeId] = shadingSubgraphId;
+    LOG_DEBUG("Node-subgraph associations stored in memory map");
+    
+    LOG_DEBUG("Final subgraph node IDs - Geometry: %d, Texturing: %d, Shading: %d", 
+              geometryNodeId, texturingNodeId, shadingNodeId);
+    
+    if (geometryNodeId == texturingNodeId || 
+        geometryNodeId == shadingNodeId ||
+        texturingNodeId == shadingNodeId) {
+        LOG_DEBUG("ERROR: Multiple subgraph nodes have same ID - possible conflict!");
+    } else {
+        LOG_DEBUG("All subgraph nodes have unique IDs - good!");
+    }
+    
+    LOG_DEBUG("Skipping subgraph preparation for now");
+
     int nodeTextureSet = editor.addNode("Texture Set", "Material", ANE::Vec2(500, 550));
     int nodeShaderPBR = editor.addNode("PBR Shader", "Material", ANE::Vec2(500, 640));
     int nodeVariants = editor.addNode("Variants", "Material", ANE::Vec2(500, 730));
 
-    // Créer des nœuds pour le rendu et l'export
     int nodeLighting = editor.addNode("Lighting", "Utility", ANE::Vec2(350, 890));
     int nodePostprocess = editor.addNode("Post-Process", "Utility", ANE::Vec2(350, 980));
     int nodePreview = editor.addNode("Preview", "Utility", ANE::Vec2(350, 1070));
     int nodeExport = editor.addNode("Export GLTF", "Utility", ANE::Vec2(350, 1160));
 
-    // Assigner les nœuds à leurs groupes respectifs
     editor.addNodeToGroup(nodeCADFile, groupImport);
     editor.addNodeToGroup(nodeFBXFile, groupImport);
     editor.addNodeToGroup(nodeConvergence, groupImport);
@@ -223,107 +267,43 @@ int main(int argc, char** argv)
     editor.addNodeToGroup(nodePreview, groupRendering);
     editor.addNodeToGroup(nodeExport, groupRendering);
 
-    editor.addNodeToGroup(geometrySubgraphNodeId, groupSubgraphs);
-    editor.addNodeToGroup(texturingSubgraphNodeId, groupSubgraphs);
-    editor.addNodeToGroup(shadingSubgraphNodeId, groupSubgraphs);
+    editor.addNodeToGroup(geometryNodeId, groupSubgraphs);
+    editor.addNodeToGroup(texturingNodeId, groupSubgraphs);
+    editor.addNodeToGroup(shadingNodeId, groupSubgraphs);
 
-    // Stocker les informations de sous-graphe
-    subgraphs[geometrySubgraphId] = { geometrySubgraphId, geometrySubgraphNodeId, "Geometry Processing", {}, {} };
-    subgraphs[texturingSubgraphId] = { texturingSubgraphId, texturingSubgraphNodeId, "Texturing Pipeline", {}, {} };
-    subgraphs[shadingSubgraphId] = { shadingSubgraphId, shadingSubgraphNodeId, "Shading System", {}, {} };
+    LOG_DEBUG("Skipping subgraph content creation to avoid crash");
+    LOG_DEBUG("Only displaying main graph nodes");
 
-    // Configurer l'apparence des nœuds
-    ANE::Node* geoNode = editor.getNode(geometrySubgraphNodeId);
-    if (geoNode) {
-        geoNode->setIconSymbol("G");
-    }
-
-    ANE::Node* texNode = editor.getNode(texturingSubgraphNodeId);
-    if (texNode) {
-        texNode->setIconSymbol("T");
-    }
-
-    ANE::Node* shadeNode = editor.getNode(shadingSubgraphNodeId);
-    if (shadeNode) {
-        shadeNode->setIconSymbol("S");
-    }
-
-    // CONTENU DU SOUS-GRAPHE DE GÉOMÉTRIE - Simulé, pas réellement créé
-    {
-        // Définition simulée des nœuds du sous-graphe Geometry Processing
-        /*
-        int nodeDecimation = editor.addNode("Decimation", "Geometry", ANE::Vec2(300, 100));
-        int nodeTopology = editor.addNode("Topology Fix", "Geometry", ANE::Vec2(300, 200));
-        int nodeUVMapping = editor.addNode("UV Mapping", "Geometry", ANE::Vec2(300, 300));
-        int nodeInPort = editor.addNode("Input", "Utility", ANE::Vec2(100, 200));
-        int nodeOutPort = editor.addNode("Output", "Utility", ANE::Vec2(500, 200));
-        */
-
-        // Enregistrer les nœuds du sous-graphe (simulés)
-        subgraphs[geometrySubgraphId].internalNodes = {101, 102, 103, 104, 105};
-    }
-
-    // CONTENU DU SOUS-GRAPHE DE TEXTURING - Simulé, pas réellement créé
-    {
-        // Définition simulée des nœuds du sous-graphe Texturing Pipeline
-        /*
-        int nodeUVUnwrap = editor.addNode("UV Unwrap", "Material", ANE::Vec2(200, 100));
-        int nodeBakeAO = editor.addNode("Bake AO", "Material", ANE::Vec2(200, 200));
-        int nodeBakeNormal = editor.addNode("Bake Normal", "Material", ANE::Vec2(200, 300));
-        int nodeBakeRough = editor.addNode("Bake Roughness", "Material", ANE::Vec2(200, 400));
-        */
-
-        // Enregistrer les nœuds du sous-graphe (simulés)
-        subgraphs[texturingSubgraphId].internalNodes = {201, 202, 203, 204, 205, 206, 207};
-    }
-
-    // CONTENU DU SOUS-GRAPHE DE SHADING - Simulé, pas réellement créé
-    {
-        // Définition simulée des nœuds du sous-graphe Shading System
-        /*
-        int nodePBRCore = editor.addNode("PBR Core", "Material", ANE::Vec2(300, 200));
-        int nodeMetallic = editor.addNode("Metallic Setup", "Material", ANE::Vec2(150, 100));
-        int nodeSpecular = editor.addNode("Specular Setup", "Material", ANE::Vec2(150, 300));
-        */
-
-        // Enregistrer les nœuds du sous-graphe (simulés)
-        subgraphs[shadingSubgraphId].internalNodes = {301, 302, 303, 304, 305};
-    }
-
-    // Variables d'état UI
     bool showOptions = false;
     bool showHelp = false;
     float zoom = 1.0f;
     bool firstCycle = true;
     bool done = false;
 
-    // Principale boucle d'application
+    LOG_DEBUG("Starting main loop");
     while (!done) {
-        // Traiter les événements SDL
         SDL_Event event;
         while (SDL_PollEvent(&event)) {
-            // Passer les événements à ImGui
             ImGui_ImplSDL2_ProcessEvent(&event);
-            // Gérer les événements de sortie de l'application
-            if (event.type == SDL_QUIT)
+            if (event.type == SDL_QUIT) {
+                LOG_DEBUG("SDL_QUIT event received, closing application");
                 done = true;
-            if (event.type == SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_CLOSE && event.window.windowID == SDL_GetWindowID(window))
+            }
+            if (event.type == SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_CLOSE && event.window.windowID == SDL_GetWindowID(window)) {
+                LOG_DEBUG("SDL_WINDOWEVENT_CLOSE event received, closing application");
                 done = true;
+            }
         }
 
-        // Début d'une nouvelle frame ImGui
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplSDL2_NewFrame();
         ImGui::NewFrame();
 
-        // Configurer la fenêtre principale de l'éditeur
         ImGui::SetNextWindowPos(ImVec2(0, 0), ImGuiCond_FirstUseEver);
         ImGui::SetNextWindowSize(ImVec2(io.DisplaySize.x - 300, io.DisplaySize.y), ImGuiCond_FirstUseEver);
 
-        // Créer la fenêtre principale de l'éditeur avec barre de menu
         ImGui::Begin("ModFlow - Advanced Node Graph with Subgraphs", nullptr, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_MenuBar);
 
-        // Créer la barre de menu avec les menus standard d'application
         if (ImGui::BeginMenuBar()) {
             if (ImGui::BeginMenu("File")) {
                 if (ImGui::MenuItem("New Project", "Ctrl+N")) {}
@@ -354,18 +334,15 @@ int main(int argc, char** argv)
             }
 
             if (ImGui::BeginMenu("View")) {
-                // Option "Center View" - appelle la méthode centerView() pour centrer la vue sur tous les nœuds
                 if (ImGui::MenuItem("Center View", "F")) {
                     editor.centerView();
                 }
 
-                // Option "Zoom In" - augmente le niveau de zoom
                 if (ImGui::MenuItem("Zoom In", "Ctrl++")) {
                     zoom = std::min(zoom * 1.1f, 2.0f);
                     editor.setViewScale(zoom);
                 }
 
-                // Option "Zoom Out" - diminue le niveau de zoom
                 if (ImGui::MenuItem("Zoom Out", "Ctrl+-")) {
                     zoom = std::max(zoom * 0.9f, 0.5f);
                     editor.setViewScale(zoom);
@@ -373,7 +350,6 @@ int main(int argc, char** argv)
 
                 ImGui::Separator();
 
-                // Option "Reset Zoom" - réinitialise le zoom à 1.0
                 if (ImGui::MenuItem("Reset Zoom", "Ctrl+0")) {
                     zoom = 1.0f;
                     editor.setViewScale(zoom);
@@ -381,40 +357,18 @@ int main(int argc, char** argv)
 
                 ImGui::EndMenu();
             }
-
             if (ImGui::BeginMenu("Subgraphs")) {
-                if (ImGui::MenuItem("Return to Main Graph") && currentSubgraphId >= 0) {
-                    if (!subgraphStack.empty()) {
-                        currentSubgraphId = subgraphStack.top();
-                        subgraphStack.pop();
-                    } else {
-                        currentSubgraphId = -1; // Revenir au graphe principal
-                    }
+                if (ImGui::MenuItem("Return to Main Graph") && editor.getCurrentSubgraphId() >= 0) {
+                    editor.exitSubgraph();
                 }
-
                 ImGui::Separator();
-
-                if (ImGui::MenuItem("Geometry Processing") && currentSubgraphId != geometrySubgraphId) {
-                    if (currentSubgraphId >= 0) {
-                        subgraphStack.push(currentSubgraphId);
-                    }
-                    currentSubgraphId = geometrySubgraphId;
-                }
-
-                if (ImGui::MenuItem("Texturing Pipeline") && currentSubgraphId != texturingSubgraphId) {
-                    if (currentSubgraphId >= 0) {
-                        subgraphStack.push(currentSubgraphId);
-                    }
-                    currentSubgraphId = texturingSubgraphId;
-                }
-
-                if (ImGui::MenuItem("Shading System") && currentSubgraphId != shadingSubgraphId) {
-                    if (currentSubgraphId >= 0) {
-                        subgraphStack.push(currentSubgraphId);
-                    }
-                    currentSubgraphId = shadingSubgraphId;
-                }
-
+                
+                ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.5f, 1.0f), "Geometry Processing (disabled)");
+                ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.5f, 1.0f), "Texturing Pipeline (disabled)");
+                ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.5f, 1.0f), "Shading System (disabled)");
+                ImGui::TextColored(ImVec4(1.0f, 0.4f, 0.4f, 1.0f), "Subgraph navigation disabled");
+                ImGui::TextColored(ImVec4(1.0f, 0.4f, 0.4f, 1.0f), "to prevent application crash");
+                
                 ImGui::EndMenu();
             }
 
@@ -431,67 +385,60 @@ int main(int argc, char** argv)
             ImGui::EndMenuBar();
         }
 
-        // Afficher le titre du sous-graphe actuel s'il y en a un
-        if (currentSubgraphId >= 0 && subgraphs.find(currentSubgraphId) != subgraphs.end()) {
-            ImGui::TextColored(ImVec4(0.5f, 0.8f, 0.5f, 1.0f), "Editing Subgraph: %s", subgraphs[currentSubgraphId].name.c_str());
-
-            if (ImGui::Button("Return to Main Graph")) {
-                if (!subgraphStack.empty()) {
-                    currentSubgraphId = subgraphStack.top();
-                    subgraphStack.pop();
-                } else {
-                    currentSubgraphId = -1; // Revenir au graphe principal
+        int currentSubgraphId = editor.getCurrentSubgraphId();
+        if (currentSubgraphId >= 0) {
+            ANE::Subgraph* subgraph = editor.getSubgraph(currentSubgraphId);
+            if (subgraph) {
+                ImGui::TextColored(ImVec4(0.5f, 0.8f, 0.5f, 1.0f), "Editing Subgraph: %s", subgraph->name.c_str());
+                
+                if (ImGui::Button("Return to Main Graph")) {
+                    editor.exitSubgraph();
                 }
+                ImGui::SameLine();
+                ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f), "Double-click navigation disabled to prevent crashes");
             }
-            ImGui::SameLine();
-            ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f), "Double-click on subgraph nodes to navigate into them");
         }
 
-        // Gestion des nœuds de sous-graphe sélectionnés - double-cliquer pour entrer dans le sous-graphe
         static bool wasDoubleClicked = false;
         if (ImGui::IsMouseDoubleClicked(0) && !wasDoubleClicked) {
             wasDoubleClicked = true;
-
-            // Vérifier si un nœud de sous-graphe est sélectionné
+            LOG_DEBUG("Double-click detected");
             auto selectedNodes = editor.getSelectedNodes();
             if (selectedNodes.size() == 1) {
+                LOG_DEBUG("One node selected, ID: %d", selectedNodes[0]);
                 ANE::Node* node = editor.getNode(selectedNodes[0]);
-                if (node && (node->name == "Geometry Processing" ||
-                            node->name == "Texturing Pipeline" ||
-                            node->name == "Shading System")) {
-                    // Simuler l'entrée dans un sous-graphe
-                    if (node->name == "Geometry Processing") currentSubgraphId = 1;
-                    else if (node->name == "Texturing Pipeline") currentSubgraphId = 2;
-                    else if (node->name == "Shading System") currentSubgraphId = 3;
-
-                    if (currentSubgraphId > 0) {
-                        subgraphStack.push(currentSubgraphId);
-                    }
+                if (node == nullptr) {
+                    LOG_DEBUG("ERROR: Selected node is nullptr");
+                } else if (node->isSubgraph) {
+                    LOG_DEBUG("Selected node is a subgraph, ID: %d, subgraphId: %d", node->id, node->subgraphId);
+                    LOG_DEBUG("Navigation to subgraph disabled to prevent crash");
+                } else {
+                    LOG_DEBUG("Selected node is not a subgraph");
                 }
+            } else {
+                LOG_DEBUG("No node selected or multiple selection (%zu nodes)", selectedNodes.size());
             }
         } else if (!ImGui::IsMouseDoubleClicked(0)) {
             wasDoubleClicked = false;
         }
 
-        // Rendre l'éditeur de nœuds
         editor.beginFrame();
         editor.render();
         editor.endFrame();
 
-        // Centre la vue à la première frame pour montrer tous les nœuds
         if (firstCycle) {
+            LOG_DEBUG("First frame, centering view");
             editor.centerView();
             firstCycle = false;
+            LOG_DEBUG("View centered successfully");
         }
         ImGui::End();
 
-        // Créer le panneau de contrôle sur le côté droit
         ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x - 300, 0), ImGuiCond_FirstUseEver);
         ImGui::SetNextWindowSize(ImVec2(300, io.DisplaySize.y), ImGuiCond_FirstUseEver);
 
         ImGui::Begin("Control Panel", nullptr);
 
-        // Section Bibliothèque de nœuds - affiche les types de nœuds disponibles organisés en catégories
         if (ImGui::CollapsingHeader("Node Library", ImGuiTreeNodeFlags_DefaultOpen)) {
             ImGui::PushStyleVar(ImGuiStyleVar_IndentSpacing, 16.0f);
 
@@ -540,41 +487,35 @@ int main(int argc, char** argv)
             ImGui::PopStyleVar();
         }
 
-        // Section Sous-graphes - affiche et permet d'accéder aux sous-graphes
         if (ImGui::CollapsingHeader("Subgraphs", ImGuiTreeNodeFlags_DefaultOpen)) {
             ImGui::TextColored(ImVec4(0.7f, 0.7f, 1.0f, 1.0f), "Available Subgraphs:");
-
-            for (const auto& [id, info] : subgraphs) {
-                ImGui::PushID(id);
-                if (ImGui::Button(info.name.c_str(), ImVec2(200, 0))) {
-                    if (currentSubgraphId >= 0) {
-                        subgraphStack.push(currentSubgraphId);
-                    }
-                    currentSubgraphId = id;
-                }
-                ImGui::PopID();
-            }
+            
+            ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.5f, 1.0f), "Geometry Processing (disabled)");
+            ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.5f, 1.0f), "Texturing Pipeline (disabled)");
+            ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.5f, 1.0f), "Shading System (disabled)");
+            
+            ImGui::TextColored(ImVec4(1.0f, 0.4f, 0.4f, 1.0f), "Subgraph navigation disabled");
+            ImGui::TextColored(ImVec4(1.0f, 0.4f, 0.4f, 1.0f), "to prevent application crash");
 
             ImGui::Separator();
 
-            // Navigation dans les sous-graphes
-            if (currentSubgraphId >= 0) {
-                ImGui::Text("Current Subgraph: %s", subgraphs[currentSubgraphId].name.c_str());
-                if (ImGui::Button("Return to Main Graph")) {
-                    if (!subgraphStack.empty()) {
-                        currentSubgraphId = subgraphStack.top();
-                        subgraphStack.pop();
-                    } else {
-                        currentSubgraphId = -1;
+            int currentId = editor.getCurrentSubgraphId();
+            if (currentId >= 0) {
+                ANE::Subgraph* subgraph = editor.getSubgraph(currentId);
+                if (subgraph) {
+                    ImGui::Text("Current Subgraph: %s", subgraph->name.c_str());
+                    if (ImGui::Button("Return to Main Graph")) {
+                        editor.exitSubgraph();
                     }
+                    
+                    auto stack = editor.getSubgraphStack();
+                    ImGui::Text("Subgraph Depth: %d", static_cast<int>(stack.size()) + 1);
                 }
-                ImGui::Text("Subgraph Depth: %d", subgraphStack.size() + 1);
             } else {
                 ImGui::Text("Currently in Main Graph");
             }
         }
 
-        // Section Propriétés - affiche et permet d'éditer les propriétés des nœuds sélectionnés
         if (ImGui::CollapsingHeader("Properties", ImGuiTreeNodeFlags_DefaultOpen)) {
             auto selectedNodes = controller->getSelectedNodes();
             ImGui::Text("Selection: %zu node(s)", selectedNodes.size());
@@ -584,7 +525,6 @@ int main(int argc, char** argv)
                 if (selectedNode) {
                     ImGui::Separator();
 
-                    // Afficher le nom et le type du nœud (lecture seule)
                     ImGui::Text("Name: %s", selectedNode->name.c_str());
                     ImGui::Text("Type: %s", selectedNode->type.c_str());
 
@@ -592,22 +532,16 @@ int main(int argc, char** argv)
                         ImGui::TextColored(ImVec4(0.5f, 0.8f, 0.5f, 1.0f), "This is a Subgraph Node");
                         ImGui::Text("Subgraph ID: %d", selectedNode->subgraphId);
 
-                        if (ImGui::Button("Enter Subgraph", ImVec2(150, 0))) {
-                            if (currentSubgraphId >= 0) {
-                                subgraphStack.push(currentSubgraphId);
-                            }
-                            currentSubgraphId = selectedNode->subgraphId;
-                        }
+                        ImGui::TextColored(ImVec4(0.7f, 0.3f, 0.3f, 1.0f), "Enter Subgraph (disabled)");
+                        ImGui::TextColored(ImVec4(0.7f, 0.3f, 0.3f, 1.0f), "Navigation disabled to prevent crash");
                     }
 
                     ImGui::Separator();
 
-                    // Informations de position/taille non disponibles via l'API publique
                     ImGui::Text("Position/Size: Not available in public API");
 
                     ImGui::Separator();
 
-                    // Indicateurs d'état des nœuds qui peuvent être basculés
                     bool disabled = selectedNode->disabled;
                     if (ImGui::Checkbox("Disabled", &disabled)) {
                         controller->updateNode(selectedNodes[0], [disabled](ANE::Node& node) {
@@ -632,28 +566,30 @@ int main(int argc, char** argv)
             }
         }
 
-        // Section Statistiques - affiche des informations sur l'éditeur et sur les performances
         if (ImGui::CollapsingHeader("Statistics", ImGuiTreeNodeFlags_DefaultOpen)) {
-            if (currentSubgraphId >= 0) {
-                ImGui::Text("Current Subgraph: %s", subgraphs[currentSubgraphId].name.c_str());
-                ImGui::Text("Nodes in Subgraph: %zu", subgraphs[currentSubgraphId].internalNodes.size());
+            int currentId = editor.getCurrentSubgraphId();
+            if (currentId >= 0) {
+                ANE::Subgraph* subgraph = editor.getSubgraph(currentId);
+                if (subgraph) {
+                    ImGui::Text("Current Subgraph: %s", subgraph->name.c_str());
+                    ImGui::Text("Nodes in Subgraph: %zu", subgraph->nodeIds.size());
+                    ImGui::Text("Connections in Subgraph: %zu", subgraph->connectionIds.size());
+                }
             } else {
                 ImGui::Text("Main Graph");
             }
-
-            ImGui::Text("Total Subgraphs: %zu", subgraphs.size());
-            ImGui::Text("Subgraph Stack Depth: %zu", subgraphStack.size());
-
+            ImGui::Text("Total Subgraphs: 3");
+            
+            auto stack = editor.getSubgraphStack();
+            ImGui::Text("Subgraph Stack Depth: %zu", stack.size());
             ImGui::Separator();
 
-            // Métriques de performance d'ImGui
             ImGui::Text("FPS: %.1f", io.Framerate);
             ImGui::Text("Frame time: %.3f ms", 1000.0f / io.Framerate);
         }
 
         ImGui::End();
 
-        // Fenêtre modale À propos/Aide
         if (showHelp) {
             ImGui::SetNextWindowSize(ImVec2(520, 420), ImGuiCond_FirstUseEver);
             if (ImGui::Begin("About ModFlow", &showHelp)) {
@@ -682,26 +618,27 @@ int main(int argc, char** argv)
             ImGui::End();
         }
 
-        // Barre d'état en bas de l'écran
         ImGui::SetNextWindowPos(ImVec2(0, io.DisplaySize.y - 20));
         ImGui::SetNextWindowSize(ImVec2(io.DisplaySize.x, 20));
         ImGui::Begin("Status Bar", nullptr,
                   ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize |
                   ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoScrollbar);
 
-        if (currentSubgraphId >= 0) {
-            ImGui::Text("Editing Subgraph: %s | Zoom: %.0f%%",
-                subgraphs[currentSubgraphId].name.c_str(), zoom * 100.0f);
+        int currentId = editor.getCurrentSubgraphId();
+        if (currentId >= 0) {
+            ANE::Subgraph* subgraph = editor.getSubgraph(currentId);
+            if (subgraph) {
+                ImGui::Text("Editing Subgraph: %s | Zoom: %.0f%%",
+                    subgraph->name.c_str(), zoom * 100.0f);
+            }
         } else {
             ImGui::Text("Main Graph | Project: subgraphs_demo.mdfl | Zoom: %.0f%%", zoom * 100.0f);
         }
 
         ImGui::End();
 
-        // Rendu ImGui
         ImGui::Render();
 
-        // Rendu OpenGL
         SDL_GL_MakeCurrent(window, gl_context);
         int display_w, display_h;
         SDL_GetWindowSize(window, &display_w, &display_h);
@@ -712,15 +649,16 @@ int main(int argc, char** argv)
         SDL_GL_SwapWindow(window);
     }
 
-    // Nettoyer ImGui
+    LOG_DEBUG("Cleaning up ImGui");
     ImGui_ImplOpenGL3_Shutdown();
     ImGui_ImplSDL2_Shutdown();
     ImGui::DestroyContext();
 
-    // Nettoyer SDL
+    LOG_DEBUG("Cleaning up SDL");
     SDL_GL_DeleteContext(gl_context);
     SDL_DestroyWindow(window);
     SDL_Quit();
 
+    LOG_DEBUG("Application terminated successfully");
     return 0;
 }

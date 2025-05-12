@@ -21,7 +21,6 @@ void NodeEditorController::removeNode(int nodeId) {
 void NodeEditorController::updateNode(int nodeId, const std::function<void(Node&)>& updateFn) {
     NodeEditorModel::Node* node = m_model->getNode(nodeId);
     if (node) {
-        // Create a temporary ANE::Node to modify
         Node tempNode(node->id, node->name, node->type);
         tempNode.iconSymbol = node->iconSymbol;
         tempNode.labelPosition = node->labelPosition;
@@ -32,10 +31,8 @@ void NodeEditorController::updateNode(int nodeId, const std::function<void(Node&
         tempNode.subgraphId = node->subgraphId;
         tempNode.metadata = node->metadata;
         
-        // Call the update function
         updateFn(tempNode);
         
-        // Apply changes back to the model
         node->name = tempNode.name;
         node->type = tempNode.type;
         node->iconSymbol = tempNode.iconSymbol;
@@ -47,7 +44,6 @@ void NodeEditorController::updateNode(int nodeId, const std::function<void(Node&
         node->subgraphId = tempNode.subgraphId;
         node->metadata = tempNode.metadata;
         
-        // Notify about the update
         Event event(EventType::StateChanged);
         event.setData("nodeId", nodeId);
         event.setData("action", "nodeUpdated");
@@ -66,10 +62,8 @@ void NodeEditorController::removePin(int nodeId, int pinId) {
 void NodeEditorController::updatePin(int nodeId, int pinId, const std::function<void(Pin&)>& updateFn) {
     Pin* pin = m_model->getPin(nodeId, pinId);
     if (pin) {
-        // Call the update function
         updateFn(*pin);
         
-        // Notify about the update
         Event event(EventType::StateChanged);
         event.setData("nodeId", nodeId);
         event.setData("pinId", pinId);
@@ -89,10 +83,8 @@ void NodeEditorController::removeConnection(int connectionId) {
 void NodeEditorController::updateConnection(int connectionId, const std::function<void(NodeEditorModel::Connection&)>& updateFn) {
     NodeEditorModel::Connection* connection = m_model->getConnection(connectionId);
     if (connection) {
-        // Call the update function
         updateFn(*connection);
         
-        // Notify about the update
         Event event(EventType::StateChanged);
         event.setData("connectionId", connectionId);
         event.setData("action", "connectionUpdated");
@@ -111,24 +103,20 @@ void NodeEditorController::removeGroup(int groupId) {
 void NodeEditorController::updateGroup(int groupId, const std::function<void(Group&)>& updateFn) {
     Group* group = m_model->getGroup(groupId);
     if (group) {
-        // Create a temporary ANE::Group to modify
         Group tempGroup(group->id, group->name);
         tempGroup.color = group->color;
         tempGroup.style = group->style;
         tempGroup.collapsed = group->collapsed;
         tempGroup.metadata = group->metadata;
         
-        // Call the update function
         updateFn(tempGroup);
         
-        // Apply changes back to the model
         group->name = tempGroup.name;
         group->color = tempGroup.color;
         group->style = tempGroup.style;
         group->collapsed = tempGroup.collapsed;
         group->metadata = tempGroup.metadata;
         
-        // Notify about the update
         Event event(EventType::StateChanged);
         event.setData("groupId", groupId);
         event.setData("action", "groupUpdated");
@@ -153,8 +141,6 @@ void NodeEditorController::removeSubgraph(int subgraphId) {
 }
 
 int NodeEditorController::addNodeToSubgraph(int nodeId, int subgraphId) {
-    // This would involve more complex logic to move a node to a subgraph
-    // For simplicity, we just mark the node as being part of a subgraph
     NodeEditorModel::Node* node = m_model->getNode(nodeId);
     if (node && m_model->getSubgraph(subgraphId)) {
         node->isSubgraph = true;

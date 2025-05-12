@@ -4,6 +4,10 @@
 #include "NodeComponents.h"
 #include "StyleDefinitions.h"
 #include <functional>
+#include <stack>
+#include <vector>
+#include <map>
+#include <memory>
 
 namespace NodeEditorCore {
 
@@ -78,6 +82,21 @@ public:
     void selectConnection(int connectionId, bool append = false);
     void deselectConnection(int connectionId);
     void deselectAllConnections();
+
+    void exposeNodeInput(int nodeId, int pinId);
+    void exposeNodeOutput(int nodeId, int pinId);
+    void unexposeNodeInput(int nodeId, int pinId);
+    void unexposeNodeOutput(int nodeId, int pinId);
+    
+    void addNodeToSubgraph(int nodeId, int subgraphId);
+    void removeNodeFromSubgraph(int nodeId, int subgraphId);
+    void addConnectionToSubgraph(int connectionId, int subgraphId);
+    void removeConnectionFromSubgraph(int connectionId, int subgraphId);
+    std::vector<int> getNodesInSubgraph(int subgraphId) const;
+    std::vector<int> getConnectionsInSubgraph(int subgraphId) const;
+    
+    void saveSubgraphViewState(int subgraphId);
+    void restoreSubgraphViewState(int subgraphId);
 
 private:
     struct State {
@@ -197,11 +216,54 @@ public:
 
     void setCanConnectCallback(CanConnectCallback callback);
 
+    int createSubgraph(const std::string& name);
+    Subgraph* getSubgraph(int subgraphId);
+    void removeSubgraph(int subgraphId);
+    Node* createSubgraphNode(int subgraphId, const std::string& name, const Vec2& position);
+    
+    bool enterSubgraph(int subgraphId);
+    bool exitSubgraph();
+    int getCurrentSubgraphId() const;
+    std::vector<int> getSubgraphStack() const;
+
+    void exposeNodeInput(int nodeId, int pinId);
+
+    void exposeNodeOutput(int nodeId, int pinId);
+
+    void unexposeNodeInput(int nodeId, int pinId);
+
+    void unexposeNodeOutput(int nodeId, int pinId);
+
+    void saveSubgraphViewState(int subgraphId);
+    void restoreSubgraphViewState(int subgraphId);
+
 private:
     NodeEditorCore::NodeEditor m_editor;
+    std::stack<int> m_subgraphStack;
+    int m_currentSubgraphId;
+    std::map<int, std::shared_ptr<Subgraph>> m_subgraphs;
 
     NodeEditorCore::NodeEditorStyle convertToInternalStyle(const EditorStyle& style) const;
     EditorStyle convertToAPIStyle(const NodeEditorCore::NodeEditorStyle& style) const;
+
+    void addNodeToSubgraph(int nodeId, int subgraphId);
+
+    void removeNodeFromSubgraph(int nodeId, int subgraphId);
+
+    void addConnectionToSubgraph(int connectionId, int subgraphId);
+
+    void removeConnectionFromSubgraph(int connectionId, int subgraphId);
+
+    std::vector<int> getNodesInSubgraph(int subgraphId) const;
+
+    std::vector<int> getConnectionsInSubgraph(int subgraphId) const;
+
+    struct ConnectionInfo {
+        int id;
+        int startNodeId;
+        int endNodeId;
+    };
+    ConnectionInfo getConnectionInfo(int connectionId) const;
 };
 
 }

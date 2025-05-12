@@ -1,4 +1,3 @@
-// Conversions.cpp
 #include "Conversions.h"
 
 #include "StyleDefinitions.h"

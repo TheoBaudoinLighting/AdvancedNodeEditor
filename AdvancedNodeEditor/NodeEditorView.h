@@ -21,7 +21,6 @@ namespace ANE {
         void render();
         void endFrame();
 
-        // View configuration
         void setViewPosition(const Vec2& position);
         Vec2 getViewPosition() const;
         void setViewScale(float scale);
@@ -29,11 +28,9 @@ namespace ANE {
         void centerView();
         void centerOnNode(int nodeId);
 
-        // Style
         void setStyle(const EditorStyle& style);
         EditorStyle getStyle() const;
 
-        // Layers
         int addLayer(const std::string& name, int zOrder, std::function<void(ImDrawList*, const ImVec2&)> drawCallback);
         void removeLayer(int layerId);
         void setLayerVisible(int layerId, bool visible);
@@ -46,11 +43,9 @@ namespace ANE {
         std::map<int, NodeEditorCore::internal::Layer> m_layers;
         int m_nextLayerId;
 
-        // View state
         Vec2 m_viewPosition;
         float m_viewScale;
 
-        // Drawing
         void drawSubgraphBreadcrumbs(ImDrawList* drawList, const ImVec2& canvasPos);
         void renderLayers(ImDrawList* drawList, const ImVec2& canvasPos);
     };

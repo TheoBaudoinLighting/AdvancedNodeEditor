@@ -12,7 +12,6 @@ NodeEditorView::NodeEditorView(std::shared_ptr<INodeEditorController> controller
     , m_nextLayerId(1)
     , m_viewScale(1.0f)
 {
-    // Set up event listeners to sync the model to the view
     m_controller->addEventListener(EventType::NodeCreated, [this](const Event& event) {
         int nodeId = event.getData<int>("nodeId");
         const auto* modelNode = m_controller->getModel()->getNode(nodeId);
@@ -59,38 +58,28 @@ NodeEditorView::NodeEditorView(std::shared_ptr<INodeEditorController> controller
         m_coreEditor->removeGroup(groupId);
     });
     
-    // Set up callback for node selection in the view to update the model
     m_coreEditor->setNodeCreatedCallback([this](int nodeId) {
-        // Intentionally left empty, as nodes should be created through the controller
     });
     
     m_coreEditor->setNodeRemovedCallback([this](int nodeId) {
-        // Intentionally left empty, as nodes should be removed through the controller
     });
     
     m_coreEditor->setConnectionCreatedCallback([this](int connectionId) {
-        // Intentionally left empty, as connections should be created through the controller
     });
     
     m_coreEditor->setConnectionRemovedCallback([this](int connectionId) {
-        // Intentionally left empty, as connections should be removed through the controller
     });
     
-    // Add default layers
     addLayer("Grid", 0, [this](ImDrawList* drawList, const ImVec2& canvasPos) {
-        // The grid is drawn by the core editor
     });
     
     addLayer("Groups", 10, [this](ImDrawList* drawList, const ImVec2& canvasPos) {
-        // Groups are drawn by the core editor
     });
     
     addLayer("Connections", 20, [this](ImDrawList* drawList, const ImVec2& canvasPos) {
-        // Connections are drawn by the core editor
     });
     
     addLayer("Nodes", 30, [this](ImDrawList* drawList, const ImVec2& canvasPos) {
-        // Nodes are drawn by the core editor
     });
     
     addLayer("Breadcrumbs", 40, [this](ImDrawList* drawList, const ImVec2& canvasPos) {
@@ -105,7 +94,6 @@ void NodeEditorView::beginFrame() {
 }
 
 void NodeEditorView::render() {
-    // Let the core editor handle the base rendering
     m_coreEditor->render();
 }
 
@@ -177,16 +165,13 @@ void NodeEditorView::setLayerZOrder(int layerId, int zOrder) {
 }
 
 void NodeEditorView::drawSubgraphBreadcrumbs(ImDrawList* drawList, const ImVec2& canvasPos) {
-    // Get the current subgraph from the controller
     auto model = m_controller->getModel();
     int currentSubgraphId = model->getState<int>("currentSubgraphId", -1);
     if (currentSubgraphId < 0) return;
     
-    // Get the navigation stack from the model
     auto navigationStack = model->getState<std::vector<int>>("subgraphStack", std::vector<int>());
     if (navigationStack.empty() && currentSubgraphId < 0) return;
     
-    // Draw breadcrumb background
     ImVec2 windowSize = ImGui::GetWindowSize();
     float breadcrumbHeight = 30.0f;
     ImU32 breadcrumbBgColor = IM_COL32(40, 44, 52, 220);
@@ -197,7 +182,6 @@ void NodeEditorView::drawSubgraphBreadcrumbs(ImDrawList* drawList, const ImVec2&
         breadcrumbBgColor
     );
     
-    // Draw breadcrumb items
     float x = canvasPos.x + 10.0f;
     float y = canvasPos.y + breadcrumbHeight * 0.5f;
     ImU32 textColor = IM_COL32(200, 200, 200, 255);
@@ -219,7 +203,6 @@ void NodeEditorView::drawSubgraphBreadcrumbs(ImDrawList* drawList, const ImVec2&
         x += textSize.x + 5.0f;
         
         if (!isLast) {
-            // Draw separator
             drawList->AddLine(
                 ImVec2(x, y - 5.0f),
                 ImVec2(x, y + 5.0f),
@@ -229,7 +212,6 @@ void NodeEditorView::drawSubgraphBreadcrumbs(ImDrawList* drawList, const ImVec2&
         }
     };
     
-    // Draw root
     drawList->AddText(
         ImVec2(x, y - ImGui::CalcTextSize("Root").y * 0.5f),
         textColor,
@@ -247,19 +229,16 @@ void NodeEditorView::drawSubgraphBreadcrumbs(ImDrawList* drawList, const ImVec2&
         x += 10.0f;
     }
     
-    // Draw navigation stack
     for (size_t i = 0; i < navigationStack.size(); i++) {
         drawBreadcrumbItem(navigationStack[i], i == navigationStack.size() - 1 && currentSubgraphId < 0);
     }
     
-    // Draw current subgraph
     if (currentSubgraphId >= 0) {
         drawBreadcrumbItem(currentSubgraphId, true);
     }
 }
 
 void NodeEditorView::renderLayers(ImDrawList* drawList, const ImVec2& canvasPos) {
-    // Sort layers by z-order
     std::vector<std::reference_wrapper<NodeEditorCore::internal::Layer>> sortedLayers;
     for (auto& [id, layer] : m_layers) {
         if (layer.visible) {
@@ -272,7 +251,6 @@ void NodeEditorView::renderLayers(ImDrawList* drawList, const ImVec2& canvasPos)
                  return a.zOrder < b.zOrder;
              });
     
-    // Render layers
     for (auto& layer : sortedLayers) {
         layer.get().drawCallback(drawList, canvasPos);
     }
