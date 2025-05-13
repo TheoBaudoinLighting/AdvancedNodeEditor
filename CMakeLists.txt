@@ -46,6 +46,14 @@ add_executable(AdvancedNodeEditor
         AdvancedNodeEditor/Core/Types/UuidTypes.h
         AdvancedNodeEditor/Core/Types/SerializedTypes.h
         AdvancedNodeEditor/Evaluation/NodeEvaluator.h
+        AdvancedNodeEditor/Editor/View/ViewManager.cpp
+        AdvancedNodeEditor/Editor/View/ViewManager.h
+        AdvancedNodeEditor/Editor/View/GraphTitleManager.cpp
+        AdvancedNodeEditor/Editor/View/GraphTitleManager.h
+        AdvancedNodeEditor/Core/Style/ConnectionStyleManager.cpp
+        AdvancedNodeEditor/Core/Style/ConnectionStyleManager.h
+        AdvancedNodeEditor/Editor/View/NodeBoundingBoxManager.cpp
+        AdvancedNodeEditor/Editor/View/NodeBoundingBoxManager.h
 )
 
 # === FetchContent for ImGui and SDL2 ===

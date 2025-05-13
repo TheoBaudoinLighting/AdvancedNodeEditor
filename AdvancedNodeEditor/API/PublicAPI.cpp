@@ -325,6 +325,10 @@ namespace ANE {
         m_editor.centerView();
     }
 
+    void NodeEditor::centerOnNode(int nodeId) {
+        m_editor.centerOnNode(nodeId);
+    }
+
     void NodeEditor::setViewScale(float scale) {
         m_editor.setViewScale(scale);
     }
@@ -333,13 +337,12 @@ namespace ANE {
         return m_editor.getViewScale();
     }
 
-    void NodeEditor::setViewPosition(const Vec2 &position) {
+    void NodeEditor::setViewPosition(const Vec2& position) {
         m_editor.setViewPosition(NodeEditorCore::convertToVec2(position));
     }
 
     Vec2 NodeEditor::getViewPosition() const {
-        NodeEditorCore::Vec2 pos = m_editor.getViewPosition();
-        return Vec2(pos.x, pos.y);
+        return NodeEditorCore::convertToANEVec2(m_editor.getViewPosition());
     }
 
     void NodeEditor::setStyle(const EditorStyle &style) {

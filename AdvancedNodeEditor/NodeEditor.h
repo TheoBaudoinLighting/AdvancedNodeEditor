@@ -5,6 +5,7 @@
 #include "Core/Style/StyleDefinitions.h"
 #include "Core/Types/UuidTypes.h"
 #include "Core/Types/SerializedTypes.h"
+#include "Editor/View/NodeBoundingBoxManager.h"
 #include <functional>
 #include <stack>
 #include <vector>
@@ -13,6 +14,9 @@
 #include <any>
 #include <string>
 
+#include "Core/Style/ConnectionStyleManager.h"
+#include "Editor/View/GraphTitleManager.h"
+#include "Editor/View/ViewManager.h"
 #include "Evaluation/NodeEditorEvaluation.h"
 
 namespace NodeEditorCore {
@@ -36,6 +40,13 @@ namespace NodeEditorCore {
         void removeNodeByUUID(const ANE::UUID& uuid);
 
         Node* getNode(int nodeId);
+
+        void updateNodeBoundingBoxes();
+
+        void enableNodeAvoidance(bool enable);
+
+        bool isNodeAvoidanceEnabled() const;
+
         Node* getNodeByUUID(const ANE::UUID& uuid);
 
         const Node* getNode(int nodeId) const;
@@ -232,6 +243,40 @@ namespace NodeEditorCore {
         std::vector<ANE::NodeEvaluator::ConnectionInfo> getOutputConnections(int nodeId);
         std::vector<ANE::NodeEvaluator::ConnectionInfo> getOutputConnectionsByUUID(const ANE::UUID& nodeUuid);
 
+        ViewManager& getViewManager() { return m_viewManager; }
+        GraphTitleManager& getTitleManager() { return m_titleManager; }
+        ConnectionStyleManager& getConnectionStyleManager() { return m_connectionStyleManager; }
+
+        void setGraphTitle(const std::string& title);
+        std::string getGraphTitle() const;
+
+        void setGraphTitlePosition(GraphTitleManager::TitlePosition position);
+        void setGraphTitleStyle(GraphTitleManager::TitleStyle style);
+
+        void setConnectionStyle(ConnectionStyleManager::ConnectionStyle style);
+
+        void setGridColor(const Color& color);
+        Color getGridColor() const;
+
+        void setBackgroundColor(const Color& color);
+        Color getBackgroundColor() const;
+
+        void setSubgraphDepthColor(int depth, const Color& color);
+
+        void zoomToFit(float padding = 50.0f);
+        void zoomToFitSelected(float padding = 50.0f);
+
+        void smoothCenterView(float duration = 0.3f);
+        void smoothCenterOnNode(int nodeId, float duration = 0.3f);
+
+        bool isShowingSubgraphBreadcrumbs() const;
+        void setShowSubgraphBreadcrumbs(bool show);
+        void setSubgraphBreadcrumbStyle(GraphTitleManager::TitleStyle style);
+
+        Subgraph* getSubgraph(int subgraphId) const;
+        int getSubgraphDepth(int subgraphId) const;
+        void drawSubgraphBreadcrumbs(ImDrawList *drawList, const ImVec2 &canvasPos);
+
     private:
         struct State {
             std::vector<Node> nodes;
@@ -370,6 +415,15 @@ namespace NodeEditorCore {
         void updateNodeUuidMap();
         void updateConnectionUuidMap();
         void updateGroupUuidMap();
+
+        ViewManager m_viewManager;
+        GraphTitleManager m_titleManager;
+        GraphTitleManager m_breadcrumbManager;
+        ConnectionStyleManager m_connectionStyleManager;
+
+        std::unordered_map<int, Color> m_depthColors;
+        std::shared_ptr<NodeBoundingBoxManager> m_nodeBoundingBoxManager;
+        bool m_nodeAvoidanceEnabled;
     };
 }
 
@@ -474,6 +528,8 @@ namespace ANE {
 
         void centerView();
 
+        void centerOnNode(int nodeId);
+
         void setViewScale(float scale);
         float getViewScale() const;
 
@@ -570,6 +626,78 @@ namespace ANE {
         std::vector<int> getEvaluationOrder();
         std::vector<ANE::UUID> getEvaluationOrderUUIDs();
 
+        void zoomToFit(float padding = 50.0f);
+        void zoomToFitSelected(float padding = 50.0f);
+        void smoothCenterView(float duration = 0.3f);
+        void smoothCenterOnNode(int nodeId, float duration = 0.3f);
+        void smoothCenterOnNodeByUUID(const UUID& uuid, float duration = 0.3f);
+
+        void setGraphTitle(const std::string& title);
+        std::string getGraphTitle() const;
+
+        void enableNodeAvoidance(bool enable);
+        bool isNodeAvoidanceEnabled() const;
+
+        enum class TitlePosition {
+            TopLeft,
+            TopCenter,
+            TopRight,
+            BottomLeft,
+            BottomCenter,
+            BottomRight,
+            Center,
+            Custom
+        };
+
+        enum class TitleStyle {
+            Default,
+            Minimal,
+            Bordered,
+            Filled,
+            FilledTransparent,
+            Houdini,
+            Unreal
+        };
+
+        void setGraphTitlePosition(TitlePosition position);
+        void setGraphTitleStyle(TitleStyle style);
+        void setGraphTitleColor(const Color& textColor, const Color& backgroundColor = Color(0.2f, 0.2f, 0.2f, 0.7f));
+        void setGraphTitleCustomPosition(const Vec2& position);
+
+        // Gestion des styles de connexions
+        enum class ConnectionStyle {
+            Bezier,
+            StraightLine,
+            AngleLine,
+            MetroLine
+        };
+
+        void setConnectionStyle(ConnectionStyle style);
+        ConnectionStyle getConnectionStyle() const;
+
+        void setConnectionThickness(float thickness);
+        float getConnectionThickness() const;
+
+        void setConnectionColor(const Color& color);
+        void setConnectionGradient(const Color& startColor, const Color& endColor);
+        void setConnectionSelectedColor(const Color& color);
+
+        // Couleurs du graphe
+        void setGridColor(const Color& color);
+        Color getGridColor() const;
+
+        void setBackgroundColor(const Color& color);
+        Color getBackgroundColor() const;
+
+        // Indicateurs visuels de subgraphs
+        void setSubgraphDepthColor(int depth, const Color& color);
+        void setShowSubgraphBreadcrumbs(bool show);
+        bool isShowingSubgraphBreadcrumbs() const;
+        void setSubgraphBreadcrumbStyle(TitleStyle style);
+
+        void updateNodeBoundingBoxes();
+
+
     private:
         NodeEditorCore::NodeEditor m_editor;
         std::stack<int> m_subgraphStack;
@@ -617,6 +745,9 @@ namespace ANE {
 
         ConnectionInfo getConnectionInfo(int connectionId) const;
         ConnectionInfo getConnectionInfoByUUID(const ANE::UUID& uuid) const;
+
+        std::shared_ptr<NodeEditorCore::NodeBoundingBoxManager> m_nodeBoundingBoxManager;
+        bool m_nodeAvoidanceEnabled;
 
         void updateSubgraphUuidMap();
     };
