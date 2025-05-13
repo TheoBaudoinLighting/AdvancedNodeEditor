@@ -277,6 +277,13 @@ namespace NodeEditorCore {
             bool boxSelecting;
             Vec2 boxSelectStart;
 
+            int magnetPinNodeId = -1;
+            int magnetPinId = -1;
+            ANE::UUID magnetPinNodeUuid = "";
+            ANE::UUID magnetPinUuid = "";
+            float magnetThreshold = 20.0f;
+            bool canConnectToMagnetPin = true;
+
             NodeEditorStyle style;
 
             NodeCallback nodeCreatedCallback;

@@ -14,19 +14,36 @@ void NodeEditor::drawDragConnection(ImDrawList* drawList, const ImVec2& canvasPo
     if (!apiPin) return;
 
     ImVec2 p1 = getPinPos(*node, *apiPin, canvasPos);
-    ImVec2 p2 = ImGui::GetMousePos();
+    ImVec2 p2;
+
+    if (m_state.magnetPinNodeId != -1) {
+        const Node* magnetNode = getNode(m_state.magnetPinNodeId);
+        const ANE::Pin* magnetPin = getPin(m_state.magnetPinNodeId, m_state.magnetPinId);
+        if (magnetNode && magnetPin) {
+            p2 = getPinPos(*magnetNode, *magnetPin, canvasPos);
+        } else {
+            p2 = ImGui::GetMousePos();
+        }
+    } else {
+        p2 = ImGui::GetMousePos();
+    }
 
     std::string pinTypeName = pinTypeToString(pinInternal->type);
     const internal::PinColors& pinColors = m_state.style.pinColors.count(pinTypeName) ?
                                m_state.style.pinColors.at(pinTypeName) :
                                m_state.style.pinColors.at("Default");
 
-    ImU32 dragColor = IM_COL32(
-        pinColors.color.r * 255,
-        pinColors.color.g * 255,
-        pinColors.color.b * 255,
-        pinColors.color.a * 255 * 0.8f
-    );
+    ImU32 dragColor;
+    if (m_state.magnetPinNodeId != -1 && !m_state.canConnectToMagnetPin) {
+        dragColor = IM_COL32(255, 50, 50, 200);
+    } else {
+        dragColor = IM_COL32(
+            pinColors.color.r * 255,
+            pinColors.color.g * 255,
+            pinColors.color.b * 255,
+            pinColors.color.a * 255 * 0.8f
+        );
+    }
 
     ImU32 outerColor = IM_COL32(40, 44, 52, 100);
     float thickness = m_state.style.connectionThickness * m_state.viewScale;
@@ -64,6 +81,28 @@ void NodeEditor::drawDragConnection(ImDrawList* drawList, const ImVec2& canvasPo
     );
 
     drawList->AddCircleFilled(p1, glowRadius, glowColor);
+
+    // Dessiner une croix au milieu si connexion invalide
+    if (m_state.magnetPinNodeId != -1 && !m_state.canConnectToMagnetPin) {
+        // Calculer le point du milieu de la Bézier
+        ImVec2 midPoint = ImBezierCubicCalc(p1, cp1, cp2, p2, 0.5f);
+
+        float crossSize = 8.0f * m_state.viewScale;
+        float crossThickness = 2.0f * m_state.viewScale;
+        ImU32 crossColor = IM_COL32(255, 50, 50, 230);
+
+        drawList->AddLine(
+            ImVec2(midPoint.x - crossSize, midPoint.y - crossSize),
+            ImVec2(midPoint.x + crossSize, midPoint.y + crossSize),
+            crossColor, crossThickness
+        );
+
+        drawList->AddLine(
+            ImVec2(midPoint.x - crossSize, midPoint.y + crossSize),
+            ImVec2(midPoint.x + crossSize, midPoint.y - crossSize),
+            crossColor, crossThickness
+        );
+    }
 }
 
 void NodeEditor::drawNodePins(ImDrawList* drawList, const Node& node, const ImVec2& nodePos, const ImVec2& nodeSize, const ImVec2& canvasPos) {
