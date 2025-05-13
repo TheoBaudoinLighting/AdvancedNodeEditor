@@ -242,8 +242,16 @@ int main(int argc, char** argv)
         LOG_DEBUG("All subgraph nodes have unique IDs - good!");
     }
     
-    LOG_DEBUG("Skipping subgraph preparation for now");
-
+    LOG_DEBUG("Creating content for each subgraph");
+    
+    // NOTE: La création directe de nœuds dans les sous-graphes cause un crash
+    // Il semble que le framework ne prenne pas en charge l'ajout de nœuds lors de l'initialisation des sous-graphes
+    // Les sous-graphes sont créés vides, l'utilisateur pourra ajouter des nœuds manuellement une fois dans le sous-graphe
+    
+    LOG_DEBUG("Skipping subgraph content creation - will be added manually by user");
+    LOG_DEBUG("All subgraphs are prepared but empty");
+    
+    // Recréer les nœuds du graphe principal
     int nodeTextureSet = editor.addNode("Texture Set", "Material", ANE::Vec2(500, 550));
     int nodeShaderPBR = editor.addNode("PBR Shader", "Material", ANE::Vec2(500, 640));
     int nodeVariants = editor.addNode("Variants", "Material", ANE::Vec2(500, 730));
@@ -363,11 +371,15 @@ int main(int argc, char** argv)
                 }
                 ImGui::Separator();
                 
-                ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.5f, 1.0f), "Geometry Processing (disabled)");
-                ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.5f, 1.0f), "Texturing Pipeline (disabled)");
-                ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.5f, 1.0f), "Shading System (disabled)");
-                ImGui::TextColored(ImVec4(1.0f, 0.4f, 0.4f, 1.0f), "Subgraph navigation disabled");
-                ImGui::TextColored(ImVec4(1.0f, 0.4f, 0.4f, 1.0f), "to prevent application crash");
+                if (ImGui::MenuItem("Geometry Processing")) {
+                    editor.enterSubgraph(geometrySubgraphId);
+                }
+                if (ImGui::MenuItem("Texturing Pipeline")) {
+                    editor.enterSubgraph(texturingSubgraphId);
+                }
+                if (ImGui::MenuItem("Shading System")) {
+                    editor.enterSubgraph(shadingSubgraphId);
+                }
                 
                 ImGui::EndMenu();
             }
@@ -411,7 +423,11 @@ int main(int argc, char** argv)
                     LOG_DEBUG("ERROR: Selected node is nullptr");
                 } else if (node->isSubgraph) {
                     LOG_DEBUG("Selected node is a subgraph, ID: %d, subgraphId: %d", node->id, node->subgraphId);
-                    LOG_DEBUG("Navigation to subgraph disabled to prevent crash");
+                    if (editor.enterSubgraph(node->subgraphId)) {
+                        LOG_DEBUG("Entered subgraph successfully, ID: %d", node->subgraphId);
+                    } else {
+                        LOG_DEBUG("Failed to enter subgraph, ID: %d", node->subgraphId);
+                    }
                 } else {
                     LOG_DEBUG("Selected node is not a subgraph");
                 }
@@ -490,12 +506,15 @@ int main(int argc, char** argv)
         if (ImGui::CollapsingHeader("Subgraphs", ImGuiTreeNodeFlags_DefaultOpen)) {
             ImGui::TextColored(ImVec4(0.7f, 0.7f, 1.0f, 1.0f), "Available Subgraphs:");
             
-            ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.5f, 1.0f), "Geometry Processing (disabled)");
-            ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.5f, 1.0f), "Texturing Pipeline (disabled)");
-            ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.5f, 1.0f), "Shading System (disabled)");
-            
-            ImGui::TextColored(ImVec4(1.0f, 0.4f, 0.4f, 1.0f), "Subgraph navigation disabled");
-            ImGui::TextColored(ImVec4(1.0f, 0.4f, 0.4f, 1.0f), "to prevent application crash");
+            if (ImGui::Button("Geometry Processing")) {
+                editor.enterSubgraph(geometrySubgraphId);
+            }
+            if (ImGui::Button("Texturing Pipeline")) {
+                editor.enterSubgraph(texturingSubgraphId);
+            }
+            if (ImGui::Button("Shading System")) {
+                editor.enterSubgraph(shadingSubgraphId);
+            }
 
             ImGui::Separator();
 
@@ -532,8 +551,9 @@ int main(int argc, char** argv)
                         ImGui::TextColored(ImVec4(0.5f, 0.8f, 0.5f, 1.0f), "This is a Subgraph Node");
                         ImGui::Text("Subgraph ID: %d", selectedNode->subgraphId);
 
-                        ImGui::TextColored(ImVec4(0.7f, 0.3f, 0.3f, 1.0f), "Enter Subgraph (disabled)");
-                        ImGui::TextColored(ImVec4(0.7f, 0.3f, 0.3f, 1.0f), "Navigation disabled to prevent crash");
+                        if (ImGui::Button("Enter Subgraph")) {
+                            editor.enterSubgraph(selectedNode->subgraphId);
+                        }
                     }
 
                     ImGui::Separator();
