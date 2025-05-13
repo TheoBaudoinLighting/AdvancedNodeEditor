@@ -22,7 +22,16 @@ void NodeEditor::endFrame() {
 }
 
 int NodeEditor::addNode(const std::string& name, const std::string& type, const Vec2& position) {
-    return m_editor.addNode(name, type, NodeEditorCore::convertToVec2(position));
+    int nodeId = m_editor.addNode(name, type, NodeEditorCore::convertToVec2(position));
+    
+    std::unordered_map<std::string, std::any> data;
+    data["nodeId"] = nodeId;
+    data["name"] = name;
+    data["type"] = type;
+    data["position"] = position;
+    dispatchAction("nodeAdded", data);
+    
+    return nodeId;
 }
 
 Node* NodeEditor::getNode(int nodeId) {
@@ -40,7 +49,19 @@ Node* NodeEditor::getNode(int nodeId) {
 }
 
 void NodeEditor::removeNode(int nodeId) {
-    m_editor.removeNode(nodeId);
+    Node* node = getNode(nodeId);
+    if (node) {
+        std::unordered_map<std::string, std::any> data;
+        data["nodeId"] = nodeId;
+        data["name"] = node->name;
+        data["type"] = node->type;
+        
+        m_editor.removeNode(nodeId);
+        
+        dispatchAction("nodeRemoved", data);
+    } else {
+        m_editor.removeNode(nodeId);
+    }
 }
 
 int NodeEditor::addPin(int nodeId, const std::string& name, bool isInput, PinType type, PinShape shape) {
@@ -58,11 +79,37 @@ Pin* NodeEditor::getPin(int nodeId, int pinId) {
 }
 
 int NodeEditor::addConnection(int startNodeId, int startPinId, int endNodeId, int endPinId) {
-    return m_editor.addConnection(startNodeId, startPinId, endNodeId, endPinId);
+    int connectionId = m_editor.addConnection(startNodeId, startPinId, endNodeId, endPinId);
+    
+    if (connectionId >= 0) {
+        std::unordered_map<std::string, std::any> data;
+        data["connectionId"] = connectionId;
+        data["startNodeId"] = startNodeId;
+        data["startPinId"] = startPinId;
+        data["endNodeId"] = endNodeId;
+        data["endPinId"] = endPinId;
+        dispatchAction("connectionAdded", data);
+    }
+    
+    return connectionId;
 }
 
 void NodeEditor::removeConnection(int connectionId) {
-    m_editor.removeConnection(connectionId);
+    NodeEditorCore::Connection* connection = m_editor.getConnection(connectionId);
+    if (connection) {
+        std::unordered_map<std::string, std::any> data;
+        data["connectionId"] = connectionId;
+        data["startNodeId"] = connection->startNodeId;
+        data["startPinId"] = connection->startPinId;
+        data["endNodeId"] = connection->endNodeId;
+        data["endPinId"] = connection->endPinId;
+        
+        m_editor.removeConnection(connectionId);
+        
+        dispatchAction("connectionRemoved", data);
+    } else {
+        m_editor.removeConnection(connectionId);
+    }
 }
 
 int NodeEditor::addGroup(const std::string& name, const Vec2& position, const Vec2& size) {
@@ -411,6 +458,10 @@ bool NodeEditor::enterSubgraph(int subgraphId) {
     
     saveSubgraphViewState(m_currentSubgraphId);
     
+    std::unordered_map<std::string, std::any> data;
+    data["previousSubgraphId"] = m_currentSubgraphId;
+    data["subgraphId"] = subgraphId;
+    
     if (m_currentSubgraphId >= 0) {
         m_subgraphStack.push(m_currentSubgraphId);
     }
@@ -419,8 +470,11 @@ bool NodeEditor::enterSubgraph(int subgraphId) {
     
     restoreSubgraphViewState(subgraphId);
     
+    dispatchAction("enterSubgraph", data);
+    
     return true;
 }
+
 
 bool NodeEditor::exitSubgraph() {
     if (m_currentSubgraphId < 0) {
@@ -429,16 +483,23 @@ bool NodeEditor::exitSubgraph() {
     
     saveSubgraphViewState(m_currentSubgraphId);
     
+    std::unordered_map<std::string, std::any> data;
+    data["previousSubgraphId"] = m_currentSubgraphId;
+    
     int parentSubgraphId = -1;  
     if (!m_subgraphStack.empty()) {
         parentSubgraphId = m_subgraphStack.top();
         m_subgraphStack.pop();
     }
     
+    data["subgraphId"] = parentSubgraphId;
+    
     m_currentSubgraphId = parentSubgraphId;
     m_editor.setCurrentSubgraphId(parentSubgraphId);
     
     restoreSubgraphViewState(m_currentSubgraphId);
+    
+    dispatchAction("exitSubgraph", data);
     
     return true;
 }

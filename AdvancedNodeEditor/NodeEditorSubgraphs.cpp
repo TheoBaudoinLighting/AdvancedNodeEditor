@@ -5,6 +5,7 @@ namespace NodeEditorCore {
 
     std::vector<int> NodeEditor::getNodesInSubgraph(int subgraphId) const {
         std::vector<int> result;
+        result.reserve(m_state.nodes.size());
 
         for (const auto& node : m_state.nodes) {
             if (node.getSubgraphId() == subgraphId) {
@@ -67,6 +68,37 @@ namespace NodeEditorCore {
 
     int NodeEditor::getCurrentSubgraphId() const {
         return m_state.currentSubgraphId;
+    }
+
+    bool NodeEditor::isNodeInCurrentSubgraph(const Node& node) const {
+        if (m_state.currentSubgraphId < 0) {
+            return node.getSubgraphId() == -1;
+        } else {
+            return node.getSubgraphId() == m_state.currentSubgraphId;
+        }
+    }
+
+    bool NodeEditor::isSubgraphContainer(const Node& node) const {
+        return node.isSubgraph;
+    }
+
+    bool NodeEditor::isNodeInSubgraph(const Node& node, int subgraphId) const {
+        return node.getSubgraphId() == subgraphId;
+    }
+
+    bool NodeEditorCore::NodeEditor::isSubgraphContainer(int nodeId) const {
+        const Node* node = getNode(nodeId);
+        return node ? node->isSubgraph : false;
+    }
+
+    int NodeEditorCore::NodeEditor::getSubgraphFromNode(int nodeId) const {
+        const Node* node = getNode(nodeId);
+        return (node && node->isSubgraph) ? node->subgraphId : -1;
+    }
+
+    int NodeEditorCore::NodeEditor::getNodeSubgraph(int nodeId) const {
+        const Node* node = getNode(nodeId);
+        return node ? node->getSubgraphId() : -1;
     }
 
 }

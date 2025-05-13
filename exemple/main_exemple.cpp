@@ -244,14 +244,9 @@ int main(int argc, char** argv)
     
     LOG_DEBUG("Creating content for each subgraph");
     
-    // NOTE: La création directe de nœuds dans les sous-graphes cause un crash
-    // Il semble que le framework ne prenne pas en charge l'ajout de nœuds lors de l'initialisation des sous-graphes
-    // Les sous-graphes sont créés vides, l'utilisateur pourra ajouter des nœuds manuellement une fois dans le sous-graphe
-    
     LOG_DEBUG("Skipping subgraph content creation - will be added manually by user");
     LOG_DEBUG("All subgraphs are prepared but empty");
     
-    // Recréer les nœuds du graphe principal
     int nodeTextureSet = editor.addNode("Texture Set", "Material", ANE::Vec2(500, 550));
     int nodeShaderPBR = editor.addNode("PBR Shader", "Material", ANE::Vec2(500, 640));
     int nodeVariants = editor.addNode("Variants", "Material", ANE::Vec2(500, 730));

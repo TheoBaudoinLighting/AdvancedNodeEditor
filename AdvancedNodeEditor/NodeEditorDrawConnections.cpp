@@ -8,8 +8,10 @@ namespace NodeEditorCore {
 
         if (currentSubgraphId >= 0) {
             std::vector<int> connectionIds = getConnectionsInSubgraph(currentSubgraphId);
+            std::unordered_set<int> connectionIdSet(connectionIds.begin(), connectionIds.end());
+
             for (const auto& connection : m_state.connections) {
-                if (std::find(connectionIds.begin(), connectionIds.end(), connection.id) != connectionIds.end()) {
+                if (connectionIdSet.find(connection.id) != connectionIdSet.end()) {
                     visibleConnections.push_back(connection);
                 }
             }
