@@ -7,6 +7,7 @@
 #include <unordered_set>
 #include <functional>
 #include <memory>
+#include <algorithm>
 
 namespace NodeEditorCore {
 

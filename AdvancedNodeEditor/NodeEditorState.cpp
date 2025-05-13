@@ -198,12 +198,4 @@ int NodeEditor::getHoveredGroupId() const {
     return m_state.hoveredGroupId;
 }
 
-void NodeEditor::setCurrentSubgraphId(int subgraphId) {
-    m_state.currentSubgraphId = subgraphId;
-}
-
-int NodeEditor::getCurrentSubgraphId() const {
-    return m_state.currentSubgraphId;
-}
-
 }

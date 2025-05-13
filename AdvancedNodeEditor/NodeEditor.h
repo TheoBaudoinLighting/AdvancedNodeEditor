@@ -99,6 +99,9 @@ public:
     
     void saveSubgraphViewState(int subgraphId);
     void restoreSubgraphViewState(int subgraphId);
+    
+    void setCurrentSubgraphId(int subgraphId);
+    int getCurrentSubgraphId() const;
 
 private:
     struct State {
@@ -177,14 +180,89 @@ private:
 
     ImU32 ImLerpColor(ImU32 col_a, ImU32 col_b, float t);
     ImVec2 ImBezierCubicCalc(const ImVec2& p1, const ImVec2& p2, const ImVec2& p3, const ImVec2& p4, float t);
-    
-    void setCurrentSubgraphId(int subgraphId);
-    int getCurrentSubgraphId() const;
 };
 
 }
 
 namespace ANE {
+
+struct NodeTypeInfo {
+    std::string name;
+    std::string category;
+    std::string description;
+    std::function<Node*(const Vec2&)> builder;
+};
+
+using NodeEvaluateCallback = std::function<void(Node&, const std::unordered_map<std::string, std::any>&)>;
+using ActionCallback = std::function<void(const std::string&, const std::unordered_map<std::string, std::any>&)>;
+using NodeOverlayCallback = std::function<void(ImDrawList*, const Node&, const ImVec2&)>;
+
+class NodeEvaluationContext {
+public:
+    void setValue(const std::string& key, const std::any& value) {
+        m_values[key] = value;
+    }
+    
+    template<typename T>
+    T getValue(const std::string& key, const T& defaultValue = T()) const {
+        auto it = m_values.find(key);
+        if (it != m_values.end()) {
+            try {
+                return std::any_cast<T>(it->second);
+            } catch (const std::bad_any_cast&) {
+            }
+        }
+        return defaultValue;
+    }
+    
+    std::unordered_map<std::string, std::any> getValues() const {
+        return m_values;
+    }
+    
+private:
+    std::unordered_map<std::string, std::any> m_values;
+};
+
+struct SerializedNode {
+    int id;
+    std::string name;
+    std::string type;
+    Vec2 position;
+    Vec2 size;
+    bool isSubgraph;
+    int subgraphId;
+    std::vector<std::unordered_map<std::string, std::any>> inputs;
+    std::vector<std::unordered_map<std::string, std::any>> outputs;
+    std::unordered_map<std::string, std::any> metadata;
+};
+
+struct SerializedConnection {
+    int id;
+    int startNodeId;
+    int startPinId;
+    int endNodeId;
+    int endPinId;
+    std::unordered_map<std::string, std::any> metadata;
+};
+
+struct SerializedSubgraph {
+    int id;
+    std::string name;
+    std::vector<int> nodeIds;
+    std::vector<int> connectionIds;
+    std::vector<int> groupIds;
+    std::vector<int> interfaceInputs;
+    std::vector<int> interfaceOutputs;
+    Vec2 viewPosition;
+    float viewScale;
+    std::unordered_map<std::string, std::any> metadata;
+};
+
+struct SerializedState {
+    std::vector<SerializedNode> nodes;
+    std::vector<SerializedConnection> connections;
+    std::vector<SerializedSubgraph> subgraphs;
+};
 
 class NodeEditor {
 public:
@@ -217,11 +295,25 @@ public:
     void centerView();
     void setViewScale(float scale);
     float getViewScale() const;
+    void setViewPosition(const Vec2& position);
+    Vec2 getViewPosition() const;
 
     void setStyle(const EditorStyle& style);
     EditorStyle getStyle() const;
 
     void setCanConnectCallback(CanConnectCallback callback);
+    void setNodeEvaluateCallback(NodeEvaluateCallback callback);
+    void evaluateNode(int nodeId, const NodeEvaluationContext& context = NodeEvaluationContext());
+    void setActionCallback(ActionCallback callback);
+    void dispatchAction(const std::string& action, const std::unordered_map<std::string, std::any>& data = {});
+    void setNodeOverlayCallback(NodeOverlayCallback callback);
+
+    void registerNodeType(const std::string& type, const std::string& category, const std::string& description, std::function<Node*(const Vec2&)> builder);
+    std::vector<NodeTypeInfo> getRegisteredNodeTypes() const;
+    Node* createNodeOfType(const std::string& type, const Vec2& position);
+
+    SerializedState serialize() const;
+    void deserialize(const SerializedState& state);
 
     int createSubgraph(const std::string& name);
     Subgraph* getSubgraph(int subgraphId);
@@ -234,13 +326,9 @@ public:
     std::vector<int> getSubgraphStack() const;
 
     void exposeNodeInput(int nodeId, int pinId);
-
     void exposeNodeOutput(int nodeId, int pinId);
-
     void unexposeNodeInput(int nodeId, int pinId);
-
     void unexposeNodeOutput(int nodeId, int pinId);
-
     void saveSubgraphViewState(int subgraphId);
     void restoreSubgraphViewState(int subgraphId);
 
@@ -249,20 +337,19 @@ private:
     std::stack<int> m_subgraphStack;
     int m_currentSubgraphId;
     std::map<int, std::shared_ptr<Subgraph>> m_subgraphs;
+    NodeEvaluateCallback m_nodeEvaluateCallback;
+    ActionCallback m_actionCallback;
+    NodeOverlayCallback m_nodeOverlayCallback;
+    std::unordered_map<std::string, NodeTypeInfo> m_registeredNodeTypes;
 
     NodeEditorCore::NodeEditorStyle convertToInternalStyle(const EditorStyle& style) const;
     EditorStyle convertToAPIStyle(const NodeEditorCore::NodeEditorStyle& style) const;
 
     void addNodeToSubgraph(int nodeId, int subgraphId);
-
     void removeNodeFromSubgraph(int nodeId, int subgraphId);
-
     void addConnectionToSubgraph(int connectionId, int subgraphId);
-
     void removeConnectionFromSubgraph(int connectionId, int subgraphId);
-
     std::vector<int> getNodesInSubgraph(int subgraphId) const;
-
     std::vector<int> getConnectionsInSubgraph(int subgraphId) const;
 
     struct ConnectionInfo {

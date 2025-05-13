@@ -1,6 +1,5 @@
 #include "NodeEditor.h"
 #include "Conversions.h"
-#include "NodeEditorModel.h"
 
 namespace ANE {
 
@@ -110,6 +109,15 @@ float NodeEditor::getViewScale() const {
     return m_editor.getViewScale();
 }
 
+void NodeEditor::setViewPosition(const Vec2& position) {
+    m_editor.setViewPosition(NodeEditorCore::convertToVec2(position));
+}
+
+Vec2 NodeEditor::getViewPosition() const {
+    NodeEditorCore::Vec2 pos = m_editor.getViewPosition();
+    return Vec2(pos.x, pos.y);
+}
+
 void NodeEditor::setStyle(const EditorStyle& style) {
     m_editor.setStyle(NodeEditorCore::convertToInternalStyle(style));
 }
@@ -126,6 +134,208 @@ void NodeEditor::setCanConnectCallback(CanConnectCallback callback) {
     }
     else {
         m_editor.setCanConnectCallback(nullptr);
+    }
+}
+
+void NodeEditor::setNodeEvaluateCallback(NodeEvaluateCallback callback) {
+    m_nodeEvaluateCallback = callback;
+}
+
+void NodeEditor::evaluateNode(int nodeId, const NodeEvaluationContext& context) {
+    Node* node = getNode(nodeId);
+    if (node && m_nodeEvaluateCallback) {
+        m_nodeEvaluateCallback(*node, context.getValues());
+    }
+}
+
+void NodeEditor::setActionCallback(ActionCallback callback) {
+    m_actionCallback = callback;
+}
+
+void NodeEditor::dispatchAction(const std::string& action, const std::unordered_map<std::string, std::any>& data) {
+    if (m_actionCallback) {
+        m_actionCallback(action, data);
+    }
+}
+
+void NodeEditor::setNodeOverlayCallback(NodeOverlayCallback callback) {
+    m_nodeOverlayCallback = callback;
+}
+
+void NodeEditor::registerNodeType(const std::string& type, const std::string& category, const std::string& description, std::function<Node*(const Vec2&)> builder) {
+    NodeTypeInfo info;
+    info.name = type;
+    info.category = category;
+    info.description = description;
+    info.builder = builder;
+    m_registeredNodeTypes[type] = info;
+}
+
+std::vector<NodeTypeInfo> NodeEditor::getRegisteredNodeTypes() const {
+    std::vector<NodeTypeInfo> types;
+    for (const auto& pair : m_registeredNodeTypes) {
+        types.push_back(pair.second);
+    }
+    return types;
+}
+
+Node* NodeEditor::createNodeOfType(const std::string& type, const Vec2& position) {
+    auto it = m_registeredNodeTypes.find(type);
+    if (it != m_registeredNodeTypes.end()) {
+        return it->second.builder(position);
+    }
+    return nullptr;
+}
+
+SerializedState NodeEditor::serialize() const {
+    SerializedState state;
+    
+    for (const auto& node : m_editor.getNodes()) {
+        SerializedNode serializedNode;
+        serializedNode.id = node.id;
+        serializedNode.name = node.name;
+        serializedNode.type = node.type;
+        serializedNode.position = NodeEditorCore::convertToANEVec2(node.position);
+        serializedNode.size = NodeEditorCore::convertToANEVec2(node.size);
+        serializedNode.isSubgraph = node.isSubgraph;
+        serializedNode.subgraphId = node.subgraphId;
+        
+        for (const auto& pin : node.inputs) {
+            std::unordered_map<std::string, std::any> serializedPin;
+            serializedPin["id"] = pin.id;
+            serializedPin["name"] = pin.name;
+            serializedPin["type"] = static_cast<int>(pin.type);
+            serializedPin["shape"] = static_cast<int>(pin.shape);
+            serializedNode.inputs.push_back(serializedPin);
+        }
+        
+        for (const auto& pin : node.outputs) {
+            std::unordered_map<std::string, std::any> serializedPin;
+            serializedPin["id"] = pin.id;
+            serializedPin["name"] = pin.name;
+            serializedPin["type"] = static_cast<int>(pin.type);
+            serializedPin["shape"] = static_cast<int>(pin.shape);
+            serializedNode.outputs.push_back(serializedPin);
+        }
+        
+        for (const auto& pair : node.metadata.attributes) {
+            serializedNode.metadata[pair.first] = pair.second;
+        }
+        
+        state.nodes.push_back(serializedNode);
+    }
+    
+    for (const auto& connection : m_editor.getConnections()) {
+        SerializedConnection serializedConnection;
+        serializedConnection.id = connection.id;
+        serializedConnection.startNodeId = connection.startNodeId;
+        serializedConnection.startPinId = connection.startPinId;
+        serializedConnection.endNodeId = connection.endNodeId;
+        serializedConnection.endPinId = connection.endPinId;
+        
+        for (const auto& pair : connection.metadata.attributes) {
+            serializedConnection.metadata[pair.first] = pair.second;
+        }
+        
+        state.connections.push_back(serializedConnection);
+    }
+    
+    for (const auto& pair : m_subgraphs) {
+        const auto& subgraph = pair.second;
+        
+        SerializedSubgraph serializedSubgraph;
+        serializedSubgraph.id = subgraph->id;
+        serializedSubgraph.name = subgraph->name;
+        serializedSubgraph.nodeIds = subgraph->nodeIds;
+        serializedSubgraph.connectionIds = subgraph->connectionIds;
+        serializedSubgraph.groupIds = subgraph->groupIds;
+        serializedSubgraph.interfaceInputs = subgraph->interfaceInputs;
+        serializedSubgraph.interfaceOutputs = subgraph->interfaceOutputs;
+        serializedSubgraph.viewPosition = subgraph->viewPosition;
+        serializedSubgraph.viewScale = subgraph->viewScale;
+        
+        for (const auto& metaPair : subgraph->metadata.attributes) {
+            serializedSubgraph.metadata[metaPair.first] = metaPair.second;
+        }
+        
+        state.subgraphs.push_back(serializedSubgraph);
+    }
+    
+    return state;
+}
+
+void NodeEditor::deserialize(const SerializedState& state) {
+    for (const auto& node : m_editor.getNodes()) {
+        m_editor.removeNode(node.id);
+    }
+    
+    m_subgraphs.clear();
+    
+    for (const auto& serializedNode : state.nodes) {
+        int nodeId = m_editor.addNode(serializedNode.name, serializedNode.type, NodeEditorCore::convertToVec2(serializedNode.position));
+        Node* node = getNode(nodeId);
+        if (node) {
+            node->setAsSubgraph(serializedNode.isSubgraph, serializedNode.subgraphId);
+            
+            for (const auto& serializedPin : serializedNode.inputs) {
+                m_editor.addPin(
+                    nodeId,
+                    std::any_cast<std::string>(serializedPin.at("name")),
+                    true,
+                    NodeEditorCore::convertToPinType(static_cast<PinType>(std::any_cast<int>(serializedPin.at("type")))),
+                    NodeEditorCore::convertToPinShape(static_cast<PinShape>(std::any_cast<int>(serializedPin.at("shape"))))
+                );
+            }
+
+            for (const auto& serializedPin : serializedNode.outputs) {
+                m_editor.addPin(
+                    nodeId,
+                    std::any_cast<std::string>(serializedPin.at("name")),
+                    false,
+                    NodeEditorCore::convertToPinType(static_cast<PinType>(std::any_cast<int>(serializedPin.at("type")))),
+                    NodeEditorCore::convertToPinShape(static_cast<PinShape>(std::any_cast<int>(serializedPin.at("shape"))))
+                );
+            }
+            
+            for (const auto& pair : serializedNode.metadata) {
+                node->metadata.setAttribute(pair.first, pair.second);
+            }
+        }
+    }
+    
+    for (const auto& serializedConnection : state.connections) {
+        int connectionId = m_editor.addConnection(
+            serializedConnection.startNodeId,
+            serializedConnection.startPinId,
+            serializedConnection.endNodeId,
+            serializedConnection.endPinId
+        );
+        
+        if (connectionId >= 0) {
+            NodeEditorCore::Connection* connection = m_editor.getConnection(connectionId);
+            if (connection) {
+                for (const auto& pair : serializedConnection.metadata) {
+                    connection->metadata.setAttribute(pair.first, pair.second);
+                }
+            }
+        }
+    }
+    
+    for (const auto& serializedSubgraph : state.subgraphs) {
+        auto subgraph = std::make_shared<Subgraph>(serializedSubgraph.id, serializedSubgraph.name);
+        subgraph->nodeIds = serializedSubgraph.nodeIds;
+        subgraph->connectionIds = serializedSubgraph.connectionIds;
+        subgraph->groupIds = serializedSubgraph.groupIds;
+        subgraph->interfaceInputs = serializedSubgraph.interfaceInputs;
+        subgraph->interfaceOutputs = serializedSubgraph.interfaceOutputs;
+        subgraph->viewPosition = serializedSubgraph.viewPosition;
+        subgraph->viewScale = serializedSubgraph.viewScale;
+        
+        for (const auto& pair : serializedSubgraph.metadata) {
+            subgraph->metadata.setAttribute(pair.first, pair.second);
+        }
+        
+        m_subgraphs[serializedSubgraph.id] = subgraph;
     }
 }
 
@@ -205,6 +415,7 @@ bool NodeEditor::enterSubgraph(int subgraphId) {
         m_subgraphStack.push(m_currentSubgraphId);
     }
     m_currentSubgraphId = subgraphId;
+    m_editor.setCurrentSubgraphId(subgraphId);
     
     restoreSubgraphViewState(subgraphId);
     
@@ -225,6 +436,7 @@ bool NodeEditor::exitSubgraph() {
     }
     
     m_currentSubgraphId = parentSubgraphId;
+    m_editor.setCurrentSubgraphId(parentSubgraphId);
     
     restoreSubgraphViewState(m_currentSubgraphId);
     
@@ -345,6 +557,10 @@ void NodeEditor::addNodeToSubgraph(int nodeId, int subgraphId) {
     }
     
     it->second->addNode(nodeId);
+    NodeEditorCore::Node* internalNode = m_editor.getNode(nodeId);
+    if (internalNode) {
+        internalNode->setSubgraphId(subgraphId);
+    }
 }
 
 void NodeEditor::removeNodeFromSubgraph(int nodeId, int subgraphId) {
@@ -359,6 +575,10 @@ void NodeEditor::removeNodeFromSubgraph(int nodeId, int subgraphId) {
     }
     
     it->second->removeNode(nodeId);
+    NodeEditorCore::Node* internalNode = m_editor.getNode(nodeId);
+    if (internalNode) {
+        internalNode->setSubgraphId(-1);
+    }
     
     std::vector<int> connectionsToRemove;
     for (int connectionId : getConnectionsInSubgraph(subgraphId)) {
@@ -370,6 +590,10 @@ void NodeEditor::removeNodeFromSubgraph(int nodeId, int subgraphId) {
     
     for (int connectionId : connectionsToRemove) {
         it->second->removeConnection(connectionId);
+        NodeEditorCore::Connection* connection = m_editor.getConnection(connectionId);
+        if (connection) {
+            connection->setSubgraphId(-1);
+        }
     }
 }
 
@@ -380,6 +604,10 @@ void NodeEditor::addConnectionToSubgraph(int connectionId, int subgraphId) {
     }
     
     it->second->addConnection(connectionId);
+    NodeEditorCore::Connection* connection = m_editor.getConnection(connectionId);
+    if (connection) {
+        connection->setSubgraphId(subgraphId);
+    }
 }
 
 void NodeEditor::removeConnectionFromSubgraph(int connectionId, int subgraphId) {
@@ -389,6 +617,10 @@ void NodeEditor::removeConnectionFromSubgraph(int connectionId, int subgraphId) 
     }
     
     it->second->removeConnection(connectionId);
+    NodeEditorCore::Connection* connection = m_editor.getConnection(connectionId);
+    if (connection) {
+        connection->setSubgraphId(-1);
+    }
 }
 
 std::vector<int> NodeEditor::getNodesInSubgraph(int subgraphId) const {
