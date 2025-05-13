@@ -50,7 +50,7 @@ void NodeEditor::drawPinShape(ImDrawList* drawList, const ImVec2& center, float 
     if (isHovered) {
         ImU32 hoverEffectColor = IM_COL32(255, 255, 255, 100);
         
-        float hoverRadius = radius * 1.6f;
+        float hoverRadius = radius * 1.9f;
         
         switch (shape) {
             case PinShape::Square:
@@ -87,7 +87,9 @@ void NodeEditor::drawPinShape(ImDrawList* drawList, const ImVec2& center, float 
                 break;
         }
     }
-    
+
+    borderThickness = std::max(1.5f, borderThickness);
+
     switch (shape) {
         case PinShape::Square:
             drawList->AddRectFilled(

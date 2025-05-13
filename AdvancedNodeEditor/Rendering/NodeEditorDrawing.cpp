@@ -34,11 +34,16 @@ void NodeEditor::drawDragConnection(ImDrawList* drawList, const ImVec2& canvasPo
     float distance = std::abs(p2.y - p1.y);
     float cpOffset = std::max(50.0f, distance * 0.5f);
 
-    ImVec2 cp1 = ImVec2(p1.x, p1.y + cpOffset);
-    ImVec2 cp2 = ImVec2(p2.x, p2.y - cpOffset);
+    ImVec2 cp1, cp2;
+    if (pinInternal->isInput) {
+        cp1 = ImVec2(p1.x, p1.y - cpOffset);
+        cp2 = ImVec2(p2.x, p2.y + cpOffset);
+    } else {
+        cp1 = ImVec2(p1.x, p1.y + cpOffset);
+        cp2 = ImVec2(p2.x, p2.y - cpOffset);
+    }
 
     drawList->AddBezierCubic(p1, cp1, cp2, p2, outerColor, thickness + 1.5f);
-
     drawList->AddBezierCubic(p1, cp1, cp2, p2, dragColor, thickness);
 
     ImVec4 brightColor = ImGui::ColorConvertU32ToFloat4(dragColor);
@@ -62,7 +67,7 @@ void NodeEditor::drawDragConnection(ImDrawList* drawList, const ImVec2& canvasPo
 }
 
 void NodeEditor::drawNodePins(ImDrawList* drawList, const Node& node, const ImVec2& nodePos, const ImVec2& nodeSize, const ImVec2& canvasPos) {
-    float pinRadius = m_state.style.pinRadius * m_state.viewScale;
+    float pinRadius = m_state.style.pinRadius * m_state.viewScale * 1.2f;
 
     for (size_t i = 0; i < node.inputs.size(); ++i) {
         const auto& pinInternal = node.inputs[i];

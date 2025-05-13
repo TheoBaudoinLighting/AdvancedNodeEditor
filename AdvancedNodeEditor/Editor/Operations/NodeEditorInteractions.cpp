@@ -74,7 +74,7 @@ namespace NodeEditorCore {
                 const Node *node = getNode(m_state.hoveredNodeId);
                 if (node) {
                     const Pin *pin = node->findPin(m_state.hoveredPinId);
-                    if (pin && !pin->isInput) {
+                    if (pin) {
                         startConnectionDrag(m_state.hoveredNodeId, m_state.hoveredPinId);
                         return;
                     }
@@ -560,7 +560,7 @@ namespace NodeEditorCore {
         ImVec2 mousePos = ImGui::GetMousePos();
         float pinRadius = m_state.style.pinRadius * m_state.viewScale;
 
-        float clickableRadius = pinRadius * 2.0f;
+        float clickableRadius = pinRadius * 3.0f;
 
         float dx = mousePos.x - pinPos.x;
         float dy = mousePos.y - pinPos.y;
@@ -572,10 +572,21 @@ namespace NodeEditorCore {
 
         ImVec2 mousePos = ImGui::GetMousePos();
 
+        const Node *sourceNode = getNode(m_state.connectingNodeId);
+        if (!sourceNode) return;
+
+        const Pin *sourcePinInternal = sourceNode->findPin(m_state.connectingPinId);
+        if (!sourcePinInternal) return;
+
+        bool isSourceInput = sourcePinInternal->isInput;
+
         for (const auto &node: m_state.nodes) {
             if (node.id == m_state.connectingNodeId) continue;
 
-            for (const auto &pinInternal: node.inputs) {
+            // Parcourir les pins opposés au type du pin source
+            const auto &pins = isSourceInput ? node.outputs : node.inputs;
+
+            for (const auto &pinInternal: pins) {
                 ANE::Pin apiPin;
                 apiPin.id = pinInternal.id;
                 apiPin.name = pinInternal.name;
@@ -584,19 +595,6 @@ namespace NodeEditorCore {
                 apiPin.shape = static_cast<ANE::PinShape>(pinInternal.shape);
 
                 if (isPinHovered(node, apiPin, ImGui::GetWindowPos())) {
-                    const Node *sourceNode = getNode(m_state.connectingNodeId);
-                    if (!sourceNode) return;
-
-                    const Pin *sourcePinInternal = nullptr;
-                    for (const auto &p: sourceNode->outputs) {
-                        if (p.id == m_state.connectingPinId) {
-                            sourcePinInternal = &p;
-                            break;
-                        }
-                    }
-
-                    if (!sourcePinInternal) return;
-
                     ANE::Pin sourceApiPin;
                     sourceApiPin.id = sourcePinInternal->id;
                     sourceApiPin.name = sourcePinInternal->name;
@@ -604,57 +602,18 @@ namespace NodeEditorCore {
                     sourceApiPin.type = static_cast<ANE::PinType>(sourcePinInternal->type);
                     sourceApiPin.shape = static_cast<ANE::PinShape>(sourcePinInternal->shape);
 
-                    if (canCreateConnection(sourceApiPin, apiPin)) {
+                    if (canCreateConnection(isSourceInput ? apiPin : sourceApiPin,
+                                            isSourceInput ? sourceApiPin : apiPin)) {
                         ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
 
                         if (ImGui::IsMouseReleased(ImGuiMouseButton_Left)) {
-                            createConnection(m_state.connectingNodeId, m_state.connectingPinId, node.id,
-                                             pinInternal.id);
-                            m_state.connecting = false;
-                            m_state.connectingNodeId = -1;
-                            m_state.connectingPinId = -1;
-                        }
-
-                        return;
-                    }
-                }
-            }
-
-            for (const auto &pinInternal: node.outputs) {
-                ANE::Pin apiPin;
-                apiPin.id = pinInternal.id;
-                apiPin.name = pinInternal.name;
-                apiPin.isInput = pinInternal.isInput;
-                apiPin.type = static_cast<ANE::PinType>(pinInternal.type);
-                apiPin.shape = static_cast<ANE::PinShape>(pinInternal.shape);
-
-                if (isPinHovered(node, apiPin, ImGui::GetWindowPos())) {
-                    const Node *targetNode = getNode(m_state.connectingNodeId);
-                    if (!targetNode) return;
-
-                    const Pin *targetPinInternal = nullptr;
-                    for (const auto &p: targetNode->inputs) {
-                        if (p.id == m_state.connectingPinId) {
-                            targetPinInternal = &p;
-                            break;
-                        }
-                    }
-
-                    if (!targetPinInternal) return;
-
-                    ANE::Pin targetApiPin;
-                    targetApiPin.id = targetPinInternal->id;
-                    targetApiPin.name = targetPinInternal->name;
-                    targetApiPin.isInput = targetPinInternal->isInput;
-                    targetApiPin.type = static_cast<ANE::PinType>(targetPinInternal->type);
-                    targetApiPin.shape = static_cast<ANE::PinShape>(targetPinInternal->shape);
-
-                    if (canCreateConnection(apiPin, targetApiPin)) {
-                        ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
-
-                        if (ImGui::IsMouseReleased(ImGuiMouseButton_Left)) {
-                            createConnection(node.id, pinInternal.id, m_state.connectingNodeId,
-                                             m_state.connectingPinId);
+                            if (isSourceInput) {
+                                createConnection(node.id, pinInternal.id,
+                                                 m_state.connectingNodeId, m_state.connectingPinId);
+                            } else {
+                                createConnection(m_state.connectingNodeId, m_state.connectingPinId,
+                                                 node.id, pinInternal.id);
+                            }
                             m_state.connecting = false;
                             m_state.connectingNodeId = -1;
                             m_state.connectingPinId = -1;

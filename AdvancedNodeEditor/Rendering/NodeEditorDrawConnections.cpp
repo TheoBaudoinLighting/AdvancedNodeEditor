@@ -101,8 +101,20 @@ namespace NodeEditorCore {
             float distance = std::abs(p2.y - p1.y);
             float controlPointYOffset = std::max(distance * 0.5f, 40.0f);
 
-            ImVec2 cp1 = ImVec2(p1.x, p1.y + controlPointYOffset);
-            ImVec2 cp2 = ImVec2(p2.x, p2.y - controlPointYOffset);
+            ImVec2 cp1, cp2;
+            if (startPinInternal->isInput && endPinInternal->isInput) {
+                cp1 = ImVec2(p1.x, p1.y - controlPointYOffset);
+                cp2 = ImVec2(p2.x, p2.y - controlPointYOffset);
+            } else if (!startPinInternal->isInput && !endPinInternal->isInput) {
+                cp1 = ImVec2(p1.x, p1.y + controlPointYOffset);
+                cp2 = ImVec2(p2.x, p2.y + controlPointYOffset);
+            } else if (startPinInternal->isInput && !endPinInternal->isInput) {
+                cp1 = ImVec2(p1.x, p1.y - controlPointYOffset);
+                cp2 = ImVec2(p2.x, p2.y + controlPointYOffset);
+            } else {
+                cp1 = ImVec2(p1.x, p1.y + controlPointYOffset);
+                cp2 = ImVec2(p2.x, p2.y - controlPointYOffset);
+            }
 
             const float outerThickness = 3.5f * m_state.viewScale;
             drawList->AddBezierCubic(p1, cp1, cp2, p2, outerColor, outerThickness);

@@ -116,15 +116,19 @@ bool NodeEditor::canCreateConnection(const ANE::Pin& startPin, const ANE::Pin& e
            static_cast<PinType>(endPin.type) == PinType::Blue;
 }
 
-void NodeEditor::createConnection(int startNodeId, int startPinId, int endNodeId, int endPinId) {
+    void NodeEditor::createConnection(int startNodeId, int startPinId, int endNodeId, int endPinId) {
     const ANE::Pin* apiStartPin = getPin(startNodeId, startPinId);
     const ANE::Pin* apiEndPin = getPin(endNodeId, endPinId);
 
     if (!apiStartPin || !apiEndPin) return;
 
-    if (apiStartPin->isInput) {
+    if (apiStartPin->isInput && !apiEndPin->isInput) {
         std::swap(startNodeId, endNodeId);
         std::swap(startPinId, endPinId);
+    } else if (apiStartPin->isInput && apiEndPin->isInput) {
+        return;
+    } else if (!apiStartPin->isInput && !apiEndPin->isInput) {
+        return;
     }
 
     addConnection(startNodeId, startPinId, endNodeId, endPinId, "");
