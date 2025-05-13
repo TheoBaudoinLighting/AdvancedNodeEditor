@@ -18,10 +18,16 @@ namespace ANE {
     public:
         struct ConnectionInfo {
             int connectionId;
+            ANE::UUID connectionUuid;
             int sourceNodeId;
+            ANE::UUID sourceNodeUuid;
             int sourcePinId;
+            ANE::UUID sourcePinUuid;
             int targetNodeId;
+            ANE::UUID targetNodeUuid;
             int targetPinId;
+            ANE::UUID targetPinUuid;
+            ConnectionInfo();
         };
 
         NodeEvaluator(NodeEditorCore::NodeEditor& editor) : m_editor(editor) {
@@ -124,6 +130,18 @@ namespace ANE {
 
             return result;
         }
+
+        std::vector<NodeEvaluator::ConnectionInfo> getInputConnections(NodeEditor &editor, int nodeId);
+
+        std::vector<NodeEvaluator::ConnectionInfo> getInputConnectionsByUUID(NodeEditor &editor, const UUID &nodeUuid);
+
+        std::vector<NodeEvaluator::ConnectionInfo> getOutputConnections(NodeEditor &editor, int nodeId);
+
+        std::vector<NodeEvaluator::ConnectionInfo> getOutputConnectionsByUUID(NodeEditor &editor, const UUID &nodeUuid);
+
+        std::vector<int> getEvaluationOrder(NodeEditor &editor);
+
+        std::vector<UUID> getEvaluationOrderUUIDs(NodeEditor &editor);
 
     private:
         NodeEditorCore::NodeEditor& m_editor;

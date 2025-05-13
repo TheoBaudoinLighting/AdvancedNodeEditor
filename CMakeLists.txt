@@ -42,6 +42,10 @@ add_executable(AdvancedNodeEditor
         AdvancedNodeEditor/Evaluation/NodeEditorEvaluation.h
         AdvancedNodeEditor/Evaluation/NodeEditorEvaluation.cpp
         AdvancedNodeEditor/Core/Style/InteractionMode.h
+        AdvancedNodeEditor/Utils/UuidGenerator.h
+        AdvancedNodeEditor/Core/Types/UuidTypes.h
+        AdvancedNodeEditor/Core/Types/SerializedTypes.h
+        AdvancedNodeEditor/Evaluation/NodeEvaluator.h
 )
 
 # === FetchContent for ImGui and SDL2 ===

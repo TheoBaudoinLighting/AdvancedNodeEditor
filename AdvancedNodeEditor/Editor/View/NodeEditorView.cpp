@@ -58,16 +58,16 @@ NodeEditorView::NodeEditorView(std::shared_ptr<INodeEditorController> controller
         m_coreEditor->removeGroup(groupId);
     });
     
-    m_coreEditor->setNodeCreatedCallback([this](int nodeId) {
+    m_coreEditor->setNodeCreatedCallback([this](int nodeId, const ANE::UUID& nodeUuid) {
     });
     
-    m_coreEditor->setNodeRemovedCallback([this](int nodeId) {
+    m_coreEditor->setNodeRemovedCallback([this](int nodeId, const ANE::UUID& nodeUuid) {
     });
     
-    m_coreEditor->setConnectionCreatedCallback([this](int connectionId) {
+    m_coreEditor->setConnectionCreatedCallback([this](int connectionId, const ANE::UUID& connectionUuid) {
     });
     
-    m_coreEditor->setConnectionRemovedCallback([this](int connectionId) {
+    m_coreEditor->setConnectionRemovedCallback([this](int connectionId, const ANE::UUID& connectionUuid) {
     });
     
     addLayer("Grid", 0, [this](ImDrawList* drawList, const ImVec2& canvasPos) {

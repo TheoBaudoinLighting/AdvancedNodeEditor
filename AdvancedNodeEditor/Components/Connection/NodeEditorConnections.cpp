@@ -3,44 +3,6 @@
 
 namespace NodeEditorCore {
 
-int NodeEditor::addConnection(int startNodeId, int startPinId, int endNodeId, int endPinId) {
-    if (doesConnectionExist(startNodeId, startPinId, endNodeId, endPinId)) {
-        return -1;
-    }
-
-    const ANE::Pin* apiStartPin = getPin(startNodeId, startPinId);
-    const ANE::Pin* apiEndPin = getPin(endNodeId, endPinId);
-
-    if (!apiStartPin || !apiEndPin) {
-        return -1;
-    }
-
-    if (apiStartPin->isInput || !apiEndPin->isInput) {
-        return -1;
-    }
-
-    if (!canCreateConnection(*apiStartPin, *apiEndPin)) {
-        return -1;
-    }
-
-    int connectionId = m_state.nextConnectionId++;
-    m_state.connections.emplace_back(connectionId, startNodeId, startPinId, endNodeId, endPinId);
-
-    Node* startNode = getNode(startNodeId);
-    Node* endNode = getNode(endNodeId);
-    Pin* startPinInternal = startNode ? startNode->findPin(startPinId) : nullptr;
-    Pin* endPinInternal = endNode ? endNode->findPin(endPinId) : nullptr;
-
-    if (startPinInternal) startPinInternal->connected = true;
-    if (endPinInternal) endPinInternal->connected = true;
-
-    if (m_state.connectionCreatedCallback) {
-        m_state.connectionCreatedCallback(connectionId);
-    }
-
-    return connectionId;
-}
-
 void NodeEditor::removeConnection(int connectionId) {
     auto it = std::find_if(m_state.connections.begin(), m_state.connections.end(),
                           [connectionId](const Connection& conn) { return conn.id == connectionId; });
@@ -70,11 +32,14 @@ void NodeEditor::removeConnection(int connectionId) {
         if (startPinInternal && !startPinConnected) startPinInternal->connected = false;
         if (endPinInternal && !endPinConnected) endPinInternal->connected = false;
 
+        ANE::UUID connectionUuid = it->uuid;
+
         if (m_state.connectionRemovedCallback) {
-            m_state.connectionRemovedCallback(connectionId);
+            m_state.connectionRemovedCallback(connectionId, connectionUuid);
         }
 
         m_state.connections.erase(it);
+        updateConnectionUuidMap();
     }
 }
 
@@ -104,6 +69,16 @@ bool NodeEditor::isConnected(int nodeId, int pinId) const {
     return false;
 }
 
+bool NodeEditor::isConnectedByUUID(const ANE::UUID& nodeUuid, const ANE::UUID& pinUuid) const {
+    for (const auto& conn : m_state.connections) {
+        if ((conn.startNodeUuid == nodeUuid && conn.startPinUuid == pinUuid) ||
+            (conn.endNodeUuid == nodeUuid && conn.endPinUuid == pinUuid)) {
+            return true;
+        }
+    }
+    return false;
+}
+
 bool NodeEditor::doesConnectionExist(int startNodeId, int startPinId, int endNodeId, int endPinId) const {
     return std::any_of(m_state.connections.begin(), m_state.connections.end(),
                      [=](const Connection& conn) {
@@ -111,6 +86,17 @@ bool NodeEditor::doesConnectionExist(int startNodeId, int startPinId, int endNod
                                 conn.startPinId == startPinId &&
                                 conn.endNodeId == endNodeId &&
                                 conn.endPinId == endPinId;
+                     });
+}
+
+bool NodeEditor::doesConnectionExistByUUID(const ANE::UUID& startNodeUuid, const ANE::UUID& startPinUuid,
+                                         const ANE::UUID& endNodeUuid, const ANE::UUID& endPinUuid) const {
+    return std::any_of(m_state.connections.begin(), m_state.connections.end(),
+                     [&](const Connection& conn) {
+                         return conn.startNodeUuid == startNodeUuid &&
+                                conn.startPinUuid == startPinUuid &&
+                                conn.endNodeUuid == endNodeUuid &&
+                                conn.endPinUuid == endPinUuid;
                      });
 }
 
@@ -140,18 +126,39 @@ void NodeEditor::createConnection(int startNodeId, int startPinId, int endNodeId
         std::swap(startNodeId, endNodeId);
         std::swap(startPinId, endPinId);
     }
-    
-    addConnection(startNodeId, startPinId, endNodeId, endPinId);
+
+    addConnection(startNodeId, startPinId, endNodeId, endPinId, "");
+}
+
+void NodeEditor::createConnectionByUUID(const ANE::UUID& startNodeUuid, const ANE::UUID& startPinUuid,
+                                      const ANE::UUID& endNodeUuid, const ANE::UUID& endPinUuid) {
+    const ANE::Pin* apiStartPin = getPinByUUID(startNodeUuid, startPinUuid);
+    const ANE::Pin* apiEndPin = getPinByUUID(endNodeUuid, endPinUuid);
+
+    if (!apiStartPin || !apiEndPin) return;
+
+    if (apiStartPin->isInput) {
+        addConnectionByUUID(endNodeUuid, endPinUuid, startNodeUuid, startPinUuid, "");
+    } else {
+        addConnectionByUUID(startNodeUuid, startPinUuid, endNodeUuid, endPinUuid, "");
+    }
 }
 
 void NodeEditor::selectConnection(int connectionId, bool append) {
     if (!append) {
         deselectAllConnections();
     }
-    
+
     Connection* connection = getConnection(connectionId);
     if (connection) {
         connection->selected = true;
+    }
+}
+
+void NodeEditor::selectConnectionByUUID(const ANE::UUID& uuid, bool append) {
+    Connection* connection = getConnectionByUUID(uuid);
+    if (connection) {
+        selectConnection(connection->id, append);
     }
 }
 
@@ -162,9 +169,28 @@ void NodeEditor::deselectConnection(int connectionId) {
     }
 }
 
+void NodeEditor::deselectConnectionByUUID(const ANE::UUID& uuid) {
+    Connection* connection = getConnectionByUUID(uuid);
+    if (connection) {
+        connection->selected = false;
+    }
+}
+
 void NodeEditor::deselectAllConnections() {
     for (auto& connection : m_state.connections) {
         connection.selected = false;
+    }
+}
+
+int NodeEditor::getConnectionId(const ANE::UUID& uuid) const {
+    auto it = m_state.connectionUuidMap.find(uuid);
+    return it != m_state.connectionUuidMap.end() ? it->second->id : -1;
+}
+
+void NodeEditor::updateConnectionUuidMap() {
+    m_state.connectionUuidMap.clear();
+    for (auto& connection : m_state.connections) {
+        m_state.connectionUuidMap[connection.uuid] = &connection;
     }
 }
 

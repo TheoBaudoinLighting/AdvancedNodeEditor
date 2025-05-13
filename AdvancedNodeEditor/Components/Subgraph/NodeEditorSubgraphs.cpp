@@ -101,4 +101,34 @@ namespace NodeEditorCore {
         return node ? node->getSubgraphId() : -1;
     }
 
+    void NodeEditor::setSubgraphIdForNode(int nodeId, int subgraphId) {
+        Node* node = getNode(nodeId);
+        if (node) {
+            node->metadata.setAttribute("subgraphId", subgraphId);
+        }
+    }
+
+    void NodeEditor::setSubgraphUUIDForNode(int nodeId, const ANE::UUID& uuid) {
+        Node* node = getNode(nodeId);
+        if (node) {
+            node->metadata.setAttribute("subgraphUuid", uuid);
+        }
+    }
+
+    ANE::UUID NodeEditor::getSubgraphUUIDForNode(int nodeId) const {
+        const Node* node = getNode(nodeId);
+        if (node) {
+            return node->metadata.getAttribute<ANE::UUID>("subgraphUuid", "");
+        }
+        return "";
+    }
+
+    int NodeEditor::getSubgraphIdForNode(int nodeId) const {
+        const Node* node = getNode(nodeId);
+        if (node) {
+            return node->metadata.getAttribute<int>("subgraphId", -1);
+        }
+        return -1;
+    }
+
 }
