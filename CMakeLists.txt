@@ -10,37 +10,37 @@ option(USE_SYSTEM_SDL2 "Use system SDL2 instead of downloading" OFF)
 # === Executable ===
 add_executable(AdvancedNodeEditor
         exemple/main_exemple.cpp
-        AdvancedNodeEditor/ANETypes.h
-        AdvancedNodeEditor/CoreTypes.h
-        AdvancedNodeEditor/Conversions.h
-        AdvancedNodeEditor/StyleDefinitions.cpp
-        AdvancedNodeEditor/StyleDefinitions.h
-        AdvancedNodeEditor/NodeComponents.cpp
-        AdvancedNodeEditor/NodeComponents.h
-        AdvancedNodeEditor/NodeEditorState.cpp
+        AdvancedNodeEditor/Core/Types/ANETypes.h
+        AdvancedNodeEditor/Core/Types/CoreTypes.h
+        AdvancedNodeEditor/Core/Conversions/Conversions.h
+        AdvancedNodeEditor/Core/Style/StyleDefinitions.cpp
+        AdvancedNodeEditor/Core/Style/StyleDefinitions.h
+        AdvancedNodeEditor/Components/Node/NodeComponents.cpp
+        AdvancedNodeEditor/Components/Node/NodeComponents.h
+        AdvancedNodeEditor/Editor/Operations/NodeEditorState.cpp
         AdvancedNodeEditor/NodeEditor.h
-        AdvancedNodeEditor/NodeEditorConnections.cpp
-        AdvancedNodeEditor/NodeEditorGroups.cpp
-        AdvancedNodeEditor/NodeEditorRendering.cpp
-        AdvancedNodeEditor/PublicAPI.cpp
-        AdvancedNodeEditor/NodeEditorInteractions.cpp
-        AdvancedNodeEditor/NodeEditorDrawing.cpp
-        AdvancedNodeEditor/NodeEditorDrawNodes.cpp
-        AdvancedNodeEditor/NodeEditorModel.h
-        AdvancedNodeEditor/NodeEditorController.h
-        AdvancedNodeEditor/NodeEditorView.h
-        AdvancedNodeEditor/NodeEditorModel.cpp
-        AdvancedNodeEditor/NodeEditorController.cpp
-        AdvancedNodeEditor/NodeEditorView.cpp
-        AdvancedNodeEditor/INodeEditorController.h
-        AdvancedNodeEditor/Conversions.cpp
-        AdvancedNodeEditor/NodeEditorOperations.cpp
-        AdvancedNodeEditor/NodeEditorUtilities.cpp
-        AdvancedNodeEditor/NodeEditorDrawConnections.cpp
-        AdvancedNodeEditor/NodeEditorDrawGroups.cpp
-        AdvancedNodeEditor/NodeEditorSubgraphs.cpp
-        AdvancedNodeEditor/NodeEditorEvaluation.h
-        AdvancedNodeEditor/NodeEditorEvaluation.cpp
+        AdvancedNodeEditor/Components/Connection/NodeEditorConnections.cpp
+        AdvancedNodeEditor/Components/Group/NodeEditorGroups.cpp
+        AdvancedNodeEditor/Rendering/NodeEditorRendering.cpp
+        AdvancedNodeEditor/API/PublicAPI.cpp
+        AdvancedNodeEditor/Editor/Operations/NodeEditorInteractions.cpp
+        AdvancedNodeEditor/Rendering/NodeEditorDrawing.cpp
+        AdvancedNodeEditor/Rendering/NodeEditorDrawNodes.cpp
+        AdvancedNodeEditor/Editor/Model/NodeEditorModel.h
+        AdvancedNodeEditor/Editor/Controller/NodeEditorController.h
+        AdvancedNodeEditor/Editor/View/NodeEditorView.h
+        AdvancedNodeEditor/Editor/Model/NodeEditorModel.cpp
+        AdvancedNodeEditor/Editor/Controller/NodeEditorController.cpp
+        AdvancedNodeEditor/Editor/View/NodeEditorView.cpp
+        AdvancedNodeEditor/Editor/Controller/INodeEditorController.h
+        AdvancedNodeEditor/Core/Conversions/Conversions.cpp
+        AdvancedNodeEditor/Editor/Operations/NodeEditorOperations.cpp
+        AdvancedNodeEditor/Rendering/NodeEditorUtilities.cpp
+        AdvancedNodeEditor/Rendering/NodeEditorDrawConnections.cpp
+        AdvancedNodeEditor/Rendering/NodeEditorDrawGroups.cpp
+        AdvancedNodeEditor/Components/Subgraph/NodeEditorSubgraphs.cpp
+        AdvancedNodeEditor/Evaluation/NodeEditorEvaluation.h
+        AdvancedNodeEditor/Evaluation/NodeEditorEvaluation.cpp
 )
 
 # === FetchContent for ImGui and SDL2 ===

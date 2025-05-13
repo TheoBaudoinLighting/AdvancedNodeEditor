@@ -1,5 +1,5 @@
-#include "NodeEditor.h"
-#include "Conversions.h"
+#include "../NodeEditor.h"
+#include "../Core/Conversions/Conversions.h"
 
 namespace ANE {
 

@@ -1,8 +1,8 @@
 #ifndef I_NODE_EDITOR_CONTROLLER_H
 #define I_NODE_EDITOR_CONTROLLER_H
 
-#include "NodeEditorModel.h"
-#include "ANETypes.h"
+#include "../Model/NodeEditorModel.h"
+#include "../../Core/Types/ANETypes.h"
 #include <memory>
 #include <functional>
 

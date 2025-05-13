@@ -1,5 +1,5 @@
 #include "NodeEditorEvaluation.h"
-#include "NodeEditor.h"
+#include "../NodeEditor.h"
 
 namespace ANE {
 

@@ -1,8 +1,8 @@
 #ifndef NODE_EDITOR_MODEL_H
 #define NODE_EDITOR_MODEL_H
 
-#include "ANETypes.h"
-#include "NodeComponents.h"
+#include "../../Core/Types/ANETypes.h"
+#include "../../Components/Node/NodeComponents.h"
 #include <vector>
 #include <memory>
 #include <map>

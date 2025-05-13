@@ -1,7 +1,7 @@
 #ifndef STYLE_DEFINITIONS_H
 #define STYLE_DEFINITIONS_H
 
-#include "CoreTypes.h"
+#include "../Types/CoreTypes.h"
 #include <unordered_map>
 
 namespace ANE {

@@ -1,6 +1,6 @@
 #include "Conversions.h"
 
-#include "StyleDefinitions.h"
+#include "../Style/StyleDefinitions.h"
 
 namespace NodeEditorCore {
 

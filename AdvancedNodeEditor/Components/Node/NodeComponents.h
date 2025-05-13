@@ -1,7 +1,7 @@
 #ifndef NODE_COMPONENTS_H
 #define NODE_COMPONENTS_H
 
-#include "CoreTypes.h"
+#include "../../Core/Types/CoreTypes.h"
 #include <vector>
 #include <string>
 #include <unordered_set>

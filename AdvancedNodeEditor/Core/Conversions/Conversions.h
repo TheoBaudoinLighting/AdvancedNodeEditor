@@ -1,9 +1,9 @@
 #ifndef CONVERSIONS_H
 #define CONVERSIONS_H
 
-#include "ANETypes.h"
-#include "CoreTypes.h"
-#include "StyleDefinitions.h"
+#include "../Types/ANETypes.h"
+#include "../Types/CoreTypes.h"
+#include "../Style/StyleDefinitions.h"
 
 namespace NodeEditorCore {
 

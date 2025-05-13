@@ -1,8 +1,8 @@
 #ifndef NODE_EDITOR_H
 #define NODE_EDITOR_H
 
-#include "NodeComponents.h"
-#include "StyleDefinitions.h"
+#include "Components/Node/NodeComponents.h"
+#include "Core/Style/StyleDefinitions.h"
 #include <functional>
 #include <stack>
 #include <vector>
@@ -11,7 +11,7 @@
 #include <any>
 #include <string>
 
-#include "NodeEditorEvaluation.h"
+#include "Evaluation/NodeEditorEvaluation.h"
 
 namespace NodeEditorCore {
     class NodeEditor {

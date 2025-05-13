@@ -1,4 +1,4 @@
-#include "NodeEditor.h"
+#include "../../NodeEditor.h"
 #include <algorithm>
 #include <cfloat>
 

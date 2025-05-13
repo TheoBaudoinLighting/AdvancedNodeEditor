@@ -1,8 +1,8 @@
 #include "NodeEditorView.h"
-#include "NodeEditor.h"
+#include "../../NodeEditor.h"
 #include <algorithm>
 
-#include "Conversions.h"
+#include "../../Core/Conversions/Conversions.h"
 
 namespace ANE {
 

@@ -2,7 +2,7 @@
 #define NODE_EDITOR_CONTROLLER_H
 
 #include "INodeEditorController.h"
-#include "NodeEditorModel.h"
+#include "../Model/NodeEditorModel.h"
 #include <memory>
 #include <stack>
 

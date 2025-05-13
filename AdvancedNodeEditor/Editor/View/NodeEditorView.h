@@ -1,14 +1,14 @@
 #ifndef NODE_EDITOR_VIEW_H
 #define NODE_EDITOR_VIEW_H
 
-#include "INodeEditorController.h"
+#include "../Controller/INodeEditorController.h"
 #include <memory>
 #include <vector>
 #include <string>
 #include <imgui.h>
 
-#include "NodeEditor.h"
-#include "StyleDefinitions.h"
+#include "../../NodeEditor.h"
+#include "../../Core/Style/StyleDefinitions.h"
 
 namespace ANE {
 
