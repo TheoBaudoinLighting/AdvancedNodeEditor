@@ -1,5 +1,6 @@
 #include "../NodeEditor.h"
 #include "../Core/Style/InteractionMode.h"
+#include "../Editor/View/MinimapManager.h"
 #include <algorithm>
 #include <cmath>
 
@@ -99,6 +100,13 @@ namespace NodeEditorCore {
 
         if (m_debugMode) {
             drawDebugHitboxes(drawList, canvasPos);
+        }
+
+        if (m_minimapEnabled) {
+            m_minimapManager.setViewPosition(m_state.viewPosition);
+            m_minimapManager.setViewScale(m_state.viewScale);
+            updateMinimapBounds();
+            m_minimapManager.draw(drawList, canvasPos, canvasSize);
         }
 
         ImGui::EndChild();
@@ -287,5 +295,39 @@ namespace NodeEditorCore {
         m_breadcrumbManager.setConfig(config);
 
         m_breadcrumbManager.draw(drawList, canvasPos, ImGui::GetWindowSize());
+    }
+
+    void NodeEditor::updateMinimapBounds() {
+        // Calculer les limites de tous les nœuds
+        Vec2 min(std::numeric_limits<float>::max(), std::numeric_limits<float>::max());
+        Vec2 max(-std::numeric_limits<float>::max(), -std::numeric_limits<float>::max());
+
+        bool hasNodes = false;
+
+        for (const auto& node : m_state.nodes) {
+            if (!isNodeInCurrentSubgraph(node)) continue;
+
+            min.x = std::min(min.x, node.position.x);
+            min.y = std::min(min.y, node.position.y);
+            max.x = std::max(max.x, node.position.x + node.size.x);
+            max.y = std::max(max.y, node.position.y + node.size.y);
+
+            hasNodes = true;
+        }
+
+        // Ajouter une marge
+        float margin = 200.0f;
+
+        if (hasNodes) {
+            min.x -= margin;
+            min.y -= margin;
+            max.x += margin;
+            max.y += margin;
+        } else {
+            min = Vec2(-1000.0f, -1000.0f);
+            max = Vec2(1000.0f, 1000.0f);
+        }
+
+        m_minimapManager.setViewBounds(min, max);
     }
 }

@@ -47,8 +47,8 @@ public:
 
         TitleConfig()
             : text("Graph")
-            , position(TitlePosition::TopCenter)
-            , style(TitleStyle::Default)
+            , position(TitlePosition::TopRight)
+            , style(TitleStyle::Houdini)
             , textColor(1.0f, 1.0f, 1.0f, 1.0f)
             , backgroundColor(0.2f, 0.2f, 0.2f, 0.7f)
             , borderColor(0.4f, 0.4f, 0.4f, 1.0f)

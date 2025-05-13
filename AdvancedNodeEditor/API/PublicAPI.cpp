@@ -448,12 +448,11 @@ namespace ANE {
         return nullptr;
     }
 
-    // Implémentation des méthodes de sous-graphes
     int NodeEditor::createSubgraph(const std::string &name, const UUID& uuid) {
         int subgraphId = Subgraph::nextId++;
         UUID subgraphUuid = uuid.empty() ? generateUUID() : uuid;
 
-        auto subgraph = std::make_shared<Subgraph>(uuid.empty() ? subgraphId : (subgraphUuid, subgraphId), name);
+        auto subgraph = std::make_shared<Subgraph>(subgraphId, name);
         subgraph->uuid = subgraphUuid;
 
         m_subgraphs[subgraphId] = subgraph;
@@ -1196,5 +1195,49 @@ namespace ANE {
 
     std::vector<NodeEvaluator::ConnectionInfo> NodeEditor::getOutputConnectionsByUUID(const UUID& nodeUuid) {
         return m_editor.getOutputConnectionsByUUID(nodeUuid);
+    }
+
+    void NodeEditor::setMinimapEnabled(bool enable) {
+        m_editor.getMinimapManager().getConfig().interactable = enable;
+        
+        if (enable) {
+            m_editor.getMinimapManager().setNodePositionProvider([this]() {
+                std::vector<std::pair<NodeEditorCore::Vec2, NodeEditorCore::Vec2>> nodes;
+                for (const auto& node : m_editor.getNodes()) {
+                    if (m_editor.isNodeInCurrentSubgraph(node)) {
+                        nodes.push_back(std::make_pair(node.position, node.size));
+                    }
+                }
+                return nodes;
+            });
+            
+            m_editor.getMinimapManager().setViewportChangeCallback([this](const NodeEditorCore::Vec2& newViewPos) {
+                m_editor.setViewPosition(newViewPos);
+            });
+            
+            // Mettre à jour les limites de la minimap
+            NodeEditorCore::Vec2 min(std::numeric_limits<float>::max(), std::numeric_limits<float>::max());
+            NodeEditorCore::Vec2 max(-std::numeric_limits<float>::max(), -std::numeric_limits<float>::max());
+            
+            for (const auto& node : m_editor.getNodes()) {
+                if (!m_editor.isNodeInCurrentSubgraph(node)) continue;
+                
+                min.x = std::min(min.x, node.position.x);
+                min.y = std::min(min.y, node.position.y);
+                max.x = std::max(max.x, node.position.x + node.size.x);
+                max.y = std::max(max.y, node.position.y + node.size.y);
+            }
+            
+            // Ajouter une marge
+            float padding = 100.0f;
+            min.x -= padding;
+            min.y -= padding;
+            max.x += padding;
+            max.y += padding;
+            
+            m_editor.getMinimapManager().setViewBounds(min, max);
+            m_editor.getMinimapManager().setViewPosition(m_editor.getViewPosition());
+            m_editor.getMinimapManager().setViewScale(m_editor.getViewScale());
+        }
     }
 }

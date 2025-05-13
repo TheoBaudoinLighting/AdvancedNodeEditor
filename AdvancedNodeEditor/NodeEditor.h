@@ -16,6 +16,7 @@
 
 #include "Core/Style/ConnectionStyleManager.h"
 #include "Editor/View/GraphTitleManager.h"
+#include "Editor/View/MinimapManager.h"
 #include "Editor/View/ViewManager.h"
 #include "Evaluation/NodeEditorEvaluation.h"
 
@@ -277,6 +278,17 @@ namespace NodeEditorCore {
         int getSubgraphDepth(int subgraphId) const;
         void drawSubgraphBreadcrumbs(ImDrawList *drawList, const ImVec2 &canvasPos);
 
+        void enableMinimap(bool enable);
+        bool isMinimapEnabled() const;
+
+        MinimapManager& getMinimapManager() { return m_minimapManager; }
+        const MinimapManager& getMinimapManager() const { return m_minimapManager; }
+
+        void setMinimapPosition(const Vec2& position);
+        void setMinimapSize(const Vec2& size);
+
+        void updateMinimapBounds();
+
     private:
         struct State {
             std::vector<Node> nodes;
@@ -358,6 +370,9 @@ namespace NodeEditorCore {
 
         State m_state;
         bool m_debugMode;
+
+        MinimapManager m_minimapManager;
+        bool m_minimapEnabled;
 
         void processInteraction();
         void processBoxSelection(const ImVec2 &canvasPos);
@@ -697,6 +712,7 @@ namespace ANE {
 
         void updateNodeBoundingBoxes();
 
+        void setMinimapEnabled(bool enable);
 
     private:
         NodeEditorCore::NodeEditor m_editor;

@@ -591,4 +591,65 @@ namespace ANE {
 
         m_editor.setSubgraphBreadcrumbStyle(coreStyle);
     }
+
+    void NodeEditor::enableMinimap(bool enable) {
+        m_minimapManager.getConfig().interactable = enable;
+        m_minimapManager.setNodePositionProvider([this]() {
+            std::vector<std::pair<Vec2, Vec2>> nodes;
+            for (const auto& node : m_state.nodes) {
+                if (isNodeInCurrentSubgraph(node)) {
+                    nodes.push_back(std::make_pair(node.position, node.size));
+                }
+            }
+            return nodes;
+        });
+
+        m_minimapManager.setViewportChangeCallback([this](const Vec2& newViewPos) {
+            m_state.viewPosition = newViewPos;
+            m_viewManager.setViewPosition(newViewPos);
+        });
+
+        updateMinimapBounds();
+    }
+
+    bool NodeEditor::isMinimapEnabled() const {
+        return m_minimapManager.getConfig().interactable;
+    }
+
+    void NodeEditor::setMinimapPosition(const Vec2& position) {
+        auto config = m_minimapManager.getConfig();
+        config.position = position;
+        m_minimapManager.setConfig(config);
+    }
+
+    void NodeEditor::setMinimapSize(const Vec2& size) {
+        auto config = m_minimapManager.getConfig();
+        config.size = size;
+        m_minimapManager.setConfig(config);
+    }
+
+    void NodeEditor::updateMinimapBounds() {
+        Vec2 min(std::numeric_limits<float>::max(), std::numeric_limits<float>::max());
+        Vec2 max(-std::numeric_limits<float>::max(), -std::numeric_limits<float>::max());
+
+        for (const auto& node : m_state.nodes) {
+            if (!isNodeInCurrentSubgraph(node)) continue;
+
+            min.x = std::min(min.x, node.position.x);
+            min.y = std::min(min.y, node.position.y);
+            max.x = std::max(max.x, node.position.x + node.size.x);
+            max.y = std::max(max.y, node.position.y + node.size.y);
+        }
+
+        // Ajouter une marge
+        float padding = 100.0f;
+        min.x -= padding;
+        min.y -= padding;
+        max.x += padding;
+        max.y += padding;
+
+        m_minimapManager.setViewBounds(min, max);
+        m_minimapManager.setViewPosition(m_state.viewPosition);
+        m_minimapManager.setViewScale(m_state.viewScale);
+    }
 }

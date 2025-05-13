@@ -54,6 +54,8 @@ add_executable(AdvancedNodeEditor
         AdvancedNodeEditor/Core/Style/ConnectionStyleManager.h
         AdvancedNodeEditor/Editor/View/NodeBoundingBoxManager.cpp
         AdvancedNodeEditor/Editor/View/NodeBoundingBoxManager.h
+        AdvancedNodeEditor/Editor/View/MinimapManager.cpp
+        AdvancedNodeEditor/Editor/View/MinimapManager.h
 )
 
 # === FetchContent for ImGui and SDL2 ===
