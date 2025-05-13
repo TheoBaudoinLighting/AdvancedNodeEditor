@@ -1,4 +1,5 @@
 #include "../../NodeEditor.h"
+#include "../../Core/Style/InteractionMode.h"
 #include <algorithm>
 #include <cfloat>
 #include <cmath>
@@ -13,10 +14,15 @@ NodeEditor::State::State()
     , connecting(false), connectingNodeId(-1), connectingPinId(-1)
     , dragging(false), boxSelecting(false)
     , currentSubgraphId(-1)
+    , interactionMode(InteractionMode::None)
+    , contextMenuNodeId(-1), contextMenuConnectionId(-1), contextMenuGroupId(-1)
+    , contextMenuPinId(-1), dragStart(0.0f, 0.0f)
+    , groupStartSize(0.0f, 0.0f), contextMenuPos(0.0f, 0.0f)
 {
 }
 
 NodeEditor::NodeEditor() {
+    m_debugMode = false;
 }
 
 NodeEditor::~NodeEditor() {

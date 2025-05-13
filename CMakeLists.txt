@@ -41,6 +41,7 @@ add_executable(AdvancedNodeEditor
         AdvancedNodeEditor/Components/Subgraph/NodeEditorSubgraphs.cpp
         AdvancedNodeEditor/Evaluation/NodeEditorEvaluation.h
         AdvancedNodeEditor/Evaluation/NodeEditorEvaluation.cpp
+        AdvancedNodeEditor/Core/Style/InteractionMode.h
 )
 
 # === FetchContent for ImGui and SDL2 ===
@@ -67,6 +68,7 @@ else()
             ${imgui_SOURCE_DIR}/misc/cpp/imgui_stdlib.cpp
             ${imgui_SOURCE_DIR}/backends/imgui_impl_sdl2.cpp
             ${imgui_SOURCE_DIR}/backends/imgui_impl_opengl3.cpp
+            ${imgui_SOURCE_DIR}/backends/imgui_impl_sdlrenderer2.cpp
     )
     target_include_directories(AdvancedNodeEditor PRIVATE
             ${imgui_SOURCE_DIR}

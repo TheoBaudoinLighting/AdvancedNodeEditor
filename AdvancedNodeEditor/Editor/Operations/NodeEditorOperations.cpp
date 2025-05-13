@@ -35,35 +35,6 @@ namespace NodeEditorCore {
         }
     }
 
-    void NodeEditor::processNodeDragging() {
-        if (m_state.activeNodeId == -1) return;
-
-        ImVec2 mousePos = ImGui::GetMousePos();
-
-        auto nodeIt = std::find_if(m_state.nodes.begin(), m_state.nodes.end(),
-                                 [id = m_state.activeNodeId](const Node& node) { return node.id == id; });
-
-        if (nodeIt == m_state.nodes.end()) return;
-
-        ImVec2 newScreenPos = ImVec2(
-            mousePos.x - m_state.dragOffset.x,
-            mousePos.y - m_state.dragOffset.y
-        );
-
-        Vec2 newCanvasPos = screenToCanvas(Vec2::fromImVec2(newScreenPos));
-
-        Vec2 delta = newCanvasPos - nodeIt->position;
-        nodeIt->position = newCanvasPos;
-
-        if (!ImGui::GetIO().KeyCtrl) {
-            for (auto& node : m_state.nodes) {
-                if (node.selected && node.id != m_state.activeNodeId) {
-                    node.position = node.position + delta;
-                }
-            }
-        }
-    }
-
     void NodeEditor::selectNode(int nodeId, bool append) {
         if (!append) {
             deselectAllNodes();

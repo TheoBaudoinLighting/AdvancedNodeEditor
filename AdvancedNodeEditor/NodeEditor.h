@@ -14,6 +14,8 @@
 #include "Evaluation/NodeEditorEvaluation.h"
 
 namespace NodeEditorCore {
+    enum class InteractionMode;
+
     class NodeEditor {
     public:
         using NodeCallback = std::function<void(int nodeId)>;
@@ -166,6 +168,10 @@ namespace NodeEditorCore {
         int getSubgraphFromNode(int nodeId) const;
 
         int getNodeSubgraph(int nodeId) const;
+
+        void setDebugMode(bool enable) { m_debugMode = enable; }
+
+        bool isDebugMode() const { return m_debugMode; }
 
         std::vector<int> getEvaluationOrder() {
             std::vector<int> result;
@@ -330,10 +336,20 @@ namespace NodeEditorCore {
 
             int currentSubgraphId;
 
+            InteractionMode interactionMode;
+            int contextMenuNodeId;
+            int contextMenuConnectionId;
+            int contextMenuGroupId;
+            int contextMenuPinId;
+            Vec2 dragStart;
+            Vec2 groupStartSize;
+            Vec2 contextMenuPos;
+
             State();
         };
 
         State m_state;
+        bool m_debugMode;
 
         void processInteraction();
 
@@ -361,6 +377,10 @@ namespace NodeEditorCore {
 
         void drawDragConnection(ImDrawList *drawList, const ImVec2 &canvasPos);
 
+        void drawDebugHitboxes(ImDrawList *drawList, const ImVec2 &canvasPos);
+
+        void drawContextMenu(ImDrawList *drawList);
+
         std::string pinTypeToString(PinType type) const;
 
         ImVec2 getPinPos(const Node &node, const ANE::Pin &pin, const ImVec2 &canvasPos) const;
@@ -386,6 +406,25 @@ namespace NodeEditorCore {
         ImU32 ImLerpColor(ImU32 col_a, ImU32 col_b, float t);
 
         ImVec2 ImBezierCubicCalc(const ImVec2 &p1, const ImVec2 &p2, const ImVec2 &p3, const ImVec2 &p4, float t);
+
+        void startConnectionDrag(int nodeId, int pinId);
+        void startNodeDrag(int nodeId, const ImVec2& mousePos);
+        void startGroupInteraction(const ImVec2& mousePos);
+        void startBoxSelect(const ImVec2& mousePos);
+        void startPanCanvas();
+        void endCurrentInteraction();
+
+        void updateHoveredElements(const ImVec2& mousePos);
+        void updateCurrentInteraction(const ImVec2& mousePos);
+
+        void processGroupDragging();
+        void processGroupResize();
+        void processDeleteKeyPress();
+        void processContextMenu();
+        void processZoom(const ImVec2& mousePos);
+
+        void duplicateNode(int nodeId);
+        std::string getInteractionModeName() const;
     };
 }
 
@@ -571,6 +610,10 @@ namespace ANE {
         void saveSubgraphViewState(int subgraphId);
 
         void restoreSubgraphViewState(int subgraphId);
+
+        void setDebugMode(bool enable);
+
+        bool isDebugMode() const;
 
     private:
         NodeEditorCore::NodeEditor m_editor;
