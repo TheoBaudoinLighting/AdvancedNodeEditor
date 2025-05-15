@@ -11,7 +11,7 @@
 #include <chrono>
 #include <atomic>
 
-namespace NodeEditorInternal {
+namespace NodeEditorCore {
     class Uuid {
     public:
         using value_type = std::array<uint8_t, 16>;
@@ -209,8 +209,8 @@ namespace NodeEditorInternal {
 
 namespace std {
     template<>
-    struct hash<NodeEditorInternal::Uuid> {
-        std::size_t operator()(const NodeEditorInternal::Uuid &uuid) const {
+    struct hash<NodeEditorCore::Uuid> {
+        std::size_t operator()(const NodeEditorCore::Uuid &uuid) const {
             const auto &data = uuid.getData();
             std::size_t h = 0;
 

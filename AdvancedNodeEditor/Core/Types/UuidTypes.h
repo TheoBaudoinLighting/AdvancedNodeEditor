@@ -20,7 +20,7 @@ namespace ANE {
     using UUIDMap = std::unordered_map<UUID, T, UUIDHash>;
 
     inline UUID generateUUID() {
-        return NodeEditorInternal::UuidGenerator::getInstance().generateV4().toString();
+        return NodeEditorCore::UuidGenerator::getInstance().generateV4().toString();
     }
 
     inline int uuidToDisplayId(const UUID& uuid) {
