@@ -1,5 +1,6 @@
 # ANE gitignore
 
 .idea/*
+*.dot
 
 cmake-build-debug/*
