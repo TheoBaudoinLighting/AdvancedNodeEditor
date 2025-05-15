@@ -45,7 +45,6 @@ namespace NodeEditorCore {
         std::string startPinType = pinTypeToString(startPinInternal->type);
         std::string endPinType = pinTypeToString(endPinInternal->type);
 
-        // Obtenir les couleurs de pins
         const internal::PinColors& startPinColors = m_state.style.pinColors.count(startPinType) ?
                                          m_state.style.pinColors.at(startPinType) :
                                          m_state.style.pinColors.at("Default");
@@ -68,7 +67,6 @@ namespace NodeEditorCore {
             endPinColors.connected.a * 0.8f
         );
 
-        // Utiliser le ConnectionStyleManager pour dessiner la connexion
         m_connectionStyleManager.drawConnection(
             drawList, p1, p2,
             connection.selected, m_state.hoveredConnectionId == connection.id,

@@ -1,4 +1,3 @@
-// GraphTitleManager.h
 #ifndef GRAPH_TITLE_MANAGER_H
 #define GRAPH_TITLE_MANAGER_H
 

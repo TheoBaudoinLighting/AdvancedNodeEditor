@@ -1,4 +1,3 @@
-// GraphTitleManager.cpp
 #include "GraphTitleManager.h"
 #include <imgui.h>
 #include <algorithm>
@@ -65,7 +64,6 @@ void GraphTitleManager::setCurrentSubgraph(const std::string& name, const std::v
 void GraphTitleManager::draw(ImDrawList* drawList, const ImVec2& canvasPos, const ImVec2& canvasSize) {
     std::string titleText = m_config.text;
 
-    // Inclure le chemin de subgraphs si configuré
     if (m_config.showSubgraphPath && !m_currentSubgraph.empty()) {
         std::stringstream pathStr;
 
@@ -98,10 +96,8 @@ void GraphTitleManager::draw(ImDrawList* drawList, const ImVec2& canvasPos, cons
     ImVec2 pos = calculateTitlePosition(canvasPos, canvasSize, textSize);
     ImVec2 backgroundSize = ImVec2(textSize.x + padding.x * 2.0f, textSize.y + padding.y * 2.0f);
 
-    // Dessiner le fond du titre en fonction du style
     drawTitleBackground(drawList, pos, backgroundSize);
 
-    // Dessiner le texte
     ImU32 textColor = IM_COL32(
         m_config.textColor.r * 255.0f,
         m_config.textColor.g * 255.0f,
@@ -253,16 +249,13 @@ void GraphTitleManager::drawTitleBackground(ImDrawList* drawList, const ImVec2& 
                 ImU32 unrealHeaderColor = IM_COL32(30, 90, 130, 255 * m_config.opacity);
                 float headerHeight = size.y * 0.3f;
 
-                // Fond principal
                 drawList->AddRectFilled(pos, ImVec2(pos.x + size.x, pos.y + size.y), unrealColor, 0.0f);
 
-                // Barre supérieure
                 drawList->AddRectFilled(
                     pos,
                     ImVec2(pos.x + size.x, pos.y + headerHeight),
                     unrealHeaderColor, 0.0f);
 
-                // Reflet
                 ImU32 reflectionColor = IM_COL32(255, 255, 255, 20 * m_config.opacity);
                 drawList->AddLine(
                     ImVec2(pos.x, pos.y + headerHeight + 1),

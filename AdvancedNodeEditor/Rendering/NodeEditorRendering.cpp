@@ -289,7 +289,6 @@ namespace NodeEditorCore {
         m_breadcrumbManager.setViewScale(m_state.viewScale);
         m_breadcrumbManager.setCurrentSubgraph(path.back(), path);
 
-        // Configurer le manager pour afficher en haut
         auto config = m_breadcrumbManager.getConfig();
         config.position = GraphTitleManager::TitlePosition::TopCenter;
         m_breadcrumbManager.setConfig(config);
@@ -298,7 +297,6 @@ namespace NodeEditorCore {
     }
 
     void NodeEditor::updateMinimapBounds() {
-        // Calculer les limites de tous les nœuds
         Vec2 min(std::numeric_limits<float>::max(), std::numeric_limits<float>::max());
         Vec2 max(-std::numeric_limits<float>::max(), -std::numeric_limits<float>::max());
 
@@ -315,7 +313,6 @@ namespace NodeEditorCore {
             hasNodes = true;
         }
 
-        // Ajouter une marge
         float margin = 200.0f;
 
         if (hasNodes) {

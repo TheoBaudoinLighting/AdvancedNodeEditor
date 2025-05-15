@@ -128,7 +128,6 @@ namespace NodeEditorCore {
     }
 
     void NodeEditor::zoomToFit(float padding) {
-        // Mettre à jour les limites de la boîte englobante pour tous les nœuds
         Vec2 min(std::numeric_limits<float>::max(), std::numeric_limits<float>::max());
         Vec2 max(-std::numeric_limits<float>::max(), -std::numeric_limits<float>::max());
 
@@ -147,7 +146,6 @@ namespace NodeEditorCore {
 
         if (!hasNodes) return;
 
-        // Configurer le ViewManager avec une fonction de boîte englobante
         m_viewManager.setBoundingBoxProvider([this](Vec2 &outMin, Vec2 &outMax) {
             outMin = Vec2(std::numeric_limits<float>::max(), std::numeric_limits<float>::max());
             outMax = Vec2(-std::numeric_limits<float>::max(), -std::numeric_limits<float>::max());
@@ -164,13 +162,11 @@ namespace NodeEditorCore {
 
         m_viewManager.zoomToFit(padding);
 
-        // Synchroniser notre état avec le ViewManager
         m_state.viewPosition = m_viewManager.getViewPosition();
         m_state.viewScale = m_viewManager.getViewScale();
     }
 
     void NodeEditor::zoomToFitSelected(float padding) {
-        // Mise à jour des limites de boîte englobante uniquement pour les nœuds sélectionnés
         Vec2 min(std::numeric_limits<float>::max(), std::numeric_limits<float>::max());
         Vec2 max(-std::numeric_limits<float>::max(), -std::numeric_limits<float>::max());
 
@@ -188,11 +184,10 @@ namespace NodeEditorCore {
         }
 
         if (!hasSelectedNodes) {
-            zoomToFit(padding); // Zoomer sur tous les nœuds si aucun n'est sélectionné
+            zoomToFit(padding);
             return;
         }
 
-        // Configurer le ViewManager avec une fonction de boîte englobante pour les nœuds sélectionnés
         m_viewManager.setBoundingBoxProvider([this](Vec2 &outMin, Vec2 &outMax) {
             outMin = Vec2(std::numeric_limits<float>::max(), std::numeric_limits<float>::max());
             outMax = Vec2(-std::numeric_limits<float>::max(), -std::numeric_limits<float>::max());
@@ -209,7 +204,6 @@ namespace NodeEditorCore {
 
         m_viewManager.zoomToFit(padding);
 
-        // Synchroniser notre état avec le ViewManager
         m_state.viewPosition = m_viewManager.getViewPosition();
         m_state.viewScale = m_viewManager.getViewScale();
     }
@@ -229,16 +223,13 @@ namespace NodeEditorCore {
             }
         });
 
-        // Configurer une transition de vue
         ViewManager::ViewState currentState(m_state.viewPosition, m_state.viewScale);
         m_viewManager.setViewPosition(m_state.viewPosition);
         m_viewManager.setViewScale(m_state.viewScale);
 
-        // Centrer la vue pour calculer l'état cible
         m_viewManager.centerView();
         ViewManager::ViewState targetState(m_viewManager.getViewPosition(), m_viewManager.getViewScale());
 
-        // Restaurer l'état courant et démarrer la transition
         m_viewManager.setViewPosition(currentState.position);
         m_viewManager.setViewScale(currentState.scale);
         m_viewManager.startViewTransition(targetState, duration, ViewManager::ViewTransitionType::EaseInOut);
@@ -248,12 +239,10 @@ namespace NodeEditorCore {
         const Node *node = getNode(nodeId);
         if (!node) return;
 
-        // Configurer une transition de vue
         ViewManager::ViewState currentState(m_state.viewPosition, m_state.viewScale);
         m_viewManager.setViewPosition(m_state.viewPosition);
         m_viewManager.setViewScale(m_state.viewScale);
 
-        // Calculer la position cible
         Vec2 center = Vec2(
             node->position.x + node->size.x * 0.5f,
             node->position.y + node->size.y * 0.5f
@@ -267,7 +256,6 @@ namespace NodeEditorCore {
 
         ViewManager::ViewState targetState(targetPosition, m_state.viewScale);
 
-        // Démarrer la transition
         m_viewManager.startViewTransition(targetState, duration, ViewManager::ViewTransitionType::EaseInOut);
     }
 
@@ -323,15 +311,12 @@ namespace NodeEditorCore {
         m_breadcrumbManager.setViewScale(m_state.viewScale);
         m_breadcrumbManager.setCurrentSubgraph(path.back(), path);
 
-        // Configurer le manager pour afficher en haut
         auto config = m_breadcrumbManager.getConfig();
         config.position = GraphTitleManager::TitlePosition::TopCenter;
         m_breadcrumbManager.setConfig(config);
 
         m_breadcrumbManager.draw(drawList, canvasPos, ImGui::GetWindowSize());
     }
-
-    // Implémentations à ajouter dans l'espace de noms ANE
 
     void NodeEditor::zoomToFit(float padding) {
         m_editor.zoomToFit(padding);
@@ -641,7 +626,6 @@ namespace NodeEditorCore {
             max.y = std::max(max.y, node.position.y + node.size.y);
         }
 
-        // Ajouter une marge
         float padding = 100.0f;
         min.x -= padding;
         min.y -= padding;
@@ -652,4 +636,7 @@ namespace NodeEditorCore {
         m_minimapManager.setViewPosition(m_state.viewPosition);
         m_minimapManager.setViewScale(m_state.viewScale);
     }
+
+
+
 }

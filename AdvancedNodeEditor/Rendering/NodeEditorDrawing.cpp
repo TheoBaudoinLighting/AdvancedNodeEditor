@@ -82,9 +82,7 @@ void NodeEditor::drawDragConnection(ImDrawList* drawList, const ImVec2& canvasPo
 
     drawList->AddCircleFilled(p1, glowRadius, glowColor);
 
-    // Dessiner une croix au milieu si connexion invalide
     if (m_state.magnetPinNodeId != -1 && !m_state.canConnectToMagnetPin) {
-        // Calculer le point du milieu de la Bézier
         ImVec2 midPoint = ImBezierCubicCalc(p1, cp1, cp2, p2, 0.5f);
 
         float crossSize = 8.0f * m_state.viewScale;

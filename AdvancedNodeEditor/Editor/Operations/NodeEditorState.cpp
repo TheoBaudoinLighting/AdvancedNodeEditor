@@ -190,7 +190,6 @@ namespace NodeEditorCore {
     }
 
     void NodeEditor::updateNodeBoundingBoxes() {
-        // Mettre à jour les boîtes englobantes pour tous les nœuds
         m_nodeBoundingBoxManager->clear();
 
         for (const auto &node: m_state.nodes) {
@@ -203,7 +202,6 @@ namespace NodeEditorCore {
             );
         }
 
-        // Mettre à jour la configuration d'évitement de nœuds
         auto config = m_connectionStyleManager.getConfig();
         config.avoidNodes = m_nodeAvoidanceEnabled;
         m_connectionStyleManager.setConfig(config);
@@ -449,25 +447,15 @@ namespace NodeEditorCore {
         return getGroupUUID(groupId);
     }
 
-    int NodeEditor::createSubgraph(const std::string& name, const std::string& uuid) {
-        int nextId = 1;
-        for (const auto& pair : m_subgraphs) {
-            nextId = std::max(nextId, pair.first + 1);
-        }
+    int NodeEditor::createSubgraph(const std::string& name, const UUID& uuid) {
+        int subgraphId = m_state.nextGroupId++;
 
-        int subgraphId = nextId;
-        auto subgraph = std::make_shared<Subgraph>(
-            uuid.empty() ? generateUUID() : uuid,
-            subgraphId,
-            name
-        );
+        auto subgraph = std::make_shared<Subgraph>();
+        subgraph->id = subgraphId;
+        subgraph->name = name;
+        subgraph->uuid = uuid.empty() ? generateUUID() : uuid;
 
         m_subgraphs[subgraphId] = subgraph;
-        if (!uuid.empty()) {
-            m_subgraphsByUuid[uuid] = subgraph;
-        } else {
-            m_subgraphsByUuid[subgraph->uuid] = subgraph;
-        }
 
         return subgraphId;
     }
@@ -478,7 +466,6 @@ namespace NodeEditorCore {
             return it->second->uuid;
         }
 
-        // Chercher parmi les nœuds qui représentent des subgraphs
         for (const auto& node : m_state.nodes) {
             if (node.isSubgraph && node.subgraphId == subgraphId) {
                 return node.subgraphUuid;
@@ -488,7 +475,7 @@ namespace NodeEditorCore {
         return "";
     }
 
-    UUID NodeEditor::createSubgraphWithUUID(const std::string &name) {
+    UUID NodeEditor::createSubgraphWithUUID(const std::string& name) {
         int subgraphId = createSubgraph(name);
         return getSubgraphUUID(subgraphId);
     }
@@ -507,7 +494,6 @@ namespace NodeEditorCore {
             Node *createdNode = getNode(nodeId);
 
             if (createdNode) {
-                // Copier les propriétés importantes du nœud créé par le builder
                 for (const auto &pin: node->inputs) {
                     addPin(nodeId, pin.name, true, pin.type, pin.shape);
                 }
@@ -519,7 +505,6 @@ namespace NodeEditorCore {
                 createdNode->iconSymbol = node->iconSymbol;
                 createdNode->labelPosition = node->labelPosition;
 
-                // Nettoyer le nœud temporaire
                 delete node;
 
                 return createdNode;
@@ -531,12 +516,16 @@ namespace NodeEditorCore {
         return nullptr;
     }
 
-    Subgraph *NodeEditor::getSubgraph(int subgraphId) {
+    Subgraph* NodeEditor::getSubgraph(int subgraphId) {
         auto it = m_subgraphs.find(subgraphId);
         if (it != m_subgraphs.end()) {
             return it->second.get();
         }
         return nullptr;
+    }
+
+    void NodeEditor::removeSubgraph(int subgraphId) {
+        m_subgraphs.erase(subgraphId);
     }
 
     void NodeEditor::removePinByUUID(const UUID &nodeUuid, const UUID &pinUuid) {

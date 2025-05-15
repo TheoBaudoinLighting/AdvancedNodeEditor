@@ -1,4 +1,3 @@
-// ConnectionStyleManager.h
 #ifndef CONNECTION_STYLE_MANAGER_H
 #define CONNECTION_STYLE_MANAGER_H
 

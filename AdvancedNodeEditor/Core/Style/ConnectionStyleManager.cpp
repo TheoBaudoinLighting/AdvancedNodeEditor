@@ -1,4 +1,3 @@
-// ConnectionStyleManager.cpp
 #include "ConnectionStyleManager.h"
 #include <algorithm>
 #include <cmath>
@@ -61,7 +60,6 @@ namespace NodeEditorCore {
                 break;
 
             case ConnectionStyle::Custom:
-                // Non implémenté pour l'instant, utilise bezier par défaut
                 drawBezierConnection(drawList, startPos, endPos, selected, hovered, startCol, endCol, scale);
                 break;
         }
@@ -121,7 +119,6 @@ namespace NodeEditorCore {
                 drawList->AddBezierCubic(start, cp1, cp2, end, highlightColor, thickness * 0.5f);
             }
         } else {
-            // Dessiner une ligne avec gradient en la décomposant en segments
             const int segments = 20;
 
             for (int i = 0; i < segments; i++) {
@@ -143,7 +140,6 @@ namespace NodeEditorCore {
             }
         }
 
-        // Dessiner les points de connexion
         float endpointRadius = thickness * 0.8f;
         drawList->AddCircleFilled(start, endpointRadius, startColor);
         drawList->AddCircleFilled(end, endpointRadius, endColor);
@@ -184,7 +180,6 @@ namespace NodeEditorCore {
                 drawList->AddLine(start, end, highlightColor, thickness * 0.5f);
             }
         } else {
-            // Dessiner une ligne avec gradient en la décomposant en segments
             const int segments = 20;
 
             for (int i = 0; i < segments; i++) {
@@ -206,7 +201,6 @@ namespace NodeEditorCore {
             }
         }
 
-        // Dessiner les points de connexion
         float endpointRadius = thickness * 0.8f;
         drawList->AddCircleFilled(start, endpointRadius, startColor);
         drawList->AddCircleFilled(end, endpointRadius, endColor);
@@ -230,7 +224,6 @@ namespace NodeEditorCore {
             endColor = startColor;
         }
 
-        // Point intermédiaire
         ImVec2 middle = ImVec2(end.x, start.y);
 
         if (m_config.drawShadow) {
@@ -257,7 +250,6 @@ namespace NodeEditorCore {
                 drawList->AddLine(middle, end, highlightColor, thickness * 0.5f);
             }
         } else {
-            // Premier segment avec dégradé
             const int segments = 10;
 
             for (int i = 0; i < segments; i++) {
@@ -268,7 +260,7 @@ namespace NodeEditorCore {
                 ImVec2 pos1 = ImLerp(start, middle, t1);
 
                 float tMid = (t0 + t1) * 0.5f;
-                ImU32 segmentColor = ImLerp(startColor, endColor, tMid * 0.5f); // Premier 50% du dégradé
+                ImU32 segmentColor = ImLerp(startColor, endColor, tMid * 0.5f);
 
                 drawList->AddLine(pos0, pos1, segmentColor, thickness);
 
@@ -278,7 +270,6 @@ namespace NodeEditorCore {
                 }
             }
 
-            // Second segment avec dégradé
             for (int i = 0; i < segments; i++) {
                 float t0 = static_cast<float>(i) / segments;
                 float t1 = static_cast<float>(i + 1) / segments;
@@ -287,7 +278,7 @@ namespace NodeEditorCore {
                 ImVec2 pos1 = ImLerp(middle, end, t1);
 
                 float tMid = (t0 + t1) * 0.5f;
-                ImU32 segmentColor = ImLerp(startColor, endColor, 0.5f + tMid * 0.5f); // Second 50% du dégradé
+                ImU32 segmentColor = ImLerp(startColor, endColor, 0.5f + tMid * 0.5f);
 
                 drawList->AddLine(pos0, pos1, segmentColor, thickness);
 
@@ -298,30 +289,24 @@ namespace NodeEditorCore {
             }
         }
 
-        // Dessiner le coin arrondi
         if (m_config.cornerRadius > 0.0f) {
             float radius = m_config.cornerRadius * scale;
 
-            // Ajuster la position du milieu pour le coin arrondi
             ImVec2 cornerStart, cornerEnd;
 
             if (end.x > start.x) {
                 if (end.y > start.y) {
-                    // Direction bas-droite
                     cornerStart = ImVec2(middle.x - radius, middle.y);
                     cornerEnd = ImVec2(middle.x, middle.y + radius);
                 } else {
-                    // Direction haut-droite
                     cornerStart = ImVec2(middle.x - radius, middle.y);
                     cornerEnd = ImVec2(middle.x, middle.y - radius);
                 }
             } else {
                 if (end.y > start.y) {
-                    // Direction bas-gauche
                     cornerStart = ImVec2(middle.x + radius, middle.y);
                     cornerEnd = ImVec2(middle.x, middle.y + radius);
                 } else {
-                    // Direction haut-gauche
                     cornerStart = ImVec2(middle.x + radius, middle.y);
                     cornerEnd = ImVec2(middle.x, middle.y - radius);
                 }
@@ -331,7 +316,6 @@ namespace NodeEditorCore {
             drawList->AddBezierQuadratic(cornerStart, middle, cornerEnd, midColor, thickness);
         }
 
-        // Dessiner les points de connexion
         float endpointRadius = thickness * 0.8f;
         drawList->AddCircleFilled(start, endpointRadius, startColor);
         drawList->AddCircleFilled(end, endpointRadius, endColor);
@@ -362,7 +346,6 @@ namespace NodeEditorCore {
 
         std::vector<ImVec2> points;
 
-        // Utiliser le NodeBoundingBoxManager pour trouver un chemin sans collision
         if (m_config.avoidNodes && m_boundingBoxManager) {
             Vec2 startVec(start.x, start.y);
             Vec2 endVec(end.x, end.y);
@@ -373,18 +356,15 @@ namespace NodeEditorCore {
                 points.push_back(ImVec2(point.x, point.y));
             }
         } else {
-            // Utiliser l'approche standard avec milieux si pas d'évitement de nœuds
             float dx = end.x - start.x;
             float dy = end.y - start.y;
 
             ImVec2 middle1, middle2;
 
             if (std::abs(dx) > std::abs(dy)) {
-                // Priorité à l'horizontal
                 middle1 = ImVec2(start.x + dx * 0.5f, start.y);
                 middle2 = ImVec2(start.x + dx * 0.5f, end.y);
             } else {
-                // Priorité au vertical
                 middle1 = ImVec2(start.x, start.y + dy * 0.5f);
                 middle2 = ImVec2(end.x, start.y + dy * 0.5f);
             }
@@ -392,12 +372,10 @@ namespace NodeEditorCore {
             points = {start, middle1, middle2, end};
         }
 
-        // Dessiner les segments
         if (points.size() < 2) {
-            points = {start, end}; // Fallback si le chemin est vide
+            points = {start, end};
         }
 
-        // Appliquer l'ombre si nécessaire
         if (m_config.drawShadow) {
             ImU32 shadowColor = IM_COL32(0, 0, 0, 40);
 
@@ -409,9 +387,7 @@ namespace NodeEditorCore {
             }
         }
 
-        // Dessiner les segments avec possibilité de gradient
         if (!m_config.useGradient || startColor == endColor) {
-            // Segments sans gradient
             for (size_t i = 0; i < points.size() - 1; i++) {
                 drawList->AddLine(points[i], points[i + 1], startColor, thickness);
 
@@ -421,7 +397,6 @@ namespace NodeEditorCore {
                 }
             }
         } else {
-            // Segments avec gradient
             for (size_t i = 0; i < points.size() - 1; i++) {
                 float segmentProgress = static_cast<float>(i) / (points.size() - 2);
                 float nextSegmentProgress = static_cast<float>(i + 1) / (points.size() - 2);
@@ -448,13 +423,11 @@ namespace NodeEditorCore {
             }
         }
 
-        // Dessiner les coins arrondis si demandé
         if (cornerRadius > 0.0f && points.size() > 2) {
             for (size_t i = 1; i < points.size() - 1; i++) {
                 float segmentProgress = static_cast<float>(i - 1) / (points.size() - 3);
                 ImU32 cornerColor = ImLerp(startColor, endColor, segmentProgress);
 
-                // Calculer les vecteurs de direction
                 ImVec2 dir1 = ImVec2(points[i].x - points[i - 1].x, points[i].y - points[i - 1].y);
                 ImVec2 dir2 = ImVec2(points[i + 1].x - points[i].x, points[i + 1].y - points[i].y);
 
@@ -468,7 +441,6 @@ namespace NodeEditorCore {
                 dir2.x /= len2;
                 dir2.y /= len2;
 
-                // Ajuster les points pour le coin arrondi
                 ImVec2 cornerStart = ImVec2(
                     points[i].x - dir1.x * cornerRadius,
                     points[i].y - dir1.y * cornerRadius
@@ -479,7 +451,6 @@ namespace NodeEditorCore {
                     points[i].y + dir2.y * cornerRadius
                 );
 
-                // Dessiner le coin arrondi
                 drawList->AddBezierQuadratic(
                     cornerStart,
                     points[i],
@@ -489,26 +460,21 @@ namespace NodeEditorCore {
             }
         }
 
-        // Dessiner les points de connexion
         float endpointRadius = thickness * 0.8f;
         drawList->AddCircleFilled(start, endpointRadius, startColor);
         drawList->AddCircleFilled(end, endpointRadius, endColor);
     }
 
     ImVec2 ConnectionStyleManager::findPathAroundNodes(const ImVec2 &start, const ImVec2 &end) {
-        // Cette méthode est un placeholder pour un algorithme de pathfinding plus complexe
-        // qui pourrait être implémenté pour éviter les nœuds
-
         if (!m_boundingBoxCheck) {
             return ImVec2((start.x + end.x) * 0.5f, (start.y + end.y) * 0.5f);
         }
 
-        // Simple stratégie: essayer différentes directions
         const ImVec2 directions[] = {
-            ImVec2(0, -100), // haut
-            ImVec2(100, 0), // droite
-            ImVec2(0, 100), // bas
-            ImVec2(-100, 0) // gauche
+            ImVec2(0, -100),
+            ImVec2(100, 0),
+            ImVec2(0, 100),
+            ImVec2(-100, 0)
         };
 
         for (const auto &dir: directions) {
@@ -526,4 +492,4 @@ namespace NodeEditorCore {
         if (!m_boundingBoxCheck) return false;
         return m_boundingBoxCheck(start, end);
     }
-} // namespace NodeEditorCore
+}

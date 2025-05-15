@@ -2,10 +2,8 @@
 #include <algorithm>
 
 namespace NodeEditorCore {
-
     std::vector<int> NodeEditor::getNodesInSubgraph(int subgraphId) const {
         std::vector<int> result;
-        result.reserve(m_state.nodes.size());
 
         for (const auto& node : m_state.nodes) {
             if (node.getSubgraphId() == subgraphId) {
@@ -17,15 +15,10 @@ namespace NodeEditorCore {
     }
 
     std::vector<int> NodeEditor::getConnectionsInSubgraph(int subgraphId) const {
-        std::vector<int> result;
+        const Subgraph* subgraph = getSubgraph(subgraphId);
+        if (!subgraph) return {};
 
-        for (const auto& connection : m_state.connections) {
-            if (connection.getSubgraphId() == subgraphId) {
-                result.push_back(connection.id);
-            }
-        }
-
-        return result;
+        return subgraph->connectionIds;
     }
 
     void NodeEditor::addNodeToSubgraph(int nodeId, int subgraphId) {
@@ -33,6 +26,13 @@ namespace NodeEditorCore {
         if (!node) return;
 
         node->setSubgraphId(subgraphId);
+
+        auto subgraph = getSubgraph(subgraphId);
+        if (subgraph) {
+            if (std::find(subgraph->nodeIds.begin(), subgraph->nodeIds.end(), nodeId) == subgraph->nodeIds.end()) {
+                subgraph->nodeIds.push_back(nodeId);
+            }
+        }
     }
 
     void NodeEditor::removeNodeFromSubgraph(int nodeId, int subgraphId) {
@@ -40,20 +40,50 @@ namespace NodeEditorCore {
         if (!node || node->getSubgraphId() != subgraphId) return;
 
         node->setSubgraphId(-1);
+
+        auto subgraph = getSubgraph(subgraphId);
+        if (subgraph) {
+            subgraph->nodeIds.erase(
+                std::remove(subgraph->nodeIds.begin(), subgraph->nodeIds.end(), nodeId),
+                subgraph->nodeIds.end()
+            );
+        }
     }
 
     void NodeEditor::addConnectionToSubgraph(int connectionId, int subgraphId) {
+        auto subgraph = getSubgraph(subgraphId);
+        if (!subgraph) return;
+
         Connection* connection = getConnection(connectionId);
         if (!connection) return;
 
-        connection->setSubgraphId(subgraphId);
+        if (std::find(subgraph->connectionIds.begin(), subgraph->connectionIds.end(), connectionId) == subgraph->connectionIds.end()) {
+            subgraph->connectionIds.push_back(connectionId);
+        }
+
+        connection->metadata.setAttribute("subgraphId", subgraphId);
+    }
+
+    bool NodeEditor::isConnectionInSubgraph(int connectionId, int subgraphId) const {
+        const Subgraph* subgraph = getSubgraph(subgraphId);
+        if (!subgraph) return false;
+
+        return std::find(subgraph->connectionIds.begin(), subgraph->connectionIds.end(), connectionId) != subgraph->connectionIds.end();
     }
 
     void NodeEditor::removeConnectionFromSubgraph(int connectionId, int subgraphId) {
-        Connection* connection = getConnection(connectionId);
-        if (!connection || connection->getSubgraphId() != subgraphId) return;
+        Subgraph* subgraph = getSubgraph(subgraphId);
+        if (!subgraph) return;
 
-        connection->setSubgraphId(-1);
+        Connection* connection = getConnection(connectionId);
+        if (connection) {
+            connection->metadata.setAttribute("subgraphId", -1);
+        }
+
+        subgraph->connectionIds.erase(
+            std::remove(subgraph->connectionIds.begin(), subgraph->connectionIds.end(), connectionId),
+            subgraph->connectionIds.end()
+        );
     }
 
     void NodeEditor::saveSubgraphViewState(int subgraphId) {
@@ -78,45 +108,45 @@ namespace NodeEditorCore {
         }
     }
 
-    bool NodeEditor::isSubgraphContainer(const Node& node) const {
+    bool NodeEditor::isSubgraphContainer(const Node &node) const {
         return node.isSubgraph;
     }
 
-    bool NodeEditor::isNodeInSubgraph(const Node& node, int subgraphId) const {
+    bool NodeEditor::isNodeInSubgraph(const Node &node, int subgraphId) const {
         return node.getSubgraphId() == subgraphId;
     }
 
     bool NodeEditorCore::NodeEditor::isSubgraphContainer(int nodeId) const {
-        const Node* node = getNode(nodeId);
+        const Node *node = getNode(nodeId);
         return node ? node->isSubgraph : false;
     }
 
     int NodeEditorCore::NodeEditor::getSubgraphFromNode(int nodeId) const {
-        const Node* node = getNode(nodeId);
+        const Node *node = getNode(nodeId);
         return (node && node->isSubgraph) ? node->subgraphId : -1;
     }
 
     int NodeEditorCore::NodeEditor::getNodeSubgraph(int nodeId) const {
-        const Node* node = getNode(nodeId);
+        const Node *node = getNode(nodeId);
         return node ? node->getSubgraphId() : -1;
     }
 
     void NodeEditor::setSubgraphIdForNode(int nodeId, int subgraphId) {
-        Node* node = getNode(nodeId);
+        Node *node = getNode(nodeId);
         if (node) {
             node->metadata.setAttribute("subgraphId", subgraphId);
         }
     }
 
-    void NodeEditor::setSubgraphUUIDForNode(int nodeId, const UUID& uuid) {
-        Node* node = getNode(nodeId);
+    void NodeEditor::setSubgraphUUIDForNode(int nodeId, const UUID &uuid) {
+        Node *node = getNode(nodeId);
         if (node) {
             node->metadata.setAttribute("subgraphUuid", uuid);
         }
     }
 
     UUID NodeEditor::getSubgraphUUIDForNode(int nodeId) const {
-        const Node* node = getNode(nodeId);
+        const Node *node = getNode(nodeId);
         if (node) {
             return node->metadata.getAttribute<UUID>("subgraphUuid", "");
         }
@@ -124,11 +154,10 @@ namespace NodeEditorCore {
     }
 
     int NodeEditor::getSubgraphIdForNode(int nodeId) const {
-        const Node* node = getNode(nodeId);
+        const Node *node = getNode(nodeId);
         if (node) {
             return node->metadata.getAttribute<int>("subgraphId", -1);
         }
         return -1;
     }
-
 }

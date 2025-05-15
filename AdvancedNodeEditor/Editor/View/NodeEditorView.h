@@ -28,6 +28,8 @@ namespace NodeEditorCore {
         float getViewScale() const;
         void centerView();
         void centerOnNode(int nodeId);
+        void centerViewWithSize(float windowWidth, float windowHeight);
+        void centerOnNodeWithSize(int nodeId, float windowWidth, float windowHeight);
 
         void setStyle(const EditorStyle& style);
 

@@ -100,6 +100,11 @@ namespace NodeEditorCore {
     }
 
     void NodeEditor::centerView() {
+        ImVec2 windowSize = ImGui::GetWindowSize();
+        centerViewWithSize(windowSize.x, windowSize.y);
+    }
+
+    void NodeEditor::centerViewWithSize(float windowWidth, float windowHeight) {
         if (m_state.nodes.empty()) {
             m_state.viewPosition = Vec2(0, 0);
             return;
@@ -120,14 +125,18 @@ namespace NodeEditorCore {
             (min.y + max.y) * 0.5f
         );
 
-        ImVec2 windowSize = ImGui::GetWindowSize();
         m_state.viewPosition = Vec2(
-            windowSize.x * 0.5f - center.x * m_state.viewScale,
-            windowSize.y * 0.5f - center.y * m_state.viewScale
+            windowWidth * 0.5f - center.x * m_state.viewScale,
+            windowHeight * 0.5f - center.y * m_state.viewScale
         );
     }
 
     void NodeEditor::centerOnNode(int nodeId) {
+        ImVec2 windowSize = ImGui::GetWindowSize();
+        centerOnNodeWithSize(nodeId, windowSize.x, windowSize.y);
+    }
+
+    void NodeEditor::centerOnNodeWithSize(int nodeId, float windowWidth, float windowHeight) {
         const Node* node = getNode(nodeId);
         if (!node) return;
 
@@ -136,12 +145,13 @@ namespace NodeEditorCore {
             node->position.y + node->size.y * 0.5f
         );
 
-        ImVec2 windowSize = ImGui::GetWindowSize();
         m_state.viewPosition = Vec2(
-            windowSize.x * 0.5f - center.x * m_state.viewScale,
-            windowSize.y * 0.5f - center.y * m_state.viewScale
+            windowWidth * 0.5f - center.x * m_state.viewScale,
+            windowHeight * 0.5f - center.y * m_state.viewScale
         );
     }
+
+
 
     void NodeEditor::setStyle(const NodeEditorStyle& style) {
         m_state.style = style;

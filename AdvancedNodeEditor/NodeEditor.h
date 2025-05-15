@@ -166,6 +166,8 @@ namespace NodeEditorCore {
         void centerView();
         void centerOnNode(int nodeId);
         void centerOnNodeByUUID(const UUID& uuid);
+        void centerViewWithSize(float windowWidth, float windowHeight);
+        void centerOnNodeWithSize(int nodeId, float windowWidth, float windowHeight);
 
         void setStyle(const NodeEditorStyle& style);
         const NodeEditorStyle& getStyle() const;
@@ -221,7 +223,6 @@ namespace NodeEditorCore {
         Node* createNodeOfType(const std::string& type, const Vec2& position);
         Node* createNodeOfTypeWithUUID(const std::string& type, const Vec2& position, UUID& outUuid);
 
-        // Subgraph management
         int createSubgraph(const std::string& name, const UUID& uuid = "");
         UUID createSubgraphWithUUID(const std::string& name);
 
@@ -242,6 +243,9 @@ namespace NodeEditorCore {
         void removeNodeFromSubgraphByUUID(const UUID& nodeUuid, const UUID& subgraphUuid);
 
         void addConnectionToSubgraph(int connectionId, int subgraphId);
+
+        bool isConnectionInSubgraph(int connectionId, int subgraphId) const;
+
         void addConnectionToSubgraphByUUID(const UUID& connectionUuid, const UUID& subgraphUuid);
         void removeConnectionFromSubgraph(int connectionId, int subgraphId);
         void removeConnectionFromSubgraphByUUID(const UUID& connectionUuid, const UUID& subgraphUuid);
@@ -359,6 +363,7 @@ namespace NodeEditorCore {
         void smoothCenterView(float duration = 0.3f);
         void smoothCenterOnNode(int nodeId, float duration = 0.3f);
         void smoothCenterOnNodeByUUID(const UUID& uuid, float duration = 0.3f);
+
 
         bool isShowingSubgraphBreadcrumbs() const;
         void setShowSubgraphBreadcrumbs(bool show);

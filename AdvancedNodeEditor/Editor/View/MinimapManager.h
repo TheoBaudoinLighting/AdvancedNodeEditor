@@ -1,4 +1,3 @@
-// MinimapManager.h
 #ifndef MINIMAP_MANAGER_H
 #define MINIMAP_MANAGER_H
 
@@ -12,15 +11,15 @@ namespace NodeEditorCore {
 class MinimapManager {
 public:
     struct MinimapConfig {
-        Vec2 position;        // Position dans la fenêtre (0,0 = coin supérieur gauche)
-        Vec2 size;            // Taille de la minimap
-        float opacity;        // Opacité globale
-        Color backgroundColor; // Couleur de fond
-        Color borderColor;    // Couleur de bordure
-        Color viewportColor;  // Couleur du rectangle de viewport
-        float padding;        // Marge intérieure
-        bool showBorder;      // Afficher la bordure
-        bool interactable;    // Permet de cliquer/déplacer sur la minimap
+        Vec2 position;
+        Vec2 size;
+        float opacity;
+        Color backgroundColor;
+        Color borderColor;
+        Color viewportColor;
+        float padding;
+        bool showBorder;
+        bool interactable;
 
         MinimapConfig()
             : position(20.0f, 20.0f)
@@ -46,15 +45,12 @@ public:
     void setViewPosition(const Vec2& position);
     void setViewScale(float scale);
 
-    // Définir une fonction pour obtenir les positions des nœuds
     using NodePositionProvider = std::function<std::vector<std::pair<Vec2, Vec2>>()>;
     void setNodePositionProvider(NodePositionProvider provider);
 
-    // Fonction de rappel quand l'utilisateur clique sur la minimap
     using ViewportChangeCallback = std::function<void(const Vec2&)>;
     void setViewportChangeCallback(ViewportChangeCallback callback);
 
-    // Dessiner la minimap
     bool draw(ImDrawList* drawList, const ImVec2& canvasPos, const ImVec2& canvasSize);
 
 private:
@@ -68,16 +64,11 @@ private:
     bool m_dragging;
     Vec2 m_dragStart;
 
-    // Convertir coordonnées du graphe en coordonnées minimap
     ImVec2 graphToMinimap(const Vec2& graphPos, const ImVec2& minimapPos, const ImVec2& minimapSize) const;
-
-    // Convertir coordonnées minimap en coordonnées graphe
     Vec2 minimapToGraph(const ImVec2& minimapPos, const ImVec2& mapPos, const ImVec2& mapSize) const;
-
-    // Gérer les interactions
     bool handleInteraction(const ImVec2& minimapPos, const ImVec2& minimapSize);
 };
 
 } // namespace NodeEditorCore
 
-#endif // MINIMAP_MANAGER_H
+#endif

@@ -68,11 +68,9 @@ void ViewManager::centerView() {
 }
 
 void ViewManager::centerOnNode(int nodeId) {
-    // Implémentation requiert un fournisseur de position de nœud
 }
 
 void ViewManager::centerOnNodes(const std::vector<int>& nodeIds) {
-    // Implémentation requiert un fournisseur de position de nœud
 }
 
 void ViewManager::zoomToFit(float padding) {
@@ -97,7 +95,6 @@ void ViewManager::zoomToFit(float padding) {
     float scaleY = windowSize.y / height;
     float scale = std::min(scaleX, scaleY);
 
-   // ViewManager.cpp (suite)
     scale = std::max(m_minZoom, std::min(scale, m_maxZoom));
 
     Vec2 center = Vec2(
@@ -116,8 +113,6 @@ void ViewManager::zoomToFit(float padding) {
 }
 
 void ViewManager::zoomToFitSelected(float padding) {
-    // Similaire à zoomToFit mais avec les nœuds sélectionnés uniquement
-    // Implémentation nécessite un fournisseur spécifique aux nœuds sélectionnés
 }
 
 void ViewManager::startViewTransition(const ViewState& targetState, float duration, ViewTransitionType type) {

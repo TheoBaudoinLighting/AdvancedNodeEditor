@@ -226,7 +226,6 @@ namespace NodeEditorCore {
             m_state.dragStart = Vec2::fromImVec2(mousePos);
             m_state.groupStartSize = group->size;
 
-            // Définir le curseur en mode redimensionnement
             ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeNESW);
         } else if (onTitle) {
             m_state.interactionMode = InteractionMode::DragGroup;
@@ -236,7 +235,6 @@ namespace NodeEditorCore {
                 mousePos.y - groupPos.y
             );
 
-            // Définir le curseur en mode déplacement
             ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeAll);
         }
     }

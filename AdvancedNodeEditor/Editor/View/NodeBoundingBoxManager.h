@@ -1,4 +1,3 @@
-// NodeBoundingBoxManager.h
 #ifndef NODE_BOUNDING_BOX_MANAGER_H
 #define NODE_BOUNDING_BOX_MANAGER_H
 
@@ -27,39 +26,25 @@ public:
         }
 
         bool intersectsLine(const Vec2& start, const Vec2& end) const {
-            // Test rapide d'intersection AABB - ligne
             if (!isActive) return false;
-
-            // Tests de non-intersection
             if ((start.x < position.x && end.x < position.x) ||
                 (start.x > position.x + size.x && end.x > position.x + size.x) ||
                 (start.y < position.y && end.y < position.y) ||
                 (start.y > position.y + size.y && end.y > position.y + size.y)) {
                 return false;
             }
-
-            // Test plus précis avec équation de ligne
             float dx = end.x - start.x;
             float dy = end.y - start.y;
-
-            // Si la ligne est verticale
             if (std::abs(dx) < 0.00001f) {
                 return start.x >= position.x && start.x <= position.x + size.x;
             }
-
-            // Si la ligne est horizontale
             if (std::abs(dy) < 0.00001f) {
                 return start.y >= position.y && start.y <= position.y + size.y;
             }
-
             float m = dy / dx;
             float b = start.y - m * start.x;
-
-            // Calculer les intersections avec les bords de la boîte
             float t_min = 0.0f;
             float t_max = 1.0f;
-
-            // Test avec les bords horizontaux (y = const)
             for (float y_test : {position.y, position.y + size.y}) {
                 float t = (y_test - start.y) / dy;
                 if (t >= 0.0f && t <= 1.0f) {
@@ -69,8 +54,6 @@ public:
                     }
                 }
             }
-
-            // Test avec les bords verticaux (x = const)
             for (float x_test : {position.x, position.x + size.x}) {
                 float t = (x_test - start.x) / dx;
                 if (t >= 0.0f && t <= 1.0f) {
@@ -80,7 +63,6 @@ public:
                     }
                 }
             }
-
             return false;
         }
     };
@@ -109,10 +91,9 @@ private:
     Vec2 findNearestPointOnLine(const Vec2& point, const Vec2& lineStart, const Vec2& lineEnd) const;
     bool isPointValid(const Vec2& point, const std::vector<BoundingBox>& boxes, float padding) const;
 
-    // Algorithme de pathfinding simple
     std::vector<Vec2> findSimplePath(const Vec2& start, const Vec2& end, const std::vector<BoundingBox>& obstacles, float padding) const;
 };
 
 } // namespace NodeEditorCore
 
-#endif // NODE_BOUNDING_BOX_MANAGER_H
+#endif
