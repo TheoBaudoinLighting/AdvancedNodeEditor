@@ -10,7 +10,7 @@ void NodeEditor::drawDragConnection(ImDrawList* drawList, const ImVec2& canvasPo
     const Pin* pinInternal = node->findPin(m_state.connectingPinId);
     if (!pinInternal) return;
 
-    const ANE::Pin* apiPin = getPin(m_state.connectingNodeId, m_state.connectingPinId);
+    const Pin* apiPin = getPin(m_state.connectingNodeId, m_state.connectingPinId);
     if (!apiPin) return;
 
     ImVec2 p1 = getPinPos(*node, *apiPin, canvasPos);
@@ -18,7 +18,7 @@ void NodeEditor::drawDragConnection(ImDrawList* drawList, const ImVec2& canvasPo
 
     if (m_state.magnetPinNodeId != -1) {
         const Node* magnetNode = getNode(m_state.magnetPinNodeId);
-        const ANE::Pin* magnetPin = getPin(m_state.magnetPinNodeId, m_state.magnetPinId);
+        const Pin* magnetPin = getPin(m_state.magnetPinNodeId, m_state.magnetPinId);
         if (magnetNode && magnetPin) {
             p2 = getPinPos(*magnetNode, *magnetPin, canvasPos);
         } else {
@@ -38,10 +38,10 @@ void NodeEditor::drawDragConnection(ImDrawList* drawList, const ImVec2& canvasPo
         dragColor = IM_COL32(255, 50, 50, 200);
     } else {
         dragColor = IM_COL32(
-            pinColors.color.r * 255,
-            pinColors.color.g * 255,
-            pinColors.color.b * 255,
-            pinColors.color.a * 255 * 0.8f
+            pinColors.base.r * 255,
+            pinColors.base.g * 255,
+            pinColors.base.b * 255,
+            pinColors.base.a * 255 * 0.8f
         );
     }
 
@@ -74,9 +74,9 @@ void NodeEditor::drawDragConnection(ImDrawList* drawList, const ImVec2& canvasPo
 
     const float glowRadius = 2.5f * m_state.viewScale;
     ImU32 glowColor = IM_COL32(
-        std::min(static_cast<int>(pinColors.color.r * 255 + 50), 255),
-        std::min(static_cast<int>(pinColors.color.g * 255 + 50), 255),
-        std::min(static_cast<int>(pinColors.color.b * 255 + 50), 255),
+        std::min(static_cast<int>(pinColors.base.r * 255 + 50), 255),
+        std::min(static_cast<int>(pinColors.base.g * 255 + 50), 255),
+        std::min(static_cast<int>(pinColors.base.b * 255 + 50), 255),
         180
     );
 
@@ -111,12 +111,12 @@ void NodeEditor::drawNodePins(ImDrawList* drawList, const Node& node, const ImVe
     for (size_t i = 0; i < node.inputs.size(); ++i) {
         const auto& pinInternal = node.inputs[i];
 
-        ANE::Pin apiPin;
+        Pin apiPin;
         apiPin.id = pinInternal.id;
         apiPin.name = pinInternal.name;
         apiPin.isInput = pinInternal.isInput;
-        apiPin.type = static_cast<ANE::PinType>(pinInternal.type);
-        apiPin.shape = static_cast<ANE::PinShape>(pinInternal.shape);
+        apiPin.type = static_cast<PinType>(pinInternal.type);
+        apiPin.shape = static_cast<PinShape>(pinInternal.shape);
 
         ImVec2 pinPos = getPinPos(node, apiPin, canvasPos);
 
@@ -126,10 +126,10 @@ void NodeEditor::drawNodePins(ImDrawList* drawList, const Node& node, const ImVe
                                    m_state.style.pinColors.at("Default");
 
         ImU32 pinColor = IM_COL32(
-            pinColors.color.r * 255,
-            pinColors.color.g * 255,
-            pinColors.color.b * 255,
-            pinColors.color.a * 255
+            pinColors.base.r * 255,
+            pinColors.base.g * 255,
+            pinColors.base.b * 255,
+            pinColors.base.a * 255
         );
 
         ImU32 pinOutlineColor = IM_COL32(80, 80, 90, 180);
@@ -142,20 +142,20 @@ void NodeEditor::drawNodePins(ImDrawList* drawList, const Node& node, const ImVe
 
         if (pinInternal.connected) {
             pinColor = IM_COL32(
-                pinColors.connectedColor.r * 255,
-                pinColors.connectedColor.g * 255,
-                pinColors.connectedColor.b * 255,
-                pinColors.connectedColor.a * 255
+                pinColors.connected.r * 255,
+                pinColors.connected.g * 255,
+                pinColors.connected.b * 255,
+                pinColors.connected.a * 255
             );
             pinOutlineColor = IM_COL32(255, 255, 255, 100);
             pinOutlineThickness = 1.5f;
         }
         else if (pinHovered) {
             pinColor = IM_COL32(
-                pinColors.hoverColor.r * 255,
-                pinColors.hoverColor.g * 255,
-                pinColors.hoverColor.b * 255,
-                pinColors.hoverColor.a * 255
+                pinColors.hover.r * 255,
+                pinColors.hover.g * 255,
+                pinColors.hover.b * 255,
+                pinColors.hover.a * 255
             );
         }
 
@@ -175,12 +175,12 @@ void NodeEditor::drawNodePins(ImDrawList* drawList, const Node& node, const ImVe
     for (size_t i = 0; i < node.outputs.size(); ++i) {
         const auto& pinInternal = node.outputs[i];
 
-        ANE::Pin apiPin;
+        Pin apiPin;
         apiPin.id = pinInternal.id;
         apiPin.name = pinInternal.name;
         apiPin.isInput = pinInternal.isInput;
-        apiPin.type = static_cast<ANE::PinType>(pinInternal.type);
-        apiPin.shape = static_cast<ANE::PinShape>(pinInternal.shape);
+        apiPin.type = static_cast<PinType>(pinInternal.type);
+        apiPin.shape = static_cast<PinShape>(pinInternal.shape);
 
         ImVec2 pinPos = getPinPos(node, apiPin, canvasPos);
 
@@ -190,10 +190,10 @@ void NodeEditor::drawNodePins(ImDrawList* drawList, const Node& node, const ImVe
                                    m_state.style.pinColors.at("Default");
 
         ImU32 pinColor = IM_COL32(
-            pinColors.color.r * 255,
-            pinColors.color.g * 255,
-            pinColors.color.b * 255,
-            pinColors.color.a * 255
+            pinColors.base.r * 255,
+            pinColors.base.g * 255,
+            pinColors.base.b * 255,
+            pinColors.base.a * 255
         );
 
         ImU32 pinOutlineColor = IM_COL32(80, 80, 90, 180);
@@ -206,20 +206,20 @@ void NodeEditor::drawNodePins(ImDrawList* drawList, const Node& node, const ImVe
 
         if (pinInternal.connected) {
             pinColor = IM_COL32(
-                pinColors.connectedColor.r * 255,
-                pinColors.connectedColor.g * 255,
-                pinColors.connectedColor.b * 255,
-                pinColors.connectedColor.a * 255
+                pinColors.connected.r * 255,
+                pinColors.connected.g * 255,
+                pinColors.connected.b * 255,
+                pinColors.connected.a * 255
             );
             pinOutlineColor = IM_COL32(255, 255, 255, 100);
             pinOutlineThickness = 1.5f;
         }
         else if (pinHovered) {
             pinColor = IM_COL32(
-                pinColors.hoverColor.r * 255,
-                pinColors.hoverColor.g * 255,
-                pinColors.hoverColor.b * 255,
-                pinColors.hoverColor.a * 255
+                pinColors.hover.r * 255,
+                pinColors.hover.g * 255,
+                pinColors.hover.b * 255,
+                pinColors.hover.a * 255
             );
         }
 

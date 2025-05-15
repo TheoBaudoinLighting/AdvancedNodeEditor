@@ -1,7 +1,7 @@
 #include "../NodeEditor.h"
 #include "../Core/Conversions/Conversions.h"
 
-namespace ANE {
+namespace NodeEditorCore {
 
     NodeEvaluator::ConnectionInfo::ConnectionInfo()
         : connectionId(-1), connectionUuid(""),
@@ -73,7 +73,7 @@ namespace ANE {
 
 namespace NodeEditorCore {
     
-    ANE::UUID NodeEditor::getNodeUUID(int nodeId) const {
+    UUID NodeEditor::getNodeUUID(int nodeId) const {
         for (const auto& node : getNodes()) {
             if (node.id == nodeId) {
                 return node.uuid;
@@ -82,7 +82,7 @@ namespace NodeEditorCore {
         return "";
     }
 
-    int NodeEditor::getNodeId(const ANE::UUID& uuid) const {
+    int NodeEditor::getNodeId(const UUID& uuid) const {
         for (const auto& node : getNodes()) {
             if (node.uuid == uuid) {
                 return node.id;
@@ -91,19 +91,19 @@ namespace NodeEditorCore {
         return -1;
     }
 
-    NodeEditorCore::Node* NodeEditor::getNodeByUUID(const ANE::UUID& uuid) {
+    NodeEditorCore::Node* NodeEditor::getNodeByUUID(const UUID& uuid) {
         int nodeId = getNodeId(uuid);
         if (nodeId == -1) return nullptr;
         return getNode(nodeId);
     }
 
-    const NodeEditorCore::Node* NodeEditor::getNodeByUUID(const ANE::UUID& uuid) const {
+    const NodeEditorCore::Node* NodeEditor::getNodeByUUID(const UUID& uuid) const {
         int nodeId = getNodeId(uuid);
         if (nodeId == -1) return nullptr;
         return getNode(nodeId);
     }
 
-    void NodeEditor::removeNodeByUUID(const ANE::UUID& uuid) {
+    void NodeEditor::removeNodeByUUID(const UUID& uuid) {
         int nodeId = getNodeId(uuid);
         if (nodeId != -1) {
             removeNode(nodeId);
@@ -118,7 +118,7 @@ namespace NodeEditorCore {
         }
     }
 
-    ANE::UUID NodeEditor::getPinUUID(int nodeId, int pinId) const {
+    UUID NodeEditor::getPinUUID(int nodeId, int pinId) const {
         const Node* node = getNode(nodeId);
         if (!node) return "";
         
@@ -137,8 +137,8 @@ namespace NodeEditorCore {
         return "";
     }
 
-    ANE::Pin* NodeEditor::getPinByUUID(const ANE::UUID& nodeUuid, const ANE::UUID& pinUuid) {
-        static ANE::Pin convertedPin;
+    Pin* NodeEditor::getPinByUUID(const UUID& nodeUuid, const UUID& pinUuid) {
+        static Pin convertedPin;
         
         Node* node = getNodeByUUID(nodeUuid);
         if (!node) return nullptr;
@@ -149,8 +149,8 @@ namespace NodeEditorCore {
                 convertedPin.uuid = pin.uuid;
                 convertedPin.name = pin.name;
                 convertedPin.isInput = pin.isInput;
-                convertedPin.type = ANE::PinType(int(pin.type));
-                convertedPin.shape = ANE::PinShape(int(pin.shape));
+                convertedPin.type = PinType(int(pin.type));
+                convertedPin.shape = PinShape(int(pin.shape));
                 return &convertedPin;
             }
         }
@@ -161,8 +161,8 @@ namespace NodeEditorCore {
                 convertedPin.uuid = pin.uuid;
                 convertedPin.name = pin.name;
                 convertedPin.isInput = pin.isInput;
-                convertedPin.type = ANE::PinType(int(pin.type));
-                convertedPin.shape = ANE::PinShape(int(pin.shape));
+                convertedPin.type = PinType(int(pin.type));
+                convertedPin.shape = PinShape(int(pin.shape));
                 return &convertedPin;
             }
         }
@@ -170,8 +170,8 @@ namespace NodeEditorCore {
         return nullptr;
     }
 
-    const ANE::Pin* NodeEditor::getPinByUUID(const ANE::UUID& nodeUuid, const ANE::UUID& pinUuid) const {
-        static ANE::Pin convertedPin;
+    const Pin* NodeEditor::getPinByUUID(const UUID& nodeUuid, const UUID& pinUuid) const {
+        static Pin convertedPin;
         
         const Node* node = getNodeByUUID(nodeUuid);
         if (!node) return nullptr;
@@ -182,8 +182,8 @@ namespace NodeEditorCore {
                 convertedPin.uuid = pin.uuid;
                 convertedPin.name = pin.name;
                 convertedPin.isInput = pin.isInput;
-                convertedPin.type = ANE::PinType(int(pin.type));
-                convertedPin.shape = ANE::PinShape(int(pin.shape));
+                convertedPin.type = PinType(int(pin.type));
+                convertedPin.shape = PinShape(int(pin.shape));
                 return &convertedPin;
             }
         }
@@ -194,8 +194,8 @@ namespace NodeEditorCore {
                 convertedPin.uuid = pin.uuid;
                 convertedPin.name = pin.name;
                 convertedPin.isInput = pin.isInput;
-                convertedPin.type = ANE::PinType(int(pin.type));
-                convertedPin.shape = ANE::PinShape(int(pin.shape));
+                convertedPin.type = PinType(int(pin.type));
+                convertedPin.shape = PinShape(int(pin.shape));
                 return &convertedPin;
             }
         }
@@ -203,7 +203,7 @@ namespace NodeEditorCore {
         return nullptr;
     }
 
-    ANE::UUID NodeEditor::getConnectionUUID(int connectionId) const {
+    UUID NodeEditor::getConnectionUUID(int connectionId) const {
         for (const auto& connection : getConnections()) {
             if (connection.id == connectionId) {
                 return connection.uuid;
@@ -212,7 +212,7 @@ namespace NodeEditorCore {
         return "";
     }
 
-    NodeEditorCore::Connection* NodeEditor::getConnectionByUUID(const ANE::UUID& uuid) {
+    NodeEditorCore::Connection* NodeEditor::getConnectionByUUID(const UUID& uuid) {
         for (auto& connection : m_state.connections) {
             if (connection.uuid == uuid) {
                 return &connection;
@@ -221,7 +221,7 @@ namespace NodeEditorCore {
         return nullptr;
     }
 
-    const NodeEditorCore::Connection* NodeEditor::getConnectionByUUID(const ANE::UUID& uuid) const {
+    const NodeEditorCore::Connection* NodeEditor::getConnectionByUUID(const UUID& uuid) const {
         for (const auto& connection : getConnections()) {
             if (connection.uuid == uuid) {
                 return &connection;
@@ -230,7 +230,7 @@ namespace NodeEditorCore {
         return nullptr;
     }
 
-    void NodeEditor::removeConnectionByUUID(const ANE::UUID& uuid) {
+    void NodeEditor::removeConnectionByUUID(const UUID& uuid) {
         for (const auto& connection : getConnections()) {
             if (connection.uuid == uuid) {
                 removeConnection(connection.id);
@@ -239,8 +239,8 @@ namespace NodeEditorCore {
         }
     }
 
-    int NodeEditor::addConnectionByUUID(const ANE::UUID& startNodeUuid, const ANE::UUID& startPinUuid,
-                                     const ANE::UUID& endNodeUuid, const ANE::UUID& endPinUuid, const ANE::UUID& uuid) {
+    int NodeEditor::addConnectionByUUID(const UUID& startNodeUuid, const UUID& startPinUuid,
+                                     const UUID& endNodeUuid, const UUID& endPinUuid, const UUID& uuid) {
         int startNodeId = getNodeId(startNodeUuid);
         int endNodeId = getNodeId(endNodeUuid);
         
@@ -273,7 +273,7 @@ namespace NodeEditorCore {
         return addConnection(startNodeId, startPinId, endNodeId, endPinId, uuid);
     }
 
-    NodeEditorCore::Group* NodeEditor::getGroupByUUID(const ANE::UUID& uuid) {
+    NodeEditorCore::Group* NodeEditor::getGroupByUUID(const UUID& uuid) {
         for (int i = 0; i < 10000; i++) {
             Group* group = getGroup(i);
             if (group && group->uuid == uuid) {
@@ -283,7 +283,7 @@ namespace NodeEditorCore {
         return nullptr;
     }
 
-    void NodeEditor::removeGroupByUUID(const ANE::UUID& uuid) {
+    void NodeEditor::removeGroupByUUID(const UUID& uuid) {
         for (int i = 0; i < 10000; i++) {
             const Group* group = getGroup(i);
             if (group && group->uuid == uuid) {
@@ -293,7 +293,7 @@ namespace NodeEditorCore {
         }
     }
 
-    void NodeEditor::addNodeToGroupByUUID(const ANE::UUID& nodeUuid, const ANE::UUID& groupUuid) {
+    void NodeEditor::addNodeToGroupByUUID(const UUID& nodeUuid, const UUID& groupUuid) {
         int nodeId = getNodeId(nodeUuid);
         if (nodeId == -1) return;
         
@@ -303,15 +303,15 @@ namespace NodeEditorCore {
         }
     }
 
-    void NodeEditor::selectNodeByUUID(const ANE::UUID& uuid, bool append) {
+    void NodeEditor::selectNodeByUUID(const UUID& uuid, bool append) {
         int nodeId = getNodeId(uuid);
         if (nodeId != -1) {
             selectNode(nodeId, append);
         }
     }
 
-    std::vector<ANE::UUID> NodeEditor::getSelectedNodeUUIDs() const {
-        std::vector<ANE::UUID> result;
+    std::vector<UUID> NodeEditor::getSelectedNodeUUIDs() const {
+        std::vector<UUID> result;
         std::vector<int> selectedNodes = getSelectedNodes();
         
         for (int nodeId : selectedNodes) {
@@ -322,12 +322,12 @@ namespace NodeEditorCore {
     }
     
     std::vector<int> NodeEditor::getEvaluationOrder() const {
-        ANE::NodeEvaluator evaluator(const_cast<NodeEditor&>(*this));
+        NodeEvaluator evaluator(const_cast<NodeEditor&>(*this));
         return evaluator.getEvaluationOrder();
     }
 
-    std::vector<ANE::UUID> NodeEditor::getEvaluationOrderUUIDs() const {
-        std::vector<ANE::UUID> result;
+    std::vector<UUID> NodeEditor::getEvaluationOrderUUIDs() const {
+        std::vector<UUID> result;
         std::vector<int> order = getEvaluationOrder();
         
         for (int nodeId : order) {
@@ -337,12 +337,12 @@ namespace NodeEditorCore {
         return result;
     }
 
-    std::vector<ANE::NodeEvaluator::ConnectionInfo> NodeEditor::getInputConnections(int nodeId) {
-        std::vector<ANE::NodeEvaluator::ConnectionInfo> result;
+    std::vector<NodeEvaluator::ConnectionInfo> NodeEditor::getInputConnections(int nodeId) {
+        std::vector<NodeEvaluator::ConnectionInfo> result;
         
         for (const auto& connection : getConnections()) {
             if (connection.endNodeId == nodeId) {
-                ANE::NodeEvaluator::ConnectionInfo info;
+                NodeEvaluator::ConnectionInfo info;
                 info.connectionId = connection.id;
                 info.connectionUuid = getConnectionUUID(connection.id);
                 info.sourceNodeId = connection.startNodeId;
@@ -360,17 +360,17 @@ namespace NodeEditorCore {
         return result;
     }
 
-    std::vector<ANE::NodeEvaluator::ConnectionInfo> NodeEditor::getInputConnectionsByUUID(const ANE::UUID& nodeUuid) {
+    std::vector<NodeEvaluator::ConnectionInfo> NodeEditor::getInputConnectionsByUUID(const UUID& nodeUuid) {
         int nodeId = getNodeId(nodeUuid);
         return getInputConnections(nodeId);
     }
 
-    std::vector<ANE::NodeEvaluator::ConnectionInfo> NodeEditor::getOutputConnections(int nodeId) {
-        std::vector<ANE::NodeEvaluator::ConnectionInfo> result;
+    std::vector<NodeEvaluator::ConnectionInfo> NodeEditor::getOutputConnections(int nodeId) {
+        std::vector<NodeEvaluator::ConnectionInfo> result;
         
         for (const auto& connection : getConnections()) {
             if (connection.startNodeId == nodeId) {
-                ANE::NodeEvaluator::ConnectionInfo info;
+                NodeEvaluator::ConnectionInfo info;
                 info.connectionId = connection.id;
                 info.connectionUuid = getConnectionUUID(connection.id);
                 info.sourceNodeId = connection.startNodeId;
@@ -388,7 +388,7 @@ namespace NodeEditorCore {
         return result;
     }
 
-    std::vector<ANE::NodeEvaluator::ConnectionInfo> NodeEditor::getOutputConnectionsByUUID(const ANE::UUID& nodeUuid) {
+    std::vector<NodeEvaluator::ConnectionInfo> NodeEditor::getOutputConnectionsByUUID(const UUID& nodeUuid) {
         int nodeId = getNodeId(nodeUuid);
         return getOutputConnections(nodeId);
     }

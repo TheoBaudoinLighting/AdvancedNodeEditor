@@ -36,52 +36,52 @@ namespace NodeEditorCore {
                                                 m_state.style.nodeColors.at("Default");
 
             ImU32 baseColor = IM_COL32(
-                nodeColors.baseColor.r * 255,
-                nodeColors.baseColor.g * 255,
-                nodeColors.baseColor.b * 255,
-                nodeColors.baseColor.a * 255
+                nodeColors.base.r * 255,
+                nodeColors.base.g * 255,
+                nodeColors.base.b * 255,
+                nodeColors.base.a * 255
             );
 
             ImU32 headerColor = IM_COL32(
-                nodeColors.headerColor.r * 255,
-                nodeColors.headerColor.g * 255,
-                nodeColors.headerColor.b * 255,
-                nodeColors.headerColor.a * 255
+                nodeColors.header.r * 255,
+                nodeColors.header.g * 255,
+                nodeColors.header.b * 255,
+                nodeColors.header.a * 255
             );
 
             ImU32 accentColor = IM_COL32(
-                nodeColors.accentColor.r * 255,
-                nodeColors.accentColor.g * 255,
-                nodeColors.accentColor.b * 255,
-                nodeColors.accentColor.a * 255
+                nodeColors.accent.r * 255,
+                nodeColors.accent.g * 255,
+                nodeColors.accent.b * 255,
+                nodeColors.accent.a * 255
             );
 
             ImU32 borderColor = IM_COL32(
-                nodeColors.borderColor.r * 255,
-                nodeColors.borderColor.g * 255,
-                nodeColors.borderColor.b * 255,
-                nodeColors.borderColor.a * 255
+                nodeColors.border.r * 255,
+                nodeColors.border.g * 255,
+                nodeColors.border.b * 255,
+                nodeColors.border.a * 255
             );
 
             ImU32 selectedColor = IM_COL32(
-                nodeColors.selectedColor.r * 255,
-                nodeColors.selectedColor.g * 255,
-                nodeColors.selectedColor.b * 255,
-                nodeColors.selectedColor.a * 255
+                nodeColors.selected.r * 255,
+                nodeColors.selected.g * 255,
+                nodeColors.selected.b * 255,
+                nodeColors.selected.a * 255
             );
 
             ImU32 hoveredColor = IM_COL32(
-                nodeColors.hoveredColor.r * 255,
-                nodeColors.hoveredColor.g * 255,
-                nodeColors.hoveredColor.b * 255,
-                nodeColors.hoveredColor.a * 255
+                nodeColors.hovered.r * 255,
+                nodeColors.hovered.g * 255,
+                nodeColors.hovered.b * 255,
+                nodeColors.hovered.a * 255
             );
 
             ImU32 glowColor = IM_COL32(
-                nodeColors.glowColor.r * 255,
-                nodeColors.glowColor.g * 255,
-                nodeColors.glowColor.b * 255,
-                nodeColors.glowColor.a * 255
+                nodeColors.glow.r * 255,
+                nodeColors.glow.g * 255,
+                nodeColors.glow.b * 255,
+                nodeColors.glow.a * 255
             );
 
             if (node.disabled) {
@@ -97,16 +97,16 @@ namespace NodeEditorCore {
 
                 ImU32 enhancedGlowColor = node.selected ?
                     IM_COL32(
-                        nodeColors.selectedColor.r * 255,
-                        nodeColors.selectedColor.g * 255,
-                        nodeColors.selectedColor.b * 255,
-                        static_cast<int>(nodeColors.selectedColor.a * 100)
+                        nodeColors.selected.r * 255,
+                        nodeColors.selected.g * 255,
+                        nodeColors.selected.b * 255,
+                        static_cast<int>(nodeColors.selected.a * 100)
                     ) :
                     IM_COL32(
-                        nodeColors.hoveredColor.r * 255,
-                        nodeColors.hoveredColor.g * 255,
-                        nodeColors.hoveredColor.b * 255,
-                        static_cast<int>(nodeColors.hoveredColor.a * 80)
+                        nodeColors.hovered.r * 255,
+                        nodeColors.hovered.g * 255,
+                        nodeColors.hovered.b * 255,
+                        static_cast<int>(nodeColors.hovered.a * 80)
                     );
 
                 drawList->AddRectFilled(

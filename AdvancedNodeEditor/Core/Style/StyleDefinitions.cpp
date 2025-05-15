@@ -1,6 +1,6 @@
 #include "StyleDefinitions.h"
 
-namespace ANE {
+namespace NodeEditorCore {
 
 EditorStyle::EditorStyle() {
     backgroundColor = Color(0.10f, 0.11f, 0.12f, 1.00f);
@@ -29,105 +29,105 @@ namespace NodeEditorCore {
         uiColors.tooltipText = Color(0.95f, 0.95f, 0.97f, 1.00f);
 
         internal::NodeColors geometryColors;
-        geometryColors.baseColor = Color(0.180f, 0.220f, 0.250f, 1.0f);
-        geometryColors.headerColor = Color(0.160f, 0.180f, 0.210f, 0.7f);
-        geometryColors.accentColor = Color(0.650f, 0.800f, 0.850f, 1.0f);
-        geometryColors.borderColor = Color(0.220f, 0.260f, 0.300f, 1.0f);
-        geometryColors.selectedColor = Color(0.500f, 0.650f, 0.780f, 1.0f);
-        geometryColors.hoveredColor = Color(0.450f, 0.550f, 0.700f, 1.0f);
-        geometryColors.glowColor = Color(0.250f, 0.300f, 0.350f, 0.235f);
+        geometryColors.base = Color(0.180f, 0.220f, 0.250f, 1.0f);
+        geometryColors.header = Color(0.160f, 0.180f, 0.210f, 0.7f);
+        geometryColors.accent = Color(0.650f, 0.800f, 0.850f, 1.0f);
+        geometryColors.border = Color(0.220f, 0.260f, 0.300f, 1.0f);
+        geometryColors.selected = Color(0.500f, 0.650f, 0.780f, 1.0f);
+        geometryColors.hovered = Color(0.450f, 0.550f, 0.700f, 1.0f);
+        geometryColors.glow = Color(0.250f, 0.300f, 0.350f, 0.235f);
         nodeColors["Geometry"] = geometryColors;
 
         internal::NodeColors materialColors;
-        materialColors.baseColor = Color(0.230f, 0.200f, 0.220f, 1.0f);
-        materialColors.headerColor = Color(0.190f, 0.170f, 0.180f, 0.7f);
-        materialColors.accentColor = Color(0.950f, 0.780f, 0.800f, 1.0f);
-        materialColors.borderColor = Color(0.250f, 0.230f, 0.240f, 1.0f);
-        materialColors.selectedColor = Color(0.780f, 0.650f, 0.700f, 1.0f);
-        materialColors.hoveredColor = Color(0.700f, 0.580f, 0.650f, 1.0f);
-        materialColors.glowColor = Color(0.300f, 0.250f, 0.280f, 0.235f);
+        materialColors.base = Color(0.230f, 0.200f, 0.220f, 1.0f);
+        materialColors.header = Color(0.190f, 0.170f, 0.180f, 0.7f);
+        materialColors.accent = Color(0.950f, 0.780f, 0.800f, 1.0f);
+        materialColors.border = Color(0.250f, 0.230f, 0.240f, 1.0f);
+        materialColors.selected = Color(0.780f, 0.650f, 0.700f, 1.0f);
+        materialColors.hovered = Color(0.700f, 0.580f, 0.650f, 1.0f);
+        materialColors.glow = Color(0.300f, 0.250f, 0.280f, 0.235f);
         nodeColors["Material"] = materialColors;
 
         internal::NodeColors mathColors;
-        mathColors.baseColor = Color(0.210f, 0.190f, 0.240f, 1.0f);
-        mathColors.headerColor = Color(0.180f, 0.160f, 0.200f, 0.7f);
-        mathColors.accentColor = Color(0.800f, 0.750f, 0.950f, 1.0f);
-        mathColors.borderColor = Color(0.240f, 0.220f, 0.270f, 1.0f);
-        mathColors.selectedColor = Color(0.680f, 0.620f, 0.780f, 1.0f);
-        mathColors.hoveredColor = Color(0.600f, 0.550f, 0.700f, 1.0f);
-        mathColors.glowColor = Color(0.270f, 0.250f, 0.300f, 0.235f);
+        mathColors.base = Color(0.210f, 0.190f, 0.240f, 1.0f);
+        mathColors.header = Color(0.180f, 0.160f, 0.200f, 0.7f);
+        mathColors.accent = Color(0.800f, 0.750f, 0.950f, 1.0f);
+        mathColors.border = Color(0.240f, 0.220f, 0.270f, 1.0f);
+        mathColors.selected = Color(0.680f, 0.620f, 0.780f, 1.0f);
+        mathColors.hovered = Color(0.600f, 0.550f, 0.700f, 1.0f);
+        mathColors.glow = Color(0.270f, 0.250f, 0.300f, 0.235f);
         nodeColors["Math"] = mathColors;
 
         internal::NodeColors subgraphColors;
-        subgraphColors.baseColor = Color(0.180f, 0.240f, 0.200f, 1.0f);
-        subgraphColors.headerColor = Color(0.160f, 0.210f, 0.180f, 0.7f);
-        subgraphColors.accentColor = Color(0.600f, 0.850f, 0.700f, 1.0f);
-        subgraphColors.borderColor = Color(0.220f, 0.300f, 0.250f, 1.0f);
-        subgraphColors.selectedColor = Color(0.450f, 0.700f, 0.550f, 1.0f);
-        subgraphColors.hoveredColor = Color(0.400f, 0.650f, 0.500f, 1.0f);
-        subgraphColors.glowColor = Color(0.250f, 0.350f, 0.300f, 0.235f);
+        subgraphColors.base = Color(0.180f, 0.240f, 0.200f, 1.0f);
+        subgraphColors.header = Color(0.160f, 0.210f, 0.180f, 0.7f);
+        subgraphColors.accent = Color(0.600f, 0.850f, 0.700f, 1.0f);
+        subgraphColors.border = Color(0.220f, 0.300f, 0.250f, 1.0f);
+        subgraphColors.selected = Color(0.450f, 0.700f, 0.550f, 1.0f);
+        subgraphColors.hovered = Color(0.400f, 0.650f, 0.500f, 1.0f);
+        subgraphColors.glow = Color(0.250f, 0.350f, 0.300f, 0.235f);
         nodeColors["Subgraph"] = subgraphColors;
 
         internal::NodeColors yellowColors;
-        yellowColors.baseColor = Color(0.250f, 0.240f, 0.180f, 1.0f);
-        yellowColors.headerColor = Color(0.210f, 0.200f, 0.150f, 0.7f);
-        yellowColors.accentColor = Color(0.980f, 0.960f, 0.700f, 1.0f);
-        yellowColors.borderColor = Color(0.280f, 0.270f, 0.200f, 1.0f);
-        yellowColors.selectedColor = Color(0.850f, 0.830f, 0.580f, 1.0f);
-        yellowColors.hoveredColor = Color(0.750f, 0.740f, 0.520f, 1.0f);
-        yellowColors.glowColor = Color(0.300f, 0.290f, 0.210f, 0.235f);
+        yellowColors.base = Color(0.250f, 0.240f, 0.180f, 1.0f);
+        yellowColors.header = Color(0.210f, 0.200f, 0.150f, 0.7f);
+        yellowColors.accent = Color(0.980f, 0.960f, 0.700f, 1.0f);
+        yellowColors.border = Color(0.280f, 0.270f, 0.200f, 1.0f);
+        yellowColors.selected = Color(0.850f, 0.830f, 0.580f, 1.0f);
+        yellowColors.hovered = Color(0.750f, 0.740f, 0.520f, 1.0f);
+        yellowColors.glow = Color(0.300f, 0.290f, 0.210f, 0.235f);
         nodeColors["Yellow"] = yellowColors;
 
         internal::NodeColors defaultColors;
-        defaultColors.baseColor = Color(0.200f, 0.200f, 0.200f, 1.0f);
-        defaultColors.headerColor = Color(0.170f, 0.170f, 0.170f, 0.7f);
-        defaultColors.accentColor = Color(0.800f, 0.800f, 0.800f, 1.0f);
-        defaultColors.borderColor = Color(0.250f, 0.250f, 0.250f, 1.0f);
-        defaultColors.selectedColor = Color(0.700f, 0.700f, 0.700f, 1.0f);
-        defaultColors.hoveredColor = Color(0.600f, 0.600f, 0.600f, 1.0f);
-        defaultColors.glowColor = Color(0.300f, 0.300f, 0.300f, 0.235f);
+        defaultColors.base = Color(0.200f, 0.200f, 0.200f, 1.0f);
+        defaultColors.header = Color(0.170f, 0.170f, 0.170f, 0.7f);
+        defaultColors.accent = Color(0.800f, 0.800f, 0.800f, 1.0f);
+        defaultColors.border = Color(0.250f, 0.250f, 0.250f, 1.0f);
+        defaultColors.selected = Color(0.700f, 0.700f, 0.700f, 1.0f);
+        defaultColors.hovered = Color(0.600f, 0.600f, 0.600f, 1.0f);
+        defaultColors.glow = Color(0.300f, 0.300f, 0.300f, 0.235f);
         nodeColors["Default"] = defaultColors;
 
         internal::PinColors blueColors;
-        blueColors.color = Color(0.2f, 0.4f, 0.9f, 1.0f);
-        blueColors.hoverColor = Color(0.3f, 0.5f, 1.0f, 1.0f);
-        blueColors.connectedColor = Color(0.4f, 0.6f, 1.0f, 1.0f);
+        blueColors.base = Color(0.2f, 0.4f, 0.9f, 1.0f);
+        blueColors.hover = Color(0.3f, 0.5f, 1.0f, 1.0f);
+        blueColors.connected = Color(0.4f, 0.6f, 1.0f, 1.0f);
         pinColors["Blue"] = blueColors;
 
         internal::PinColors redColors;
-        redColors.color = Color(0.9f, 0.3f, 0.3f, 1.0f);
-        redColors.hoverColor = Color(1.0f, 0.4f, 0.4f, 1.0f);
-        redColors.connectedColor = Color(1.0f, 0.5f, 0.5f, 1.0f);
+        redColors.base = Color(0.9f, 0.3f, 0.3f, 1.0f);
+        redColors.hover = Color(1.0f, 0.4f, 0.4f, 1.0f);
+        redColors.connected = Color(1.0f, 0.5f, 0.5f, 1.0f);
         pinColors["Red"] = redColors;
 
         internal::PinColors greenColors;
-        greenColors.color = Color(0.3f, 0.8f, 0.3f, 1.0f);
-        greenColors.hoverColor = Color(0.4f, 0.9f, 0.4f, 1.0f);
-        greenColors.connectedColor = Color(0.5f, 1.0f, 0.5f, 1.0f);
+        greenColors.base = Color(0.3f, 0.8f, 0.3f, 1.0f);
+        greenColors.hover = Color(0.4f, 0.9f, 0.4f, 1.0f);
+        greenColors.connected = Color(0.5f, 1.0f, 0.5f, 1.0f);
         pinColors["Green"] = greenColors;
 
         internal::PinColors yellowColor;
-        yellowColor.color = Color(0.95f, 0.95f, 0.3f, 1.0f);
-        yellowColor.hoverColor = Color(1.0f, 1.0f, 0.4f, 1.0f);
-        yellowColor.connectedColor = Color(1.0f, 1.0f, 0.5f, 1.0f);
+        yellowColor.base = Color(0.95f, 0.95f, 0.3f, 1.0f);
+        yellowColor.hover = Color(1.0f, 1.0f, 0.4f, 1.0f);
+        yellowColor.connected = Color(1.0f, 1.0f, 0.5f, 1.0f);
         pinColors["Yellow"] = yellowColor;
 
         internal::PinColors purpleColors;
-        purpleColors.color = Color(0.8f, 0.3f, 0.8f, 1.0f);
-        purpleColors.hoverColor = Color(0.9f, 0.4f, 0.9f, 1.0f);
-        purpleColors.connectedColor = Color(1.0f, 0.5f, 1.0f, 1.0f);
+        purpleColors.base = Color(0.8f, 0.3f, 0.8f, 1.0f);
+        purpleColors.hover = Color(0.9f, 0.4f, 0.9f, 1.0f);
+        purpleColors.connected = Color(1.0f, 0.5f, 1.0f, 1.0f);
         pinColors["Purple"] = purpleColors;
 
         internal::PinColors cyanColors;
-        cyanColors.color = Color(0.3f, 0.8f, 0.9f, 1.0f);
-        cyanColors.hoverColor = Color(0.4f, 0.9f, 1.0f, 1.0f);
-        cyanColors.connectedColor = Color(0.5f, 1.0f, 1.0f, 1.0f);
+        cyanColors.base = Color(0.3f, 0.8f, 0.9f, 1.0f);
+        cyanColors.hover = Color(0.4f, 0.9f, 1.0f, 1.0f);
+        cyanColors.connected = Color(0.5f, 1.0f, 1.0f, 1.0f);
         pinColors["Cyan"] = cyanColors;
 
         internal::PinColors orangeColors;
-        orangeColors.color = Color(0.9f, 0.6f, 0.3f, 1.0f);
-        orangeColors.hoverColor = Color(1.0f, 0.7f, 0.4f, 1.0f);
-        orangeColors.connectedColor = Color(1.0f, 0.8f, 0.5f, 1.0f);
+        orangeColors.base = Color(0.9f, 0.6f, 0.3f, 1.0f);
+        orangeColors.hover = Color(1.0f, 0.7f, 0.4f, 1.0f);
+        orangeColors.connected = Color(1.0f, 0.8f, 0.5f, 1.0f);
         pinColors["Orange"] = orangeColors;
     }
 }

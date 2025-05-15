@@ -1,6 +1,6 @@
 #include "NodeEditor.h"
 
-namespace ANE {
+namespace NodeEditorCore {
     std::vector<NodeEvaluator::ConnectionInfo> NodeEditor::getInputConnections(int nodeId) {
         std::vector<NodeEvaluator::ConnectionInfo> result;
 

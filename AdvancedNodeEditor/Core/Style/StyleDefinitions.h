@@ -4,7 +4,7 @@
 #include "../Types/CoreTypes.h"
 #include <unordered_map>
 
-namespace ANE {
+namespace NodeEditorCore {
     struct NodeStyle {
         Color baseColor;
         Color headerColor;
@@ -48,11 +48,46 @@ namespace ANE {
 }
 
 namespace NodeEditorCore {
+    namespace internal {
+        struct UIColors {
+            Color background;
+            Color grid;
+            Color selection;
+            Color menuBar;
+            Color tooltipBg;
+            Color tooltipText;
+        };
+
+        struct NodeColors {
+            Color base;
+            Color header;
+            Color accent;
+            Color border;
+            Color selected;
+            Color hovered;
+            Color glow;
+        };
+
+        struct PinColors {
+            Color base;
+            Color hover;
+            Color connected;
+        };
+
+        struct ConnectionColors {
+            Color baseColor;
+            Color selectedColor;
+            Color hoveredColor;
+            Color validColor;
+            Color invalidColor;
+        };
+    }
+
     struct NodeEditorStyle {
-    internal::UIColors uiColors;
+        internal::UIColors uiColors;
         std::unordered_map<std::string, internal::NodeColors> nodeColors;
         std::unordered_map<std::string, internal::PinColors> pinColors;
-    internal::ConnectionColors connectionColors;
+        internal::ConnectionColors connectionColors;
 
         float gridSpacing;
         float nodeRounding;

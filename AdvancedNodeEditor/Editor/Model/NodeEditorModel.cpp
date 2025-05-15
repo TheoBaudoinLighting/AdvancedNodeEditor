@@ -1,7 +1,7 @@
 #include "NodeEditorModel.h"
 #include <algorithm>
 
-namespace ANE {
+namespace NodeEditorCore {
 
 NodeEditorModel::NodeEditorModel()
     : m_nextNodeId(1), m_nextPinId(1), m_nextConnectionId(1), m_nextGroupId(1), m_nextSubgraphId(1)
@@ -59,7 +59,7 @@ void NodeEditorModel::removeNode(int nodeId) {
             }
         }
         
-        Event event(EventType::NodeDeleted);
+        Event event(EventType::NodeRemoved);
         event.setData("nodeId", nodeId);
         dispatchEvent(event);
         
@@ -205,7 +205,7 @@ void NodeEditorModel::removeConnection(int connectionId) {
                           [connectionId](const std::shared_ptr<Connection>& conn) { return conn->id == connectionId; });
     
     if (it != m_connections.end()) {
-        Event event(EventType::ConnectionDeleted);
+        Event event(EventType::ConnectionRemoved);
         event.setData("connectionId", connectionId);
         event.setData("startNodeId", (*it)->startNodeId);
         event.setData("startPinId", (*it)->startPinId);
@@ -243,7 +243,7 @@ bool NodeEditorModel::isConnected(int nodeId, int pinId) const {
 
 int NodeEditorModel::addGroup(const std::string& name, const Vec2& position, const Vec2& size) {
     int groupId = m_nextGroupId++;
-    auto group = std::make_shared<Group>(groupId, name);
+    auto group = std::make_shared<Group>(groupId, name, position, size);
     
     group->position = position;
     group->size = size;
@@ -269,7 +269,7 @@ void NodeEditorModel::removeGroup(int groupId) {
             }
         }
         
-        Event event(EventType::GroupDeleted);
+        Event event(EventType::GroupRemoved);
         event.setData("groupId", groupId);
         dispatchEvent(event);
         

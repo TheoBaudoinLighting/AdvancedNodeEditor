@@ -2,11 +2,11 @@
 #define I_NODE_EDITOR_CONTROLLER_H
 
 #include "../Model/NodeEditorModel.h"
-#include "../../Core/Types/ANETypes.h"
+#include "../../Core/Types/CoreTypes.h"
 #include <memory>
 #include <functional>
 
-namespace ANE {
+namespace NodeEditorCore {
 
 class INodeEditorController {
 public:

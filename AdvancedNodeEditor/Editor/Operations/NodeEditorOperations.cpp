@@ -147,10 +147,6 @@ namespace NodeEditorCore {
         m_state.style = style;
     }
 
-    const NodeEditorStyle& NodeEditor::getStyle() const {
-        return m_state.style;
-    }
-
     void NodeEditor::setNodeCreatedCallback(NodeCallback callback) {
         m_state.nodeCreatedCallback = callback;
     }

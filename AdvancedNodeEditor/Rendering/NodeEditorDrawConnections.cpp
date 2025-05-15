@@ -29,8 +29,8 @@ namespace NodeEditorCore {
 
         if (!startNode || !endNode) continue;
 
-        const ANE::Pin* apiStartPin = getPin(connection.startNodeId, connection.startPinId);
-        const ANE::Pin* apiEndPin = getPin(connection.endNodeId, connection.endPinId);
+        const Pin* apiStartPin = getPin(connection.startNodeId, connection.startPinId);
+        const Pin* apiEndPin = getPin(connection.endNodeId, connection.endPinId);
 
         if (!apiStartPin || !apiEndPin) continue;
 
@@ -55,17 +55,17 @@ namespace NodeEditorCore {
                                        m_state.style.pinColors.at("Default");
 
         Color startCol(
-            startPinColors.connectedColor.r,
-            startPinColors.connectedColor.g,
-            startPinColors.connectedColor.b,
-            startPinColors.connectedColor.a * 0.8f
+            startPinColors.connected.r,
+            startPinColors.connected.g,
+            startPinColors.connected.b,
+            startPinColors.connected.a * 0.8f
         );
 
         Color endCol(
-            endPinColors.connectedColor.r,
-            endPinColors.connectedColor.g,
-            endPinColors.connectedColor.b,
-            endPinColors.connectedColor.a * 0.8f
+            endPinColors.connected.r,
+            endPinColors.connected.g,
+            endPinColors.connected.b,
+            endPinColors.connected.a * 0.8f
         );
 
         // Utiliser le ConnectionStyleManager pour dessiner la connexion

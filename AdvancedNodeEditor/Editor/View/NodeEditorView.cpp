@@ -4,7 +4,7 @@
 
 #include "../../Core/Conversions/Conversions.h"
 
-namespace ANE {
+namespace NodeEditorCore {
 
 NodeEditorView::NodeEditorView(std::shared_ptr<INodeEditorController> controller)
     : m_controller(controller)
@@ -20,7 +20,7 @@ NodeEditorView::NodeEditorView(std::shared_ptr<INodeEditorController> controller
         }
     });
 
-    m_controller->addEventListener(EventType::NodeDeleted, [this](const Event& event) {
+    m_controller->addEventListener(EventType::NodeRemoved, [this](const Event& event) {
         int nodeId = event.getData<int>("nodeId");
         m_coreEditor->removeNode(nodeId);
     });
@@ -38,7 +38,7 @@ NodeEditorView::NodeEditorView(std::shared_ptr<INodeEditorController> controller
         }
     });
 
-    m_controller->addEventListener(EventType::ConnectionDeleted, [this](const Event& event) {
+    m_controller->addEventListener(EventType::ConnectionRemoved, [this](const Event& event) {
         int connectionId = event.getData<int>("connectionId");
         m_coreEditor->removeConnection(connectionId);
     });
@@ -53,21 +53,21 @@ NodeEditorView::NodeEditorView(std::shared_ptr<INodeEditorController> controller
         }
     });
 
-    m_controller->addEventListener(EventType::GroupDeleted, [this](const Event& event) {
+    m_controller->addEventListener(EventType::GroupRemoved, [this](const Event& event) {
         int groupId = event.getData<int>("groupId");
         m_coreEditor->removeGroup(groupId);
     });
 
-    m_coreEditor->setNodeCreatedCallback([this](int nodeId, const ANE::UUID& nodeUuid) {
+    m_coreEditor->setNodeCreatedCallback([this](int nodeId, const UUID& nodeUuid) {
     });
 
-    m_coreEditor->setNodeRemovedCallback([this](int nodeId, const ANE::UUID& nodeUuid) {
+    m_coreEditor->setNodeRemovedCallback([this](int nodeId, const UUID& nodeUuid) {
     });
 
-    m_coreEditor->setConnectionCreatedCallback([this](int connectionId, const ANE::UUID& connectionUuid) {
+    m_coreEditor->setConnectionCreatedCallback([this](int connectionId, const UUID& connectionUuid) {
     });
 
-    m_coreEditor->setConnectionRemovedCallback([this](int connectionId, const ANE::UUID& connectionUuid) {
+    m_coreEditor->setConnectionRemovedCallback([this](int connectionId, const UUID& connectionUuid) {
     });
 
     addLayer("Grid", 0, [this](ImDrawList* drawList, const ImVec2& canvasPos) {
@@ -136,13 +136,9 @@ void NodeEditorView::setStyle(const EditorStyle& style) {
     m_coreEditor->setStyle(NodeEditorCore::convertToInternalStyle(style));
 }
 
-EditorStyle NodeEditorView::getStyle() const {
-    return NodeEditorCore::convertToAPIStyle(m_coreEditor->getStyle());
-}
-
 int NodeEditorView::addLayer(const std::string& name, int zOrder, std::function<void(ImDrawList*, const ImVec2&)> drawCallback) {
     int layerId = m_nextLayerId++;
-    m_layers[layerId] = NodeEditorCore::internal::Layer(name, zOrder, drawCallback);
+    m_layers[layerId] = UI::Layer(name, zOrder, drawCallback);
     return layerId;
 }
 
@@ -240,7 +236,7 @@ void NodeEditorView::drawSubgraphBreadcrumbs(ImDrawList* drawList, const ImVec2&
 
 
 void NodeEditorView::renderLayers(ImDrawList* drawList, const ImVec2& canvasPos) {
-    std::vector<std::reference_wrapper<NodeEditorCore::internal::Layer>> sortedLayers;
+    std::vector<std::reference_wrapper<UI::Layer>> sortedLayers;
     for (auto& [id, layer] : m_layers) {
         if (layer.visible) {
             sortedLayers.push_back(std::ref(layer));
@@ -248,7 +244,7 @@ void NodeEditorView::renderLayers(ImDrawList* drawList, const ImVec2& canvasPos)
     }
 
     std::sort(sortedLayers.begin(), sortedLayers.end(),
-             [](const NodeEditorCore::internal::Layer& a, const NodeEditorCore::internal::Layer& b) {
+             [](const UI::Layer& a, const UI::Layer& b) {
                  return a.zOrder < b.zOrder;
              });
 

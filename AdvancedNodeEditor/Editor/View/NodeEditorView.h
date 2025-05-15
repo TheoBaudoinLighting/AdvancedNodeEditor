@@ -9,8 +9,9 @@
 
 #include "../../NodeEditor.h"
 #include "../../Core/Style/StyleDefinitions.h"
+#include "../../Core/Types/CoreTypes.h"
 
-namespace ANE {
+namespace NodeEditorCore {
 
     class NodeEditorView {
     public:
@@ -29,7 +30,6 @@ namespace ANE {
         void centerOnNode(int nodeId);
 
         void setStyle(const EditorStyle& style);
-        EditorStyle getStyle() const;
 
         int addLayer(const std::string& name, int zOrder, std::function<void(ImDrawList*, const ImVec2&)> drawCallback);
         void removeLayer(int layerId);
@@ -40,7 +40,7 @@ namespace ANE {
         std::shared_ptr<INodeEditorController> m_controller;
         std::shared_ptr<NodeEditorCore::NodeEditor> m_coreEditor;
 
-        std::map<int, NodeEditorCore::internal::Layer> m_layers;
+        std::map<int, UI::Layer> m_layers;
         int m_nextLayerId;
 
         Vec2 m_viewPosition;

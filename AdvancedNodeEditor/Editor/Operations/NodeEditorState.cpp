@@ -79,9 +79,9 @@ namespace NodeEditorCore {
         ImGui::PopStyleVar();
     }
 
-    int NodeEditor::addNode(const std::string &name, const std::string &type, const Vec2 &pos, const ANE::UUID &uuid) {
+    int NodeEditor::addNode(const std::string &name, const std::string &type, const Vec2 &pos, const UUID &uuid) {
         int nodeId = m_state.nextNodeId++;
-        Node node(uuid.empty() ? ANE::generateUUID() : uuid, nodeId, name, type, pos);
+        Node node(uuid.empty() ? generateUUID() : uuid, nodeId, name, type, pos);
 
         m_state.nodes.push_back(node);
         updateNodeUuidMap();
@@ -91,6 +91,11 @@ namespace NodeEditorCore {
         }
 
         return nodeId;
+    }
+
+    UUID NodeEditor::addNodeWithUUID(const std::string &name, const std::string &type, const Vec2 &position) {
+        int nodeId = addNode(name, type, position);
+        return getNodeUUID(nodeId);
     }
 
     void NodeEditor::removeNode(int nodeId) {
@@ -114,13 +119,13 @@ namespace NodeEditorCore {
         }
     }
 
-    int NodeEditor::addConnection(int startNodeId, int startPinId, int endNodeId, int endPinId, const ANE::UUID &uuid) {
+    int NodeEditor::addConnection(int startNodeId, int startPinId, int endNodeId, int endPinId, const UUID &uuid) {
         if (doesConnectionExist(startNodeId, startPinId, endNodeId, endPinId)) {
             return -1;
         }
 
-        const ANE::Pin *startPin = getPin(startNodeId, startPinId);
-        const ANE::Pin *endPin = getPin(endNodeId, endPinId);
+        const Pin *startPin = getPin(startNodeId, startPinId);
+        const Pin *endPin = getPin(endNodeId, endPinId);
 
         if (!startPin || !endPin) {
             return -1;
@@ -139,7 +144,7 @@ namespace NodeEditorCore {
 
         Connection *connection = getConnection(connectionId);
         if (connection) {
-            connection->uuid = uuid.empty() ? ANE::generateUUID() : uuid;
+            connection->uuid = uuid.empty() ? generateUUID() : uuid;
             connection->startNodeUuid = getNodeUUID(startNodeId);
             connection->startPinUuid = getPinUUID(startNodeId, startPinId);
             connection->endNodeUuid = getNodeUUID(endNodeId);
@@ -188,7 +193,7 @@ namespace NodeEditorCore {
         // Mettre à jour les boîtes englobantes pour tous les nœuds
         m_nodeBoundingBoxManager->clear();
 
-        for (const auto& node : m_state.nodes) {
+        for (const auto &node: m_state.nodes) {
             if (!isNodeInCurrentSubgraph(node)) continue;
 
             m_nodeBoundingBoxManager->addBoundingBox(
@@ -216,62 +221,62 @@ namespace NodeEditorCore {
         return m_nodeAvoidanceEnabled;
     }
 
-    ANE::UUID NodeEditor::getHoveredNodeUUID() const {
+    UUID NodeEditor::getHoveredNodeUUID() const {
         return m_state.hoveredNodeUuid;
     }
 
-    ANE::UUID NodeEditor::getHoveredPinUUID() const {
+    UUID NodeEditor::getHoveredPinUUID() const {
         return m_state.hoveredPinUuid;
     }
 
-    ANE::UUID NodeEditor::getHoveredConnectionUUID() const {
+    UUID NodeEditor::getHoveredConnectionUUID() const {
         return m_state.hoveredConnectionUuid;
     }
 
-    ANE::UUID NodeEditor::getHoveredGroupUUID() const {
+    UUID NodeEditor::getHoveredGroupUUID() const {
         return m_state.hoveredGroupUuid;
     }
 
-    ANE::UUID NodeEditor::getCurrentSubgraphUUID() const {
+    UUID NodeEditor::getCurrentSubgraphUUID() const {
         return m_state.currentSubgraphUuid;
     }
 
-    void NodeEditor::setCurrentSubgraphByUUID(const ANE::UUID &uuid) {
+    void NodeEditor::setCurrentSubgraphByUUID(const UUID &uuid) {
         m_state.currentSubgraphUuid = uuid;
     }
 
-    bool NodeEditor::isNodeInSubgraphByUUID(const Node &node, const ANE::UUID &subgraphUuid) const {
-        return node.metadata.getAttribute<ANE::UUID>("subgraphUuid", "") == subgraphUuid;
+    bool NodeEditor::isNodeInSubgraphByUUID(const Node &node, const UUID &subgraphUuid) const {
+        return node.metadata.getAttribute<UUID>("subgraphUuid", "") == subgraphUuid;
     }
 
-    bool NodeEditor::isSubgraphContainerByUUID(const ANE::UUID &uuid) const {
+    bool NodeEditor::isSubgraphContainerByUUID(const UUID &uuid) const {
         int nodeId = getNodeId(uuid);
         if (nodeId == -1) return false;
         return isSubgraphContainer(nodeId);
     }
 
-    ANE::UUID NodeEditor::getSubgraphUUIDFromNode(const ANE::UUID &nodeUuid) const {
+    UUID NodeEditor::getSubgraphUUIDFromNode(const UUID &nodeUuid) const {
         int nodeId = getNodeId(nodeUuid);
         if (nodeId == -1) return "";
 
         const Node *node = getNode(nodeId);
         if (!node || !node->isSubgraph) return "";
 
-        return node->metadata.getAttribute<ANE::UUID>("subgraphUuid", "");
+        return node->metadata.getAttribute<UUID>("subgraphUuid", "");
     }
 
-    ANE::UUID NodeEditor::getNodeSubgraphUUID(const ANE::UUID &nodeUuid) const {
+    UUID NodeEditor::getNodeSubgraphUUID(const UUID &nodeUuid) const {
         int nodeId = getNodeId(nodeUuid);
         if (nodeId == -1) return "";
 
         const Node *node = getNode(nodeId);
         if (!node) return "";
 
-        return node->metadata.getAttribute<ANE::UUID>("subgraphUuid", "");
+        return node->metadata.getAttribute<UUID>("subgraphUuid", "");
     }
 
     int NodeEditor::addPin(int nodeId, const std::string &name, bool isInput,
-                           PinType type, PinShape shape, const ANE::UUID &uuid) {
+                           PinType type, PinShape shape, const UUID &uuid) {
         Node *node = getNode(nodeId);
         if (!node) return -1;
 
@@ -302,8 +307,8 @@ namespace NodeEditorCore {
         removeFromVec(node->outputs);
     }
 
-    const ANE::Pin *NodeEditor::getPin(int nodeId, int pinId) const {
-        static ANE::Pin convertedPin;
+    const Pin *NodeEditor::getPin(int nodeId, int pinId) const {
+        static Pin convertedPin;
 
         const Node *node = getNode(nodeId);
         if (!node) return nullptr;
@@ -314,8 +319,8 @@ namespace NodeEditorCore {
                 convertedPin.uuid = pin.uuid;
                 convertedPin.name = pin.name;
                 convertedPin.isInput = pin.isInput;
-                convertedPin.type = static_cast<ANE::PinType>(pin.type);
-                convertedPin.shape = static_cast<ANE::PinShape>(pin.shape);
+                convertedPin.type = static_cast<PinType>(pin.type);
+                convertedPin.shape = static_cast<PinShape>(pin.shape);
                 return &convertedPin;
             }
         }
@@ -326,8 +331,8 @@ namespace NodeEditorCore {
                 convertedPin.uuid = pin.uuid;
                 convertedPin.name = pin.name;
                 convertedPin.isInput = pin.isInput;
-                convertedPin.type = static_cast<ANE::PinType>(pin.type);
-                convertedPin.shape = static_cast<ANE::PinShape>(pin.shape);
+                convertedPin.type = static_cast<PinType>(pin.type);
+                convertedPin.shape = static_cast<PinShape>(pin.shape);
                 return &convertedPin;
             }
         }
@@ -335,8 +340,8 @@ namespace NodeEditorCore {
         return nullptr;
     }
 
-    ANE::Pin *NodeEditor::getPin(int nodeId, int pinId) {
-        static ANE::Pin convertedPin;
+    Pin *NodeEditor::getPin(int nodeId, int pinId) {
+        static Pin convertedPin;
 
         Node *node = getNode(nodeId);
         if (!node) return nullptr;
@@ -347,8 +352,8 @@ namespace NodeEditorCore {
                 convertedPin.uuid = pin.uuid;
                 convertedPin.name = pin.name;
                 convertedPin.isInput = pin.isInput;
-                convertedPin.type = static_cast<ANE::PinType>(pin.type);
-                convertedPin.shape = static_cast<ANE::PinShape>(pin.shape);
+                convertedPin.type = static_cast<PinType>(pin.type);
+                convertedPin.shape = static_cast<PinShape>(pin.shape);
                 return &convertedPin;
             }
         }
@@ -359,8 +364,8 @@ namespace NodeEditorCore {
                 convertedPin.uuid = pin.uuid;
                 convertedPin.name = pin.name;
                 convertedPin.isInput = pin.isInput;
-                convertedPin.type = static_cast<ANE::PinType>(pin.type);
-                convertedPin.shape = static_cast<ANE::PinShape>(pin.shape);
+                convertedPin.type = static_cast<PinType>(pin.type);
+                convertedPin.shape = static_cast<PinShape>(pin.shape);
                 return &convertedPin;
             }
         }
@@ -368,15 +373,173 @@ namespace NodeEditorCore {
         return nullptr;
     }
 
-    int NodeEditor::addPinByNodeUUID(const ANE::UUID &nodeUuid, const std::string &name, bool isInput,
-                                     PinType type, PinShape shape, const ANE::UUID &uuid) {
+    int NodeEditor::addPinByNodeUUID(const UUID &nodeUuid, const std::string &name, bool isInput,
+                                     PinType type, PinShape shape, const UUID &uuid) {
         int nodeId = getNodeId(nodeUuid);
         if (nodeId == -1) return -1;
 
         return addPin(nodeId, name, isInput, type, shape, uuid);
     }
 
-    void NodeEditor::removePinByUUID(const ANE::UUID &nodeUuid, const ANE::UUID &pinUuid) {
+    void NodeEditor::registerNodeType(const std::string &type, const std::string &category,
+                                      const std::string &description, std::function<Node*(const Vec2 &)> builder) {
+        NodeTypeInfo info;
+        info.name = type;
+        info.category = category;
+        info.description = description;
+        info.builder = builder;
+
+        m_registeredNodeTypes[type] = info;
+    }
+
+    UUID NodeEditor::addPinWithUUID(int nodeId, const std::string &name, bool isInput, PinType type, PinShape shape) {
+        int pinId = addPin(nodeId, name, isInput, type, shape);
+        return getPinUUID(nodeId, pinId);
+    }
+
+    UUID NodeEditor::addPinWithUUIDByNodeUUID(const UUID &nodeUuid, const std::string &name, bool isInput, PinType type,
+                                              PinShape shape) {
+        int nodeId = getNodeId(nodeUuid);
+        if (nodeId == -1) return "";
+
+        return addPinWithUUID(nodeId, name, isInput, type, shape);
+    }
+
+    UUID NodeEditor::addConnectionWithUUID(int startNodeId, int startPinId, int endNodeId, int endPinId) {
+        int connectionId = addConnection(startNodeId, startPinId, endNodeId, endPinId);
+        return getConnectionUUID(connectionId);
+    }
+
+    UUID NodeEditor::addConnectionWithUUIDByUUID(const UUID &startNodeUuid, const UUID &startPinUuid,
+                                                 const UUID &endNodeUuid, const UUID &endPinUuid) {
+        int startNodeId = getNodeId(startNodeUuid);
+        int endNodeId = getNodeId(endNodeUuid);
+
+        if (startNodeId == -1 || endNodeId == -1) return "";
+
+        Node *startNode = getNode(startNodeId);
+        Node *endNode = getNode(endNodeId);
+
+        if (!startNode || !endNode) return "";
+
+        int startPinId = -1;
+        int endPinId = -1;
+
+        for (const auto &pin: startNode->outputs) {
+            if (pin.uuid == startPinUuid) {
+                startPinId = pin.id;
+                break;
+            }
+        }
+
+        for (const auto &pin: endNode->inputs) {
+            if (pin.uuid == endPinUuid) {
+                endPinId = pin.id;
+                break;
+            }
+        }
+
+        if (startPinId == -1 || endPinId == -1) return "";
+
+        return addConnectionWithUUID(startNodeId, startPinId, endNodeId, endPinId);
+    }
+
+    UUID NodeEditor::addGroupWithUUID(const std::string &name, const Vec2 &position, const Vec2 &size) {
+        int groupId = addGroup(name, position, size);
+        return getGroupUUID(groupId);
+    }
+
+    int NodeEditor::createSubgraph(const std::string& name, const std::string& uuid) {
+        int nextId = 1;
+        for (const auto& pair : m_subgraphs) {
+            nextId = std::max(nextId, pair.first + 1);
+        }
+
+        int subgraphId = nextId;
+        auto subgraph = std::make_shared<Subgraph>(
+            uuid.empty() ? generateUUID() : uuid,
+            subgraphId,
+            name
+        );
+
+        m_subgraphs[subgraphId] = subgraph;
+        if (!uuid.empty()) {
+            m_subgraphsByUuid[uuid] = subgraph;
+        } else {
+            m_subgraphsByUuid[subgraph->uuid] = subgraph;
+        }
+
+        return subgraphId;
+    }
+
+    UUID NodeEditor::getSubgraphUUID(int subgraphId) const {
+        auto it = m_subgraphs.find(subgraphId);
+        if (it != m_subgraphs.end()) {
+            return it->second->uuid;
+        }
+
+        // Chercher parmi les nœuds qui représentent des subgraphs
+        for (const auto& node : m_state.nodes) {
+            if (node.isSubgraph && node.subgraphId == subgraphId) {
+                return node.subgraphUuid;
+            }
+        }
+
+        return "";
+    }
+
+    UUID NodeEditor::createSubgraphWithUUID(const std::string &name) {
+        int subgraphId = createSubgraph(name);
+        return getSubgraphUUID(subgraphId);
+    }
+
+    Node *NodeEditor::createNodeOfType(const std::string &type, const Vec2 &position) {
+        auto it = m_registeredNodeTypes.find(type);
+        if (it == m_registeredNodeTypes.end()) {
+            return nullptr;
+        }
+
+        const NodeTypeInfo &info = it->second;
+        Node *node = info.builder(position);
+
+        if (node) {
+            int nodeId = addNode(node->name, type, position);
+            Node *createdNode = getNode(nodeId);
+
+            if (createdNode) {
+                // Copier les propriétés importantes du nœud créé par le builder
+                for (const auto &pin: node->inputs) {
+                    addPin(nodeId, pin.name, true, pin.type, pin.shape);
+                }
+
+                for (const auto &pin: node->outputs) {
+                    addPin(nodeId, pin.name, false, pin.type, pin.shape);
+                }
+
+                createdNode->iconSymbol = node->iconSymbol;
+                createdNode->labelPosition = node->labelPosition;
+
+                // Nettoyer le nœud temporaire
+                delete node;
+
+                return createdNode;
+            }
+
+            delete node;
+        }
+
+        return nullptr;
+    }
+
+    Subgraph *NodeEditor::getSubgraph(int subgraphId) {
+        auto it = m_subgraphs.find(subgraphId);
+        if (it != m_subgraphs.end()) {
+            return it->second.get();
+        }
+        return nullptr;
+    }
+
+    void NodeEditor::removePinByUUID(const UUID &nodeUuid, const UUID &pinUuid) {
         int nodeId = getNodeId(nodeUuid);
         if (nodeId == -1) return;
 
@@ -398,7 +561,7 @@ namespace NodeEditorCore {
         }
     }
 
-    void NodeEditor::centerOnNodeByUUID(const ANE::UUID &uuid) {
+    void NodeEditor::centerOnNodeByUUID(const UUID &uuid) {
         int nodeId = getNodeId(uuid);
         if (nodeId != -1) {
             centerOnNode(nodeId);

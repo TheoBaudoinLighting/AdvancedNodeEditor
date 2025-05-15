@@ -1,14 +1,13 @@
 #ifndef NODE_EDITOR_MODEL_H
 #define NODE_EDITOR_MODEL_H
 
-#include "../../Core/Types/ANETypes.h"
-#include "../../Components/Node/NodeComponents.h"
+#include "../../Core/Types/CoreTypes.h"
 #include <vector>
 #include <memory>
 #include <map>
 #include <functional>
 
-namespace ANE {
+namespace NodeEditorCore {
 
 class NodeEditorModel {
 public:
@@ -16,20 +15,20 @@ public:
         int id;
         std::string name;
         std::string type;
-        Vec2 position;
-        Vec2 size;
-        std::vector<Pin> inputs;
-        std::vector<Pin> outputs;
+        NodeEditorCore::Vec2 position;
+        NodeEditorCore::Vec2 size;
+        std::vector<NodeEditorCore::Pin> inputs;
+        std::vector<NodeEditorCore::Pin> outputs;
         bool selected;
         bool disabled;
         int groupId;
         std::string iconSymbol;
         bool isTemplate;
         bool isCurrentFlag;
-        NodeLabelPosition labelPosition;
+        NodeEditorCore::NodeLabelPosition labelPosition;
         bool isSubgraph;
         int subgraphId;
-        Metadata metadata;
+        NodeEditorCore::Metadata metadata;
     };
     
     struct Connection {
@@ -39,22 +38,22 @@ public:
         int endNodeId;
         int endPinId;
         bool selected;
-        Metadata metadata;
+        NodeEditorCore::Metadata metadata;
     };
     
     NodeEditorModel();
     ~NodeEditorModel();
     
-    int addNode(const std::string& name, const std::string& type, const Vec2& position);
+    int addNode(const std::string& name, const std::string& type, const NodeEditorCore::Vec2& position);
     void removeNode(int nodeId);
     Node* getNode(int nodeId);
     const Node* getNode(int nodeId) const;
     const std::vector<std::shared_ptr<Node>>& getNodes() const;
     
-    int addPin(int nodeId, const std::string& name, bool isInput, PinType type = PinType::Blue, PinShape shape = PinShape::Circle);
+    int addPin(int nodeId, const std::string& name, bool isInput, NodeEditorCore::PinType type = NodeEditorCore::PinType::Blue, NodeEditorCore::PinShape shape = NodeEditorCore::PinShape::Circle);
     void removePin(int nodeId, int pinId);
-    Pin* getPin(int nodeId, int pinId);
-    const Pin* getPin(int nodeId, int pinId) const;
+    NodeEditorCore::Pin* getPin(int nodeId, int pinId);
+    const NodeEditorCore::Pin* getPin(int nodeId, int pinId) const;
     
     int addConnection(int startNodeId, int startPinId, int endNodeId, int endPinId);
     void removeConnection(int connectionId);
@@ -63,20 +62,20 @@ public:
     const std::vector<std::shared_ptr<Connection>>& getConnections() const;
     bool isConnected(int nodeId, int pinId) const;
     
-    int addGroup(const std::string& name, const Vec2& position, const Vec2& size);
+    int addGroup(const std::string& name, const NodeEditorCore::Vec2& position, const NodeEditorCore::Vec2& size);
     void removeGroup(int groupId);
-    Group* getGroup(int groupId);
-    const Group* getGroup(int groupId) const;
-    const std::vector<std::shared_ptr<Group>>& getGroups() const;
+    NodeEditorCore::Group* getGroup(int groupId);
+    const NodeEditorCore::Group* getGroup(int groupId) const;
+    const std::vector<std::shared_ptr<NodeEditorCore::Group>>& getGroups() const;
     void addNodeToGroup(int nodeId, int groupId);
     void removeNodeFromGroup(int nodeId, int groupId);
     
     int createSubgraph(const std::string& name);
     void removeSubgraph(int subgraphId);
-    Subgraph* getSubgraph(int subgraphId);
-    const Subgraph* getSubgraph(int subgraphId) const;
-    const std::map<int, std::shared_ptr<Subgraph>>& getSubgraphs() const;
-    Node* createSubgraphNode(int subgraphId, const std::string& name, const Vec2& position);
+    NodeEditorCore::Subgraph* getSubgraph(int subgraphId);
+    const NodeEditorCore::Subgraph* getSubgraph(int subgraphId) const;
+    const std::map<int, std::shared_ptr<NodeEditorCore::Subgraph>>& getSubgraphs() const;
+    Node* createSubgraphNode(int subgraphId, const std::string& name, const NodeEditorCore::Vec2& position);
     
     void enterSubgraph(int subgraphId);
     void exitSubgraph();
@@ -106,15 +105,15 @@ public:
     }
     bool hasState(const std::string& key) const;
     
-    void addEventListener(EventType type, EventCallback callback);
-    void removeEventListener(EventType type, EventCallback callback);
-    void dispatchEvent(const Event& event);
+    void addEventListener(NodeEditorCore::EventType type, NodeEditorCore::EventCallback callback);
+    void removeEventListener(NodeEditorCore::EventType type, NodeEditorCore::EventCallback callback);
+    void dispatchEvent(const NodeEditorCore::Event& event);
     
 private:
     std::vector<std::shared_ptr<Node>> m_nodes;
     std::vector<std::shared_ptr<Connection>> m_connections;
-    std::vector<std::shared_ptr<Group>> m_groups;
-    std::map<int, std::shared_ptr<Subgraph>> m_subgraphs;
+    std::vector<std::shared_ptr<NodeEditorCore::Group>> m_groups;
+    std::map<int, std::shared_ptr<NodeEditorCore::Subgraph>> m_subgraphs;
     
     int m_nextNodeId;
     int m_nextPinId;
@@ -123,7 +122,7 @@ private:
     int m_nextSubgraphId;
     
     std::map<std::string, std::any> m_state;
-    std::map<EventType, std::vector<EventCallback>> m_eventListeners;
+    std::map<NodeEditorCore::EventType, std::vector<NodeEditorCore::EventCallback>> m_eventListeners;
 };
 
 }

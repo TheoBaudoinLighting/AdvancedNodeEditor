@@ -309,12 +309,12 @@ namespace NodeEditorCore {
             if (!isNodeInCurrentSubgraph(node)) continue;
 
             for (const auto &pin: node.inputs) {
-                ANE::Pin apiPin;
+                Pin apiPin;
                 apiPin.id = pin.id;
                 apiPin.name = pin.name;
                 apiPin.isInput = pin.isInput;
-                apiPin.type = static_cast<ANE::PinType>(pin.type);
-                apiPin.shape = static_cast<ANE::PinShape>(pin.shape);
+                apiPin.type = static_cast<PinType>(pin.type);
+                apiPin.shape = static_cast<PinShape>(pin.shape);
 
                 if (isPinHovered(node, apiPin, ImGui::GetWindowPos())) {
                     m_state.hoveredNodeId = node.id;
@@ -326,12 +326,12 @@ namespace NodeEditorCore {
             }
 
             for (const auto &pin: node.outputs) {
-                ANE::Pin apiPin;
+                Pin apiPin;
                 apiPin.id = pin.id;
                 apiPin.name = pin.name;
                 apiPin.isInput = pin.isInput;
-                apiPin.type = static_cast<ANE::PinType>(pin.type);
-                apiPin.shape = static_cast<ANE::PinShape>(pin.shape);
+                apiPin.type = static_cast<PinType>(pin.type);
+                apiPin.shape = static_cast<PinShape>(pin.shape);
 
                 if (isPinHovered(node, apiPin, ImGui::GetWindowPos())) {
                     m_state.hoveredNodeId = node.id;
@@ -382,7 +382,7 @@ namespace NodeEditorCore {
         }
     }
 
-    void NodeEditor::startConnectionDragByUUID(const ANE::UUID &nodeUuid, const ANE::UUID &pinUuid) {
+    void NodeEditor::startConnectionDragByUUID(const UUID &nodeUuid, const UUID &pinUuid) {
         int nodeId = getNodeId(nodeUuid);
         if (nodeId == -1) return;
 
@@ -404,7 +404,7 @@ namespace NodeEditorCore {
         }
     }
 
-    void NodeEditor::startNodeDragByUUID(const ANE::UUID &nodeUuid, const ImVec2 &mousePos) {
+    void NodeEditor::startNodeDragByUUID(const UUID &nodeUuid, const ImVec2 &mousePos) {
         int nodeId = getNodeId(nodeUuid);
         if (nodeId != -1) {
             startNodeDrag(nodeId, mousePos);
@@ -553,7 +553,7 @@ namespace NodeEditorCore {
         ImGui::OpenPopup("NodeEditorContextMenu");
     }
 
-    bool NodeEditor::isPinHovered(const Node &node, const ANE::Pin &pin, const ImVec2 &canvasPos) {
+    bool NodeEditor::isPinHovered(const Node &node, const Pin &pin, const ImVec2 &canvasPos) {
         ImVec2 pinPos = getPinPos(node, pin, canvasPos);
         ImVec2 mousePos = ImGui::GetMousePos();
         float pinRadius = m_state.style.pinRadius * m_state.viewScale;
@@ -592,12 +592,12 @@ namespace NodeEditorCore {
             const auto &pins = isSourceInput ? node.outputs : node.inputs;
 
             for (const auto &pinInternal: pins) {
-                ANE::Pin apiPin;
+                Pin apiPin;
                 apiPin.id = pinInternal.id;
                 apiPin.name = pinInternal.name;
                 apiPin.isInput = pinInternal.isInput;
-                apiPin.type = static_cast<ANE::PinType>(pinInternal.type);
-                apiPin.shape = static_cast<ANE::PinShape>(pinInternal.shape);
+                apiPin.type = static_cast<PinType>(pinInternal.type);
+                apiPin.shape = static_cast<PinShape>(pinInternal.shape);
 
                 ImVec2 pinPos = getPinPos(node, apiPin, ImGui::GetWindowPos());
                 float dx = mousePos.x - pinPos.x;
@@ -605,12 +605,12 @@ namespace NodeEditorCore {
                 float dist = dx * dx + dy * dy;
 
                 if (dist < closestDist) {
-                    ANE::Pin sourceApiPin;
+                    Pin sourceApiPin;
                     sourceApiPin.id = sourcePinInternal->id;
                     sourceApiPin.name = sourcePinInternal->name;
                     sourceApiPin.isInput = sourcePinInternal->isInput;
-                    sourceApiPin.type = static_cast<ANE::PinType>(sourcePinInternal->type);
-                    sourceApiPin.shape = static_cast<ANE::PinShape>(sourcePinInternal->shape);
+                    sourceApiPin.type = static_cast<PinType>(sourcePinInternal->type);
+                    sourceApiPin.shape = static_cast<PinShape>(sourcePinInternal->shape);
 
                     bool canConnect = canCreateConnection(isSourceInput ? apiPin : sourceApiPin,
                                                           isSourceInput ? sourceApiPin : apiPin);
@@ -642,7 +642,7 @@ namespace NodeEditorCore {
         }
     }
 
-    ImVec2 NodeEditor::getPinPos(const Node &node, const ANE::Pin &pin, const ImVec2 &canvasPos) const {
+    ImVec2 NodeEditor::getPinPos(const Node &node, const Pin &pin, const ImVec2 &canvasPos) const {
         ImVec2 nodePos = canvasToScreen(node.position).toImVec2();
         ImVec2 nodeSize = Vec2(node.size.x * m_state.viewScale, node.size.y * m_state.viewScale).toImVec2();
 
@@ -690,8 +690,8 @@ namespace NodeEditorCore {
 
         if (!startNode || !endNode) return false;
 
-        const ANE::Pin *apiStartPin = getPin(connection.startNodeId, connection.startPinId);
-        const ANE::Pin *apiEndPin = getPin(connection.endNodeId, connection.endPinId);
+        const Pin *apiStartPin = getPin(connection.startNodeId, connection.startPinId);
+        const Pin *apiEndPin = getPin(connection.endNodeId, connection.endPinId);
 
         if (!apiStartPin || !apiEndPin) return false;
 
@@ -722,12 +722,12 @@ namespace NodeEditorCore {
             );
 
             for (const auto &pin: node.inputs) {
-                ANE::Pin apiPin;
+                Pin apiPin;
                 apiPin.id = pin.id;
                 apiPin.name = pin.name;
                 apiPin.isInput = pin.isInput;
-                apiPin.type = static_cast<ANE::PinType>(pin.type);
-                apiPin.shape = static_cast<ANE::PinShape>(pin.shape);
+                apiPin.type = static_cast<PinType>(pin.type);
+                apiPin.shape = static_cast<PinShape>(pin.shape);
 
                 ImVec2 pinPos = getPinPos(node, apiPin, canvasPos);
                 float radius = m_state.style.pinRadius * m_state.viewScale * 2.0f;
@@ -741,12 +741,12 @@ namespace NodeEditorCore {
             }
 
             for (const auto &pin: node.outputs) {
-                ANE::Pin apiPin;
+                Pin apiPin;
                 apiPin.id = pin.id;
                 apiPin.name = pin.name;
                 apiPin.isInput = pin.isInput;
-                apiPin.type = static_cast<ANE::PinType>(pin.type);
-                apiPin.shape = static_cast<ANE::PinShape>(pin.shape);
+                apiPin.type = static_cast<PinType>(pin.type);
+                apiPin.shape = static_cast<PinShape>(pin.shape);
 
                 ImVec2 pinPos = getPinPos(node, apiPin, canvasPos);
                 float radius = m_state.style.pinRadius * m_state.viewScale * 2.0f;

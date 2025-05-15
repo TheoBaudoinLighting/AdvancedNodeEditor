@@ -10,19 +10,16 @@ option(USE_SYSTEM_SDL2 "Use system SDL2 instead of downloading" OFF)
 # === Executable ===
 add_executable(AdvancedNodeEditor
         exemple/main_exemple.cpp
-        AdvancedNodeEditor/Core/Types/ANETypes.h
         AdvancedNodeEditor/Core/Types/CoreTypes.h
         AdvancedNodeEditor/Core/Conversions/Conversions.h
         AdvancedNodeEditor/Core/Style/StyleDefinitions.cpp
         AdvancedNodeEditor/Core/Style/StyleDefinitions.h
         AdvancedNodeEditor/Components/Node/NodeComponents.cpp
-        AdvancedNodeEditor/Components/Node/NodeComponents.h
         AdvancedNodeEditor/Editor/Operations/NodeEditorState.cpp
         AdvancedNodeEditor/NodeEditor.h
         AdvancedNodeEditor/Components/Connection/NodeEditorConnections.cpp
         AdvancedNodeEditor/Components/Group/NodeEditorGroups.cpp
         AdvancedNodeEditor/Rendering/NodeEditorRendering.cpp
-        AdvancedNodeEditor/API/PublicAPI.cpp
         AdvancedNodeEditor/Editor/Operations/NodeEditorInteractions.cpp
         AdvancedNodeEditor/Rendering/NodeEditorDrawing.cpp
         AdvancedNodeEditor/Rendering/NodeEditorDrawNodes.cpp
@@ -43,8 +40,6 @@ add_executable(AdvancedNodeEditor
         AdvancedNodeEditor/Evaluation/NodeEditorEvaluation.cpp
         AdvancedNodeEditor/Core/Style/InteractionMode.h
         AdvancedNodeEditor/Utils/UuidGenerator.h
-        AdvancedNodeEditor/Core/Types/UuidTypes.h
-        AdvancedNodeEditor/Core/Types/SerializedTypes.h
         AdvancedNodeEditor/Evaluation/NodeEvaluator.h
         AdvancedNodeEditor/Editor/View/ViewManager.cpp
         AdvancedNodeEditor/Editor/View/ViewManager.h

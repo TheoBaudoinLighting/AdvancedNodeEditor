@@ -9,24 +9,20 @@
 
 namespace NodeEditorCore {
     class NodeEditor;
-}
-
-namespace ANE {
-    class NodeEditor;
 
     class NodeEvaluator {
     public:
         struct ConnectionInfo {
             int connectionId;
-            ANE::UUID connectionUuid;
+            UUID connectionUuid;
             int sourceNodeId;
-            ANE::UUID sourceNodeUuid;
+            UUID sourceNodeUuid;
             int sourcePinId;
-            ANE::UUID sourcePinUuid;
+            UUID sourcePinUuid;
             int targetNodeId;
-            ANE::UUID targetNodeUuid;
+            UUID targetNodeUuid;
             int targetPinId;
-            ANE::UUID targetPinUuid;
+            UUID targetPinUuid;
             ConnectionInfo();
         };
 

@@ -3,13 +3,13 @@
 
 namespace NodeEditorCore {
 
-int NodeEditor::addGroup(const std::string &name, const Vec2 &pos, const Vec2 &size, const ANE::UUID &uuid) {
+int NodeEditor::addGroup(const std::string &name, const Vec2 &pos, const Vec2 &size, const UUID &uuid) {
     int groupId = m_state.nextGroupId++;
     m_state.groups.emplace_back(groupId, name, pos, size);
 
     Group* group = getGroup(groupId);
     if (group) {
-        group->uuid = uuid.empty() ? ANE::generateUUID() : uuid;
+        group->uuid = uuid.empty() ? generateUUID() : uuid;
         updateGroupUuidMap();
     }
 
@@ -43,12 +43,12 @@ const Group* NodeEditor::getGroup(int groupId) const {
     return it != m_state.groups.end() ? &(*it) : nullptr;
 }
 
-ANE::UUID NodeEditor::getGroupUUID(int groupId) const {
+UUID NodeEditor::getGroupUUID(int groupId) const {
     const Group* group = getGroup(groupId);
     return group ? group->uuid : "";
 }
 
-int NodeEditor::getGroupId(const ANE::UUID& uuid) const {
+int NodeEditor::getGroupId(const UUID& uuid) const {
     auto it = m_state.groupUuidMap.find(uuid);
     return it != m_state.groupUuidMap.end() ? it->second->id : -1;
 }

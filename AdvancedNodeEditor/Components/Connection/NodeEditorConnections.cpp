@@ -32,7 +32,7 @@ void NodeEditor::removeConnection(int connectionId) {
         if (startPinInternal && !startPinConnected) startPinInternal->connected = false;
         if (endPinInternal && !endPinConnected) endPinInternal->connected = false;
 
-        ANE::UUID connectionUuid = it->uuid;
+        UUID connectionUuid = it->uuid;
 
         if (m_state.connectionRemovedCallback) {
             m_state.connectionRemovedCallback(connectionId, connectionUuid);
@@ -69,7 +69,7 @@ bool NodeEditor::isConnected(int nodeId, int pinId) const {
     return false;
 }
 
-bool NodeEditor::isConnectedByUUID(const ANE::UUID& nodeUuid, const ANE::UUID& pinUuid) const {
+bool NodeEditor::isConnectedByUUID(const UUID& nodeUuid, const UUID& pinUuid) const {
     for (const auto& conn : m_state.connections) {
         if ((conn.startNodeUuid == nodeUuid && conn.startPinUuid == pinUuid) ||
             (conn.endNodeUuid == nodeUuid && conn.endPinUuid == pinUuid)) {
@@ -89,8 +89,8 @@ bool NodeEditor::doesConnectionExist(int startNodeId, int startPinId, int endNod
                      });
 }
 
-bool NodeEditor::doesConnectionExistByUUID(const ANE::UUID& startNodeUuid, const ANE::UUID& startPinUuid,
-                                         const ANE::UUID& endNodeUuid, const ANE::UUID& endPinUuid) const {
+bool NodeEditor::doesConnectionExistByUUID(const UUID& startNodeUuid, const UUID& startPinUuid,
+                                         const UUID& endNodeUuid, const UUID& endPinUuid) const {
     return std::any_of(m_state.connections.begin(), m_state.connections.end(),
                      [&](const Connection& conn) {
                          return conn.startNodeUuid == startNodeUuid &&
@@ -100,14 +100,14 @@ bool NodeEditor::doesConnectionExistByUUID(const ANE::UUID& startNodeUuid, const
                      });
 }
 
-bool NodeEditor::canCreateConnection(const ANE::Pin& startPin, const ANE::Pin& endPin) const {
+bool NodeEditor::canCreateConnection(const Pin& startPin, const Pin& endPin) const {
     if (startPin.isInput == endPin.isInput) {
         return false;
     }
 
     if (m_state.canConnectCallback) {
-        const ANE::Pin& outputPin = startPin.isInput ? endPin : startPin;
-        const ANE::Pin& inputPin = startPin.isInput ? startPin : endPin;
+        const Pin& outputPin = startPin.isInput ? endPin : startPin;
+        const Pin& inputPin = startPin.isInput ? startPin : endPin;
         return m_state.canConnectCallback(outputPin, inputPin);
     }
 
@@ -117,8 +117,8 @@ bool NodeEditor::canCreateConnection(const ANE::Pin& startPin, const ANE::Pin& e
 }
 
     void NodeEditor::createConnection(int startNodeId, int startPinId, int endNodeId, int endPinId) {
-    const ANE::Pin* apiStartPin = getPin(startNodeId, startPinId);
-    const ANE::Pin* apiEndPin = getPin(endNodeId, endPinId);
+    const Pin* apiStartPin = getPin(startNodeId, startPinId);
+    const Pin* apiEndPin = getPin(endNodeId, endPinId);
 
     if (!apiStartPin || !apiEndPin) return;
 
@@ -134,10 +134,10 @@ bool NodeEditor::canCreateConnection(const ANE::Pin& startPin, const ANE::Pin& e
     addConnection(startNodeId, startPinId, endNodeId, endPinId, "");
 }
 
-void NodeEditor::createConnectionByUUID(const ANE::UUID& startNodeUuid, const ANE::UUID& startPinUuid,
-                                      const ANE::UUID& endNodeUuid, const ANE::UUID& endPinUuid) {
-    const ANE::Pin* apiStartPin = getPinByUUID(startNodeUuid, startPinUuid);
-    const ANE::Pin* apiEndPin = getPinByUUID(endNodeUuid, endPinUuid);
+void NodeEditor::createConnectionByUUID(const UUID& startNodeUuid, const UUID& startPinUuid,
+                                      const UUID& endNodeUuid, const UUID& endPinUuid) {
+    const Pin* apiStartPin = getPinByUUID(startNodeUuid, startPinUuid);
+    const Pin* apiEndPin = getPinByUUID(endNodeUuid, endPinUuid);
 
     if (!apiStartPin || !apiEndPin) return;
 
@@ -159,7 +159,7 @@ void NodeEditor::selectConnection(int connectionId, bool append) {
     }
 }
 
-void NodeEditor::selectConnectionByUUID(const ANE::UUID& uuid, bool append) {
+void NodeEditor::selectConnectionByUUID(const UUID& uuid, bool append) {
     Connection* connection = getConnectionByUUID(uuid);
     if (connection) {
         selectConnection(connection->id, append);
@@ -173,7 +173,7 @@ void NodeEditor::deselectConnection(int connectionId) {
     }
 }
 
-void NodeEditor::deselectConnectionByUUID(const ANE::UUID& uuid) {
+void NodeEditor::deselectConnectionByUUID(const UUID& uuid) {
     Connection* connection = getConnectionByUUID(uuid);
     if (connection) {
         connection->selected = false;
@@ -186,7 +186,7 @@ void NodeEditor::deselectAllConnections() {
     }
 }
 
-int NodeEditor::getConnectionId(const ANE::UUID& uuid) const {
+int NodeEditor::getConnectionId(const UUID& uuid) const {
     auto it = m_state.connectionUuidMap.find(uuid);
     return it != m_state.connectionUuidMap.end() ? it->second->id : -1;
 }

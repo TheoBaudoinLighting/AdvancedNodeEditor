@@ -13,9 +13,9 @@
 struct NodeTypeDefinition {
     std::string name;
     std::string category;
-    ANE::Color color;
-    std::vector<std::pair<std::string, ANE::PinType>> inputs;
-    std::vector<std::pair<std::string, ANE::PinType>> outputs;
+    NodeEditorCore::Color color;
+    std::vector<std::pair<std::string, NodeEditorCore::PinType>> inputs;
+    std::vector<std::pair<std::string, NodeEditorCore::PinType>> outputs;
 };
 
 class Application {
@@ -24,36 +24,36 @@ private:
     SDL_GLContext m_glContext;
     bool m_running;
     
-    ANE::NodeEditor m_nodeEditor;
-    std::vector<ANE::UUID> m_nodeUuids;
+    NodeEditorCore::NodeEditor m_nodeEditor;
+    std::vector<NodeEditorCore::UUID> m_nodeUuids;
     
     std::vector<NodeTypeDefinition> m_nodeTypes;
     
     void setupNodeTypes() {
         m_nodeTypes = {
             {
-                "Nombre", "Entrée", ANE::Color(0.2f, 0.4f, 0.8f),
+                "Nombre", "Entrée", NodeEditorCore::Color(0.2f, 0.4f, 0.8f),
                 {},
-                {{"Valeur", ANE::PinType::Blue}}
+                {{"Valeur", NodeEditorCore::PinType::Blue}}
             },
             {
-                "Addition", "Math", ANE::Color(0.8f, 0.4f, 0.2f),
-                {{"A", ANE::PinType::Blue}, {"B", ANE::PinType::Blue}},
-                {{"Résultat", ANE::PinType::Blue}}
+                "Addition", "Math", NodeEditorCore::Color(0.8f, 0.4f, 0.2f),
+                {{"A", NodeEditorCore::PinType::Blue}, {"B", NodeEditorCore::PinType::Blue}},
+                {{"Résultat", NodeEditorCore::PinType::Blue}}
             },
             {
-                "Multiplication", "Math", ANE::Color(0.8f, 0.4f, 0.2f),
-                {{"A", ANE::PinType::Blue}, {"B", ANE::PinType::Blue}},
-                {{"Résultat", ANE::PinType::Blue}}
+                "Multiplication", "Math", NodeEditorCore::Color(0.8f, 0.4f, 0.2f),
+                {{"A", NodeEditorCore::PinType::Blue}, {"B", NodeEditorCore::PinType::Blue}},
+                {{"Résultat", NodeEditorCore::PinType::Blue}}
             },
             {
-                "Vecteur", "Géométrie", ANE::Color(0.2f, 0.8f, 0.4f),
-                {{"X", ANE::PinType::Blue}, {"Y", ANE::PinType::Blue}, {"Z", ANE::PinType::Blue}},
-                {{"Vec", ANE::PinType::Green}}
+                "Vecteur", "Géométrie", NodeEditorCore::Color(0.2f, 0.8f, 0.4f),
+                {{"X", NodeEditorCore::PinType::Blue}, {"Y", NodeEditorCore::PinType::Blue}, {"Z", NodeEditorCore::PinType::Blue}},
+                {{"Vec", NodeEditorCore::PinType::Green}}
             },
             {
-                "Affichage", "Sortie", ANE::Color(0.8f, 0.2f, 0.4f),
-                {{"Valeur", ANE::PinType::Blue}},
+                "Affichage", "Sortie", NodeEditorCore::Color(0.8f, 0.2f, 0.4f),
+                {{"Valeur", NodeEditorCore::PinType::Blue}},
                 {}
             }
         };
@@ -63,10 +63,10 @@ private:
                 nodeType.name,
                 nodeType.category,
                 "Description de " + nodeType.name,
-                [this, nodeType](const ANE::Vec2& pos) -> ANE::Node* {
-                    ANE::UUID uuid;
+                [this, nodeType](const NodeEditorCore::Vec2& pos) -> NodeEditorCore::Node* {
+                    NodeEditorCore::UUID uuid;
                     int nodeId = m_nodeEditor.addNode(nodeType.name, nodeType.name, pos);
-                    ANE::Node* node = m_nodeEditor.getNode(nodeId);
+                    NodeEditorCore::Node* node = m_nodeEditor.getNode(nodeId);
                     
                     if (node) {
                         for (const auto& input : nodeType.inputs) {
@@ -87,31 +87,31 @@ private:
     }
     
     void createExampleNodes() {
-        ANE::UUID node1 = m_nodeEditor.addNodeWithUUID("Nombre", "Nombre", ANE::Vec2(100, 100));
-        ANE::UUID node2 = m_nodeEditor.addNodeWithUUID("Nombre", "Nombre", ANE::Vec2(100, 200));
-        ANE::UUID node3 = m_nodeEditor.addNodeWithUUID("Addition", "Addition", ANE::Vec2(300, 150));
-        ANE::UUID node4 = m_nodeEditor.addNodeWithUUID("Affichage", "Affichage", ANE::Vec2(500, 150));
+        NodeEditorCore::UUID node1 = m_nodeEditor.addNodeWithUUID("Nombre", "Nombre", NodeEditorCore::Vec2(100, 100));
+        NodeEditorCore::UUID node2 = m_nodeEditor.addNodeWithUUID("Nombre", "Nombre", NodeEditorCore::Vec2(100, 200));
+        NodeEditorCore::UUID node3 = m_nodeEditor.addNodeWithUUID("Addition", "Addition", NodeEditorCore::Vec2(300, 150));
+        NodeEditorCore::UUID node4 = m_nodeEditor.addNodeWithUUID("Affichage", "Affichage", NodeEditorCore::Vec2(500, 150));
         
-        ANE::Node* node1Ptr = m_nodeEditor.getNodeByUUID(node1);
-        ANE::Node* node2Ptr = m_nodeEditor.getNodeByUUID(node2);
-        ANE::Node* node3Ptr = m_nodeEditor.getNodeByUUID(node3);
-        ANE::Node* node4Ptr = m_nodeEditor.getNodeByUUID(node4);
+        NodeEditorCore::Node* node1Ptr = m_nodeEditor.getNodeByUUID(node1);
+        NodeEditorCore::Node* node2Ptr = m_nodeEditor.getNodeByUUID(node2);
+        NodeEditorCore::Node* node3Ptr = m_nodeEditor.getNodeByUUID(node3);
+        NodeEditorCore::Node* node4Ptr = m_nodeEditor.getNodeByUUID(node4);
         
         if (node1Ptr && node2Ptr && node3Ptr && node4Ptr) {
-            ANE::UUID node1OutPin = m_nodeEditor.addPinWithUUID(node1Ptr->id, "Valeur", false, ANE::PinType::Blue);
-            ANE::UUID node2OutPin = m_nodeEditor.addPinWithUUID(node2Ptr->id, "Valeur", false, ANE::PinType::Blue);
+           NodeEditorCore::UUID node1OutPin = m_nodeEditor.addPinWithUUID(node1Ptr->id, "Valeur", false, NodeEditorCore::PinType::Blue);
+           NodeEditorCore::UUID node2OutPin = m_nodeEditor.addPinWithUUID(node2Ptr->id, "Valeur", false, NodeEditorCore::PinType::Blue);
             
-            ANE::UUID node3InPin1 = m_nodeEditor.addPinWithUUID(node3Ptr->id, "A", true, ANE::PinType::Blue);
-            ANE::UUID node3InPin2 = m_nodeEditor.addPinWithUUID(node3Ptr->id, "B", true, ANE::PinType::Blue);
-            ANE::UUID node3OutPin = m_nodeEditor.addPinWithUUID(node3Ptr->id, "Résultat", false, ANE::PinType::Blue);
+            NodeEditorCore::UUID node3InPin1 = m_nodeEditor.addPinWithUUID(node3Ptr->id, "A", true, NodeEditorCore::PinType::Blue);
+            NodeEditorCore::UUID node3InPin2 = m_nodeEditor.addPinWithUUID(node3Ptr->id, "B", true, NodeEditorCore::PinType::Blue);
+            NodeEditorCore::UUID node3OutPin = m_nodeEditor.addPinWithUUID(node3Ptr->id, "Résultat", false, NodeEditorCore::PinType::Blue);
             
-            ANE::UUID node4InPin = m_nodeEditor.addPinWithUUID(node4Ptr->id, "Valeur", true, ANE::PinType::Blue);
+            NodeEditorCore::UUID node4InPin = m_nodeEditor.addPinWithUUID(node4Ptr->id, "Valeur", true, NodeEditorCore::PinType::Blue);
             
             m_nodeEditor.addConnectionWithUUIDByUUID(node1, node1OutPin, node3, node3InPin1);
             m_nodeEditor.addConnectionWithUUIDByUUID(node2, node2OutPin, node3, node3InPin2);
             m_nodeEditor.addConnectionWithUUIDByUUID(node3, node3OutPin, node4, node4InPin);
             
-            ANE::UUID groupUuid = m_nodeEditor.addGroupWithUUID("Calcul", ANE::Vec2(80, 80), ANE::Vec2(350, 180));
+            NodeEditorCore::UUID groupUuid = m_nodeEditor.addGroupWithUUID("Calcul", NodeEditorCore::Vec2(80, 80), NodeEditorCore::Vec2(350, 180));
             m_nodeEditor.addNodeToGroupByUUID(node1, groupUuid);
             m_nodeEditor.addNodeToGroupByUUID(node2, groupUuid);
             m_nodeEditor.addNodeToGroupByUUID(node3, groupUuid);
@@ -206,7 +206,7 @@ public:
                             ImVec4(nodeType.color.r + 0.1f, nodeType.color.g + 0.1f, nodeType.color.b + 0.1f, 0.8f));
                         
                         if (ImGui::Button(nodeType.name.c_str(), buttonSize)) {
-                            ANE::Node* node = m_nodeEditor.createNodeOfType(nodeType.name, ANE::Vec2(400, 300));
+                            NodeEditorCore::Node* node = m_nodeEditor.createNodeOfType(nodeType.name, NodeEditorCore::Vec2(400, 300));
                             if (node) {
                                 m_nodeUuids.push_back(node->uuid);
                             }
@@ -224,7 +224,7 @@ public:
                     }
                     
                     if (ImGui::Button("Créer groupe", ImVec2(ImGui::GetContentRegionAvail().x, 0))) {
-                        m_nodeEditor.addGroupWithUUID("Nouveau groupe", ANE::Vec2(300, 300), ANE::Vec2(250, 200));
+                        m_nodeEditor.addGroupWithUUID("Nouveau groupe", NodeEditorCore::Vec2(300, 300), NodeEditorCore::Vec2(250, 200));
                     }
                     
                     if (ImGui::Button("Mode debug", ImVec2(ImGui::GetContentRegionAvail().x, 0))) {
@@ -244,7 +244,7 @@ public:
                     ImGui::Text("Nœuds sélectionnés: %zu", selectedNodes.size());
                     
                     for (int nodeId : selectedNodes) {
-                        ANE::Node* node = m_nodeEditor.getNode(nodeId);
+                        NodeEditorCore::Node* node = m_nodeEditor.getNode(nodeId);
                         if (node) {
                             ImGui::BulletText("%s (ID: %d)", node->name.c_str(), node->id);
                         }

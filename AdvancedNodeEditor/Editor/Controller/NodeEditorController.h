@@ -6,7 +6,7 @@
 #include <memory>
 #include <stack>
 
-namespace ANE {
+namespace NodeEditorCore {
 
 class NodeEditorController : public INodeEditorController {
 public:

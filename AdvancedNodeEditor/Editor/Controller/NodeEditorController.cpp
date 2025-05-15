@@ -1,6 +1,6 @@
 #include "NodeEditorController.h"
 
-namespace ANE {
+namespace NodeEditorCore {
 
 NodeEditorController::NodeEditorController()
     : m_model(std::make_shared<NodeEditorModel>())
@@ -21,7 +21,7 @@ void NodeEditorController::removeNode(int nodeId) {
 void NodeEditorController::updateNode(int nodeId, const std::function<void(Node&)>& updateFn) {
     NodeEditorModel::Node* node = m_model->getNode(nodeId);
     if (node) {
-        Node tempNode(node->id, node->name, node->type);
+        Node tempNode(node->id, node->name, node->type, node->position);
         tempNode.iconSymbol = node->iconSymbol;
         tempNode.labelPosition = node->labelPosition;
         tempNode.disabled = node->disabled;
@@ -103,7 +103,7 @@ void NodeEditorController::removeGroup(int groupId) {
 void NodeEditorController::updateGroup(int groupId, const std::function<void(Group&)>& updateFn) {
     Group* group = m_model->getGroup(groupId);
     if (group) {
-        Group tempGroup(group->id, group->name);
+        Group tempGroup(group->id, group->name, group->position, group->size);
         tempGroup.color = group->color;
         tempGroup.style = group->style;
         tempGroup.collapsed = group->collapsed;
