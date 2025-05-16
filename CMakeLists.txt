@@ -18,6 +18,7 @@ add_executable(AdvancedNodeEditor
         AdvancedNodeEditor/Core/Style/StyleDefinitions.h
         AdvancedNodeEditor/Components/Node/NodeEditorComponents.cpp
         AdvancedNodeEditor/Editor/Operations/NodeEditorState.cpp
+        AdvancedNodeEditor/NodeEditor.cpp
         AdvancedNodeEditor/NodeEditor.h
         AdvancedNodeEditor/Components/Connection/NodeEditorConnections.cpp
         AdvancedNodeEditor/Components/Group/NodeEditorGroups.cpp
