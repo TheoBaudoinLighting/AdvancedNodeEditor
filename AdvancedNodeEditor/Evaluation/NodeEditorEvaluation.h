@@ -40,13 +40,7 @@ namespace NodeEditorCore {
         NodeEvaluator(NodeEditorCore::NodeEditor& editor) : m_editor(editor) {}
 
         std::vector<int> getEvaluationOrder();
-        std::vector<ConnectionInfo> getInputConnections(int nodeId);
-        std::vector<ConnectionInfo> getOutputConnections(int nodeId);
 
-        static std::vector<ConnectionInfo> getInputConnections(NodeEditor& editor, int nodeId);
-        static std::vector<ConnectionInfo> getInputConnectionsByUUID(NodeEditor& editor, const UUID& nodeUuid);
-        static std::vector<ConnectionInfo> getOutputConnections(NodeEditor& editor, int nodeId);
-        static std::vector<ConnectionInfo> getOutputConnectionsByUUID(NodeEditor& editor, const UUID& nodeUuid);
         static std::vector<int> getEvaluationOrder(NodeEditor& editor);
         static std::vector<UUID> getEvaluationOrderUUIDs(NodeEditor& editor);
 
@@ -57,5 +51,4 @@ namespace NodeEditorCore {
         bool isConnectionInSubgraph(int connectionId, int subgraphId) const;
     };
 }
-
-#endif // NODE_EDITOR_EVALUATION_H
+#endif

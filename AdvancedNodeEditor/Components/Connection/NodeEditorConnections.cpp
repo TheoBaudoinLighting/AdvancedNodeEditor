@@ -61,7 +61,28 @@ namespace NodeEditorCore {
         return nullptr;
     }
 
-    const std::vector<Connection> &NodeEditor::getConnections() const {
+    const std::vector<Connection>& NodeEditor::getConnections() const {
+        if (m_state.connections.empty()) {
+            bool connectedPinsFound = false;
+
+            for (const auto& node : m_state.nodes) {
+                for (const auto& pin : node.inputs) {
+                    if (pin.connected) {
+                        connectedPinsFound = true;
+                    }
+                }
+
+                for (const auto& pin : node.outputs) {
+                    if (pin.connected) {
+                        connectedPinsFound = true;
+                    }
+                }
+            }
+
+            if (connectedPinsFound) {
+            }
+        }
+
         return m_state.connections;
     }
 
@@ -123,55 +144,55 @@ namespace NodeEditorCore {
     }
 
     int NodeEditor::addConnection(int startNodeId, int startPinId, int endNodeId, int endPinId, const UUID& uuid) {
-        if (doesConnectionExist(startNodeId, startPinId, endNodeId, endPinId)) {
-            return -1;
-        }
-
-        Node* startNode = getNode(startNodeId);
-        Node* endNode = getNode(endNodeId);
-        if (!startNode) {
-            return -1;
-        }
-        if (!endNode) {
-            return -1;
-        }
-
-        Pin* startPinInternal = startNode->findPin(startPinId);
-        Pin* endPinInternal = endNode->findPin(endPinId);
-
-        if (!startPinInternal) {
-            return -1;
-        }
-
-        if (!endPinInternal) {
-            return -1;
-        }
-
-        if (startPinInternal->isInput || !endPinInternal->isInput) {
-            return -1;
-        }
-
-        int connectionId = m_state.nextConnectionId++;
-        Connection connection(connectionId, startNodeId, startPinId, endNodeId, endPinId);
-        connection.uuid = uuid.empty() ? generateUUID() : uuid;
-        connection.startNodeUuid = startNode->uuid;
-        connection.startPinUuid = startPinInternal->uuid;
-        connection.endNodeUuid = endNode->uuid;
-        connection.endPinUuid = endPinInternal->uuid;
-
-        m_state.connections.push_back(connection);
-
-        startPinInternal->connected = true;
-        endPinInternal->connected = true;
-
-        updateConnectionUuidMap();
-
-        if (m_state.connectionCreatedCallback) {
-            m_state.connectionCreatedCallback(connectionId, connection.uuid);
-        }
-
-        return connectionId;
+    if (doesConnectionExist(startNodeId, startPinId, endNodeId, endPinId)) {
+        return -1;
     }
+
+    Node* startNode = getNode(startNodeId);
+    Node* endNode = getNode(endNodeId);
+    if (!startNode) {
+        return -1;
+    }
+    if (!endNode) {
+        return -1;
+    }
+
+    Pin* startPinInternal = startNode->findPin(startPinId);
+    Pin* endPinInternal = endNode->findPin(endPinId);
+
+    if (!startPinInternal) {
+        return -1;
+    }
+
+    if (!endPinInternal) {
+        return -1;
+    }
+
+    if (startPinInternal->isInput || !endPinInternal->isInput) {
+        return -1;
+    }
+
+    int connectionId = m_state.nextConnectionId++;
+    Connection connection(connectionId, startNodeId, startPinId, endNodeId, endPinId);
+    connection.uuid = uuid.empty() ? generateUUID() : uuid;
+    connection.startNodeUuid = startNode->uuid;
+    connection.startPinUuid = startPinInternal->uuid;
+    connection.endNodeUuid = endNode->uuid;
+    connection.endPinUuid = endPinInternal->uuid;
+
+    startPinInternal->connected = true;
+    endPinInternal->connected = true;
+
+    m_state.connections.push_back(connection);
+
+    updateConnectionUuidMap();
+
+    if (m_state.connectionCreatedCallback) {
+        m_state.connectionCreatedCallback(connectionId, connection.uuid);
+    }
+
+    return connectionId;
+}
 
     void NodeEditor::createConnection(int startNodeId, int startPinId, int endNodeId, int endPinId) {
         const Pin *apiStartPin = getPin(startNodeId, startPinId);

@@ -43,7 +43,6 @@ add_executable(AdvancedNodeEditor
         AdvancedNodeEditor/Evaluation/NodeEditorEvaluation.cpp
         AdvancedNodeEditor/Core/Style/InteractionMode.h
         AdvancedNodeEditor/Utils/UuidGenerator.h
-        AdvancedNodeEditor/Evaluation/NodeEvaluator.h
         AdvancedNodeEditor/Editor/View/ViewManager.cpp
         AdvancedNodeEditor/Editor/View/ViewManager.h
         AdvancedNodeEditor/Editor/View/GraphTitleManager.cpp
@@ -148,6 +147,7 @@ if (BUILD_TESTS)
             tests/editor/ModelTests.cpp
             tests/editor/ControllerTests.cpp
             tests/editor/ViewTests.cpp
+            tests/evaluation/EvaluationDebug_Tests.cpp
     )
 
     # Add ALL source files to test executable (excluding main.cpp)
@@ -192,7 +192,6 @@ if (BUILD_TESTS)
 
             AdvancedNodeEditor/Evaluation/NodeEditorEvaluation.cpp
             AdvancedNodeEditor/Evaluation/NodeEditorEvaluation.h
-            AdvancedNodeEditor/Evaluation/NodeEvaluator.h
 
             AdvancedNodeEditor/Rendering/NodeEditorRendering.cpp
             AdvancedNodeEditor/Rendering/NodeEditorDrawing.cpp

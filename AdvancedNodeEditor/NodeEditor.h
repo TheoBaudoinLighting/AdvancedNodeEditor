@@ -304,6 +304,8 @@ namespace NodeEditorCore {
         std::vector<NodeEvaluator::ConnectionInfo> getOutputConnections(int nodeId);
         std::vector<NodeEvaluator::ConnectionInfo> getOutputConnectionsByUUID(const UUID& nodeUuid);
 
+        std::vector<Connection> reconstructConnections() const;
+
         ViewManager& getViewManager() { return m_viewManager; }
         GraphTitleManager& getTitleManager() { return m_titleManager; }
         ConnectionStyleManager& getConnectionStyleManager() { return m_connectionStyleManager; }

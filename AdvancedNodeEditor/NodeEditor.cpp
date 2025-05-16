@@ -1,63 +1,6 @@
 #include "NodeEditor.h"
 
 namespace NodeEditorCore {
-    std::vector<NodeEvaluator::ConnectionInfo> NodeEditor::getInputConnections(int nodeId) {
-        std::vector<NodeEvaluator::ConnectionInfo> result;
-
-        for (const auto &connection: m_state.connections) {
-            if (connection.endNodeId == nodeId) {
-                NodeEvaluator::ConnectionInfo info;
-                info.connectionId = connection.id;
-                info.connectionUuid = connection.uuid;
-                info.sourceNodeId = connection.startNodeId;
-                info.sourceNodeUuid = connection.startNodeUuid;
-                info.sourcePinId = connection.startPinId;
-                info.sourcePinUuid = connection.startPinUuid;
-                info.targetNodeId = connection.endNodeId;
-                info.targetNodeUuid = connection.endNodeUuid;
-                info.targetPinId = connection.endPinId;
-                info.targetPinUuid = connection.endPinUuid;
-                result.push_back(info);
-            }
-        }
-
-        return result;
-    }
-
-    std::vector<NodeEvaluator::ConnectionInfo> NodeEditor::getInputConnectionsByUUID(const UUID &nodeUuid) {
-        int nodeId = getNodeId(nodeUuid);
-        if (nodeId == -1) return {};
-        return getInputConnections(nodeId);
-    }
-
-    std::vector<NodeEvaluator::ConnectionInfo> NodeEditor::getOutputConnections(int nodeId) {
-        std::vector<NodeEvaluator::ConnectionInfo> result;
-
-        for (const auto &connection: m_state.connections) {
-            if (connection.startNodeId == nodeId) {
-                NodeEvaluator::ConnectionInfo info;
-                info.connectionId = connection.id;
-                info.connectionUuid = connection.uuid;
-                info.sourceNodeId = connection.startNodeId;
-                info.sourceNodeUuid = connection.startNodeUuid;
-                info.sourcePinId = connection.startPinId;
-                info.sourcePinUuid = connection.startPinUuid;
-                info.targetNodeId = connection.endNodeId;
-                info.targetNodeUuid = connection.endNodeUuid;
-                info.targetPinId = connection.endPinId;
-                info.targetPinUuid = connection.endPinUuid;
-                result.push_back(info);
-            }
-        }
-
-        return result;
-    }
-
-    std::vector<NodeEvaluator::ConnectionInfo> NodeEditor::getOutputConnectionsByUUID(const UUID &nodeUuid) {
-        int nodeId = getNodeId(nodeUuid);
-        if (nodeId == -1) return {};
-        return getOutputConnections(nodeId);
-    }
 
     std::vector<int> NodeEditor::getEvaluationOrder() const {
         return NodeEvaluator::getEvaluationOrder(const_cast<NodeEditor&>(*this));

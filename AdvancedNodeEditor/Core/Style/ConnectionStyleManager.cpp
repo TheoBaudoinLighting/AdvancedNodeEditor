@@ -123,7 +123,7 @@ namespace NodeEditorCore {
             );
         }
 
-        if (!m_config.useGradient || startColor == endColor) {
+        if (!m_config.useGradient && startColor == endColor) {
             drawList->AddBezierCubic(start, cp1, cp2, end, startColor, thickness);
 
             if (m_config.drawHighlight && (selected || hovered)) {
@@ -184,7 +184,7 @@ namespace NodeEditorCore {
             );
         }
 
-        if (!m_config.useGradient || startColor == endColor) {
+        if (!m_config.useGradient && startColor == endColor) {
             drawList->AddLine(start, end, startColor, thickness);
 
             if (m_config.drawHighlight && (selected || hovered)) {
@@ -252,7 +252,7 @@ namespace NodeEditorCore {
             );
         }
 
-        if (!m_config.useGradient || startColor == endColor) {
+        if (!m_config.useGradient && startColor == endColor) {
             drawList->AddLine(start, middle, startColor, thickness);
             drawList->AddLine(middle, end, startColor, thickness);
 
@@ -399,7 +399,7 @@ namespace NodeEditorCore {
             }
         }
 
-        if (!m_config.useGradient || startColor == endColor) {
+        if (!m_config.useGradient && startColor == endColor) {
             for (size_t i = 0; i < points.size() - 1; i++) {
                 drawList->AddLine(points[i], points[i + 1], startColor, thickness);
 
