@@ -16,7 +16,7 @@ add_executable(AdvancedNodeEditor
         AdvancedNodeEditor/Core/Conversions/Conversions.h
         AdvancedNodeEditor/Core/Style/StyleDefinitions.cpp
         AdvancedNodeEditor/Core/Style/StyleDefinitions.h
-        AdvancedNodeEditor/Components/Node/NodeComponents.cpp
+        AdvancedNodeEditor/Components/Node/NodeEditorComponents.cpp
         AdvancedNodeEditor/Editor/Operations/NodeEditorState.cpp
         AdvancedNodeEditor/NodeEditor.h
         AdvancedNodeEditor/Components/Connection/NodeEditorConnections.cpp
@@ -53,6 +53,7 @@ add_executable(AdvancedNodeEditor
         AdvancedNodeEditor/Editor/View/NodeBoundingBoxManager.h
         AdvancedNodeEditor/Editor/View/MinimapManager.cpp
         AdvancedNodeEditor/Editor/View/MinimapManager.h
+        AdvancedNodeEditor/Components/UUID/NodeEditorUuidOperations.cpp
 )
 
 # === FetchContent for ImGui and SDL2 ===
@@ -154,7 +155,7 @@ if(BUILD_TESTS)
             AdvancedNodeEditor/Core/Conversions/Conversions.h
             AdvancedNodeEditor/Core/Style/StyleDefinitions.cpp
             AdvancedNodeEditor/Core/Style/StyleDefinitions.h
-            AdvancedNodeEditor/Components/Node/NodeComponents.cpp
+            AdvancedNodeEditor/Components/Node/NodeEditorComponents.cpp
             AdvancedNodeEditor/Editor/Operations/NodeEditorState.cpp
             AdvancedNodeEditor/NodeEditor.h
             AdvancedNodeEditor/Components/Connection/NodeEditorConnections.cpp
@@ -168,6 +169,7 @@ if(BUILD_TESTS)
             AdvancedNodeEditor/Editor/Operations/NodeEditorOperations.cpp
             AdvancedNodeEditor/Rendering/NodeEditorUtilities.cpp
             AdvancedNodeEditor/Components/Subgraph/NodeEditorSubgraphs.cpp
+            AdvancedNodeEditor/Components/UUID/NodeEditorUuidOperations.cpp
             AdvancedNodeEditor/Core/Conversions/Conversions.cpp
             AdvancedNodeEditor/Evaluation/NodeEditorEvaluation.cpp
             AdvancedNodeEditor/Core/Style/InteractionMode.h

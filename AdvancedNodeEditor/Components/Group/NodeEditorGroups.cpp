@@ -83,11 +83,4 @@ void NodeEditor::removeNodeFromGroup(int nodeId, int groupId) {
     group->nodeUuids.erase(node->uuid);
 }
 
-void NodeEditor::updateGroupUuidMap() {
-    m_state.groupUuidMap.clear();
-    for (auto& group : m_state.groups) {
-        m_state.groupUuidMap[group.uuid] = &group;
-    }
-}
-
 }

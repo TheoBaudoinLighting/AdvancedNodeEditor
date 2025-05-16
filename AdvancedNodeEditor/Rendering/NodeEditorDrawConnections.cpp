@@ -24,55 +24,56 @@ namespace NodeEditorCore {
         }
 
         for (const auto& connection : visibleConnections) {
-        const Node* startNode = getNode(connection.startNodeId);
-        const Node* endNode = getNode(connection.endNodeId);
+            const Node* startNode = getNode(connection.startNodeId);
+            const Node* endNode = getNode(connection.endNodeId);
 
-        if (!startNode || !endNode) continue;
+            if (!startNode || !endNode) continue;
 
-        const Pin* apiStartPin = getPin(connection.startNodeId, connection.startPinId);
-        const Pin* apiEndPin = getPin(connection.endNodeId, connection.endPinId);
+            const Pin* apiStartPin = getPin(connection.startNodeId, connection.startPinId);
+            const Pin* apiEndPin = getPin(connection.endNodeId, connection.endPinId);
 
-        if (!apiStartPin || !apiEndPin) continue;
+            if (!apiStartPin || !apiEndPin) continue;
 
-        const Pin* startPinInternal = startNode->findPin(connection.startPinId);
-        const Pin* endPinInternal = endNode->findPin(connection.endPinId);
+            const Pin* startPinInternal = startNode->findPin(connection.startPinId);
+            const Pin* endPinInternal = endNode->findPin(connection.endPinId);
 
-        if (!startPinInternal || !endPinInternal) continue;
+            if (!startPinInternal || !endPinInternal) continue;
 
-        ImVec2 p1 = getPinPos(*startNode, *apiStartPin, canvasPos);
-        ImVec2 p2 = getPinPos(*endNode, *apiEndPin, canvasPos);
+            ImVec2 p1 = getPinPos(*startNode, *apiStartPin, canvasPos);
+            ImVec2 p2 = getPinPos(*endNode, *apiEndPin, canvasPos);
 
-        std::string startPinType = pinTypeToString(startPinInternal->type);
-        std::string endPinType = pinTypeToString(endPinInternal->type);
+            std::string startPinType = pinTypeToString(startPinInternal->type);
+            std::string endPinType = pinTypeToString(endPinInternal->type);
 
-        const internal::PinColors& startPinColors = m_state.style.pinColors.count(startPinType) ?
-                                         m_state.style.pinColors.at(startPinType) :
-                                         m_state.style.pinColors.at("Default");
+            const internal::PinColors& startPinColors = m_state.style.pinColors.count(startPinType) ?
+                                             m_state.style.pinColors.at(startPinType) :
+                                             m_state.style.pinColors.at("Default");
 
-        const internal::PinColors& endPinColors = m_state.style.pinColors.count(endPinType) ?
-                                       m_state.style.pinColors.at(endPinType) :
-                                       m_state.style.pinColors.at("Default");
+            const internal::PinColors& endPinColors = m_state.style.pinColors.count(endPinType) ?
+                                           m_state.style.pinColors.at(endPinType) :
+                                           m_state.style.pinColors.at("Default");
 
-        Color startCol(
-            startPinColors.connected.r,
-            startPinColors.connected.g,
-            startPinColors.connected.b,
-            startPinColors.connected.a * 0.8f
-        );
+            Color startCol(
+                startPinColors.connected.r,
+                startPinColors.connected.g,
+                startPinColors.connected.b,
+                startPinColors.connected.a * 0.8f
+            );
 
-        Color endCol(
-            endPinColors.connected.r,
-            endPinColors.connected.g,
-            endPinColors.connected.b,
-            endPinColors.connected.a * 0.8f
-        );
+            Color endCol(
+                endPinColors.connected.r,
+                endPinColors.connected.g,
+                endPinColors.connected.b,
+                endPinColors.connected.a * 0.8f
+            );
 
-        m_connectionStyleManager.drawConnection(
-            drawList, p1, p2,
-            connection.selected, m_state.hoveredConnectionId == connection.id,
-            startCol, endCol, m_state.viewScale
-        );
-    }
+            m_connectionStyleManager.drawConnection(
+                drawList, p1, p2,
+                apiStartPin->isInput, apiEndPin->isInput,
+                connection.selected, m_state.hoveredConnectionId == connection.id,
+                startCol, endCol, m_state.viewScale
+            );
+        }
 
         if (m_state.connecting && m_state.connectingNodeId != -1 && m_state.connectingPinId != -1) {
             drawDragConnection(drawList, canvasPos);

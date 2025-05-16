@@ -141,17 +141,100 @@ TEST_F(ConnectionTests, DeselectAllConnections) {
     EXPECT_FALSE(connection2->selected);
 }
 
+class ConnectionSubgraphTests : public ::testing::Test {
+protected:
+    NodeEditor editor;
+    int outputPinId;
+    int inputPinId;
+    int connectionId;
+    int subgraphId;
+
+    void SetUp() override {
+        editor.addNode("Node1", "Default", Vec2(100, 100));
+        editor.addNode("Node2", "Default", Vec2(300, 100));
+
+        outputPinId = editor.addPin(1, "Output", false, PinType::Blue);
+        inputPinId = editor.addPin(2, "Input", true, PinType::Blue);
+
+        ASSERT_NE(outputPinId, -1);
+        ASSERT_NE(inputPinId, -1);
+
+        connectionId = editor.addConnection(1, outputPinId, 2, inputPinId);
+        ASSERT_NE(connectionId, -1);
+
+        subgraphId = editor.createSubgraph("TestSubgraph");
+        ASSERT_NE(subgraphId, -1);
+    }
+};
+
+TEST_F(ConnectionSubgraphTests, ConnectionInSubgraph) {
+    editor.addNodeToSubgraph(1, subgraphId);
+    editor.addNodeToSubgraph(2, subgraphId);
+
+    editor.addConnectionToSubgraph(connectionId, subgraphId);
+
+    bool isInSubgraph = editor.isConnectionInSubgraph(connectionId, subgraphId);
+    EXPECT_TRUE(isInSubgraph);
+
+    std::vector<int> connections = editor.getConnectionsInSubgraph(subgraphId);
+    EXPECT_FALSE(connections.empty());
+    if (!connections.empty()) {
+        EXPECT_EQ(connections[0], connectionId);
+    }
+
+    Connection* conn = editor.getConnection(connectionId);
+    ASSERT_NE(conn, nullptr);
+    EXPECT_EQ(conn->subgraphId, subgraphId);
+}
+
+TEST_F(ConnectionSubgraphTests, RemoveConnectionFromSubgraph) {
+    editor.addNodeToSubgraph(1, subgraphId);
+    editor.addNodeToSubgraph(2, subgraphId);
+    editor.addConnectionToSubgraph(connectionId, subgraphId);
+
+    EXPECT_TRUE(editor.isConnectionInSubgraph(connectionId, subgraphId));
+
+    editor.removeConnectionFromSubgraph(connectionId, subgraphId);
+
+    EXPECT_FALSE(editor.isConnectionInSubgraph(connectionId, subgraphId));
+
+    std::vector<int> connections = editor.getConnectionsInSubgraph(subgraphId);
+    EXPECT_TRUE(connections.empty());
+}
+
+TEST_F(ConnectionSubgraphTests, AddMultipleConnectionsToSubgraph) {
+    int outputPinId2 = editor.addPin(1, "Output2", false, PinType::Red);
+    int inputPinId2 = editor.addPin(2, "Input2", true, PinType::Red);
+    int connectionId2 = editor.addConnection(1, outputPinId2, 2, inputPinId2);
+    ASSERT_NE(connectionId2, -1);
+
+    editor.addNodeToSubgraph(1, subgraphId);
+    editor.addNodeToSubgraph(2, subgraphId);
+    editor.addConnectionToSubgraph(connectionId, subgraphId);
+    editor.addConnectionToSubgraph(connectionId2, subgraphId);
+
+    EXPECT_TRUE(editor.isConnectionInSubgraph(connectionId, subgraphId));
+    EXPECT_TRUE(editor.isConnectionInSubgraph(connectionId2, subgraphId));
+
+    std::vector<int> connections = editor.getConnectionsInSubgraph(subgraphId);
+    EXPECT_EQ(connections.size(), 2);
+}
+
 TEST(ConnectionSubgraphFix, TestSpecificIssue) {
     NodeEditorCore::NodeEditor editor;
 
     editor.addNode("Node1", "Default", NodeEditorCore::Vec2(100, 100));
     editor.addNode("Node2", "Default", NodeEditorCore::Vec2(300, 100));
 
-    editor.addPin(1, "Output", false, NodeEditorCore::PinType::Blue);
-    editor.addPin(2, "Input", true, NodeEditorCore::PinType::Blue);
+    int outputPinId = editor.addPin(1, "Output", false, NodeEditorCore::PinType::Blue);
+    int inputPinId = editor.addPin(2, "Input", true, NodeEditorCore::PinType::Blue);
 
-    int connectionId = editor.addConnection(1, 1, 2, 1);
+    ASSERT_NE(outputPinId, -1);
+    ASSERT_NE(inputPinId, -1);
+
+    int connectionId = editor.addConnection(1, outputPinId, 2, inputPinId);
     std::cout << "Connection créée avec ID: " << connectionId << std::endl;
+    ASSERT_NE(connectionId, -1);
 
     int subgraphId = editor.createSubgraph("TestSubgraph");
 

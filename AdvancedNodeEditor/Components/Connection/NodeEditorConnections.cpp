@@ -248,13 +248,6 @@ namespace NodeEditorCore {
         return it != m_state.connectionUuidMap.end() ? it->second->id : -1;
     }
 
-    void NodeEditor::updateConnectionUuidMap() {
-        m_state.connectionUuidMap.clear();
-        for (auto& connection: m_state.connections) {
-            m_state.connectionUuidMap[connection.uuid] = &connection;
-        }
-    }
-
     int NodeEditor::addConnectionByUUID(const UUID &startNodeUuid, const UUID &startPinUuid,
                                           const UUID &endNodeUuid, const UUID &endPinUuid, const UUID &uuid) {
         int startNodeId = getNodeId(startNodeUuid);

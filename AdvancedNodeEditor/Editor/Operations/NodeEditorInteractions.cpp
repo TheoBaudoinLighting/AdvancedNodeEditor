@@ -640,7 +640,7 @@ namespace NodeEditorCore {
         }
     }
 
-    ImVec2 NodeEditor::getPinPos(const Node &node, const Pin &pin, const ImVec2 &canvasPos) const {
+    ImVec2 NodeEditor::getPinPos(const Node& node, const Pin& pin, const ImVec2& canvasPos) const {
         ImVec2 nodePos = canvasToScreen(node.position).toImVec2();
         ImVec2 nodeSize = Vec2(node.size.x * m_state.viewScale, node.size.y * m_state.viewScale).toImVec2();
 

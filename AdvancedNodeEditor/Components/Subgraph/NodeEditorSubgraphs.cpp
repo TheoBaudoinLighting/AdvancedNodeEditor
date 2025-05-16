@@ -107,15 +107,16 @@ namespace NodeEditorCore {
         if (std::find(subgraph->connectionIds.begin(), subgraph->connectionIds.end(), connectionId)
             == subgraph->connectionIds.end()) {
             subgraph->connectionIds.push_back(connectionId);
-            }
+        }
 
         connection->subgraphId = subgraphId;
         connection->metadata.setAttribute("subgraphId", subgraphId);
-
     }
 
 
     bool NodeEditor::isConnectionInSubgraph(int connectionId, int subgraphId) const {
+        if (connectionId < 0) return false;
+
         auto it = m_subgraphs.find(subgraphId);
         if (it == m_subgraphs.end()) {
             return false;
@@ -126,14 +127,14 @@ namespace NodeEditorCore {
         if (std::find(subgraph->connectionIds.begin(), subgraph->connectionIds.end(), connectionId)
             != subgraph->connectionIds.end()) {
             return true;
-            }
+        }
 
         for (const auto& connection : m_state.connections) {
             if (connection.id == connectionId) {
                 if (connection.subgraphId == subgraphId ||
                     connection.metadata.getAttribute<int>("subgraphId", -1) == subgraphId) {
                     return true;
-                    }
+                }
                 break;
             }
         }

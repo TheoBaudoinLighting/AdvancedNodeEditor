@@ -67,6 +67,7 @@ public:
 
     void drawConnection(ImDrawList* drawList,
                        const ImVec2& startPos, const ImVec2& endPos,
+                       bool isStartInput, bool isEndInput,
                        bool selected, bool hovered,
                        const Color& startCol, const Color& endCol,
                        float scale = 1.0f);
@@ -83,6 +84,7 @@ private:
     std::function<bool(ImVec2, ImVec2)> m_boundingBoxCheck;
 
     void drawBezierConnection(ImDrawList* drawList, const ImVec2& start, const ImVec2& end,
+                            bool isStartInput, bool isEndInput,
                             bool selected, bool hovered, const Color& startCol, const Color& endCol, float scale);
 
     void drawStraightConnection(ImDrawList* drawList, const ImVec2& start, const ImVec2& end,

@@ -35,32 +35,38 @@ namespace NodeEditorCore {
     void ConnectionStyleManager::addCustomConnectionDrawer(
         const std::string &name,
         std::function<void(ImDrawList *, const ImVec2 &, const ImVec2 &, bool, bool, const Color &, const Color &,
- float)> drawer) {
+                           float)> drawer) {
         m_customDrawers[name] = drawer;
     }
 
     void ConnectionStyleManager::drawConnection(
         ImDrawList *drawList, const ImVec2 &startPos, const ImVec2 &endPos,
+        bool isStartInput, bool isEndInput,
         bool selected, bool hovered, const Color &startCol, const Color &endCol, float scale) {
         switch (m_config.style) {
             case ConnectionStyle::Bezier:
-                drawBezierConnection(drawList, startPos, endPos, selected, hovered, startCol, endCol, scale);
+                drawBezierConnection(drawList, startPos, endPos, isStartInput, isEndInput,
+                                     selected, hovered, startCol, endCol, scale);
                 break;
 
             case ConnectionStyle::StraightLine:
-                drawStraightConnection(drawList, startPos, endPos, selected, hovered, startCol, endCol, scale);
+                drawStraightConnection(drawList, startPos, endPos,
+                                       selected, hovered, startCol, endCol, scale);
                 break;
 
             case ConnectionStyle::AngleLine:
-                drawAngleConnection(drawList, startPos, endPos, selected, hovered, startCol, endCol, scale);
+                drawAngleConnection(drawList, startPos, endPos,
+                                    selected, hovered, startCol, endCol, scale);
                 break;
 
             case ConnectionStyle::MetroLine:
-                drawMetroConnection(drawList, startPos, endPos, selected, hovered, startCol, endCol, scale);
+                drawMetroConnection(drawList, startPos, endPos,
+                                    selected, hovered, startCol, endCol, scale);
                 break;
 
             case ConnectionStyle::Custom:
-                drawBezierConnection(drawList, startPos, endPos, selected, hovered, startCol, endCol, scale);
+                drawBezierConnection(drawList, startPos, endPos, isStartInput, isEndInput,
+                                     selected, hovered, startCol, endCol, scale);
                 break;
         }
     }
@@ -71,17 +77,23 @@ namespace NodeEditorCore {
 
     void ConnectionStyleManager::drawBezierConnection(
         ImDrawList *drawList, const ImVec2 &start, const ImVec2 &end,
+        bool isStartInput, bool isEndInput,
         bool selected, bool hovered, const Color &startCol, const Color &endCol, float scale) {
         const float distance = std::sqrt(std::pow(end.x - start.x, 2) + std::pow(end.y - start.y, 2));
         const float tension = m_config.curveTension;
         const float cpDistance = distance * tension;
 
         ImVec2 cp1, cp2;
-        if (start.y >= end.y) {
+
+        if (isStartInput) {
+            cp1 = ImVec2(start.x, start.y - cpDistance);
+        } else {
             cp1 = ImVec2(start.x, start.y + cpDistance);
+        }
+
+        if (isEndInput) {
             cp2 = ImVec2(end.x, end.y - cpDistance);
         } else {
-            cp1 = ImVec2(start.x, start.y - cpDistance);
             cp2 = ImVec2(end.x, end.y + cpDistance);
         }
 
