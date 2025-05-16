@@ -347,10 +347,14 @@ struct Node {
 
     Pin* findPin(int pinId) {
         for (auto& pin : inputs) {
-            if (pin.id == pinId) return &pin;
+            if (pin.id == pinId) {
+                return &pin;
+            }
         }
         for (auto& pin : outputs) {
-            if (pin.id == pinId) return &pin;
+            if (pin.id == pinId) {
+                return &pin;
+            }
         }
         return nullptr;
     }
@@ -443,9 +447,10 @@ struct Connection {
     UUID endPinUuid;
     bool selected;
     Metadata metadata;
+    int subgraphId = -1;
 
     Connection() : id(-1), uuid(generateUUID()), startNodeId(-1), startPinId(-1),
-                   endNodeId(-1), endPinId(-1), selected(false) {}
+                   endNodeId(-1), endPinId(-1), selected(false), subgraphId(-1) {}
 
     Connection(int id, int startNodeId, int startPinId, int endNodeId, int endPinId)
         : id(id), uuid(generateUUID()), startNodeId(startNodeId), startPinId(startPinId),
@@ -456,13 +461,15 @@ struct Connection {
                int endPinId, const UUID& endPinUuid)
         : id(id), uuid(existingUuid), startNodeId(startNodeId), startNodeUuid(startNodeUuid),
           startPinId(startPinId), startPinUuid(startPinUuid), endNodeId(endNodeId),
-          endNodeUuid(endNodeUuid), endPinId(endPinId), endPinUuid(endPinUuid), selected(false) {}
+          endNodeUuid(endNodeUuid), endPinId(endPinId), endPinUuid(endPinUuid), selected(false), subgraphId(-1) {}
 
     void setSubgraphId(int id) {
+        subgraphId = id;
         metadata.setAttribute("subgraphId", id);
     }
 
     int getSubgraphId() const {
+        if (subgraphId >= 0) return subgraphId;
         return metadata.getAttribute<int>("subgraphId", -1);
     }
 

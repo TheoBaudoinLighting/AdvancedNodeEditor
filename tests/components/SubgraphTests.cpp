@@ -8,13 +8,62 @@ protected:
     NodeEditor editor;
     
     void SetUp() override {
-        editor.addNode("Node1", "Default", Vec2(100, 100));
-        editor.addNode("Node2", "Default", Vec2(300, 100));
-        
-        editor.addPin(1, "Output", false, PinType::Blue);
-        editor.addPin(2, "Input", true, PinType::Blue);
-        
-        editor.addConnection(1, 1, 2, 1);
+        int node1Id = editor.addNode("Node1", "Default", NodeEditorCore::Vec2(100, 100));
+        int node2Id = editor.addNode("Node2", "Default", NodeEditorCore::Vec2(300, 100));
+
+        std::cout << "Nœuds créés: " << node1Id << ", " << node2Id << std::endl;
+
+        if (node1Id != 1 || node2Id != 2) {
+            std::cout << "ERREUR: Les IDs des nœuds ne sont pas ceux attendus" << std::endl;
+        }
+
+        int pin1Id = editor.addPin(node1Id, "Output", false, NodeEditorCore::PinType::Blue);
+        int pin2Id = editor.addPin(node2Id, "Input", true, NodeEditorCore::PinType::Blue);
+
+        std::cout << "Pins créés: " << pin1Id << ", " << pin2Id << std::endl;
+
+        auto* node1 = editor.getNode(node1Id);
+        auto* node2 = editor.getNode(node2Id);
+
+        if (node1) {
+            std::cout << "Pins dans le nœud 1:" << std::endl;
+            std::cout << "  Entrées: ";
+            for (const auto& pin : node1->inputs) {
+                std::cout << pin.id << " ";
+            }
+            std::cout << std::endl;
+            std::cout << "  Sorties: ";
+            for (const auto& pin : node1->outputs) {
+                std::cout << pin.id << " ";
+            }
+            std::cout << std::endl;
+        }
+
+        if (node2) {
+            std::cout << "Pins dans le nœud 2:" << std::endl;
+            std::cout << "  Entrées: ";
+            for (const auto& pin : node2->inputs) {
+                std::cout << pin.id << " ";
+            }
+            std::cout << std::endl;
+            std::cout << "  Sorties: ";
+            for (const auto& pin : node2->outputs) {
+                std::cout << pin.id << " ";
+            }
+            std::cout << std::endl;
+        }
+
+        if (pin1Id < 0 || pin2Id < 0) {
+            std::cout << "ERREUR: Pins non créés correctement" << std::endl;
+        }
+
+        int connectionId = editor.addConnection(node1Id, pin1Id, node2Id, pin2Id);
+
+        std::cout << "Connexion créée: " << connectionId << std::endl;
+
+        if (connectionId < 0) {
+            std::cout << "ERREUR: Connexion non créée correctement" << std::endl;
+        }
     }
 };
 

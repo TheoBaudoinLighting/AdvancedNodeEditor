@@ -240,32 +240,6 @@ namespace NodeEditorCore {
         );
     }
 
-    int NodeEditor::getSubgraphDepth(int subgraphId) const {
-        if (subgraphId < 0) return 0;
-
-        int depth = 0;
-        int currentId = subgraphId;
-
-        while (currentId >= 0) {
-            const Subgraph *sg = getSubgraph(currentId);
-            if (!sg) break;
-
-            depth++;
-            currentId = sg->parentSubgraphId;
-        }
-
-        return depth;
-    }
-
-    Subgraph* NodeEditor::getSubgraph(int subgraphId) const {
-        for (auto& node : m_state.nodes) {
-            if (node.isSubgraph && node.subgraphId == subgraphId) {
-                return node.metadata.getAttribute<Subgraph*>("subgraph", nullptr);
-            }
-        }
-        return nullptr;
-    }
-
     bool NodeEditor::isShowingSubgraphBreadcrumbs() const {
         return m_breadcrumbManager.getConfig().showSubgraphPath;
     }

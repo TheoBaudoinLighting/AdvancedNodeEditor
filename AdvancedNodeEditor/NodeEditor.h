@@ -232,6 +232,9 @@ namespace NodeEditorCore {
         Subgraph* getSubgraphByUUID(const UUID& uuid);
 
         void removeSubgraph(int subgraphId);
+
+        void debugSubgraph(int subgraphId);
+
         void removeSubgraphByUUID(const UUID& uuid);
 
         UUID getSubgraphUUID(int subgraphId) const;

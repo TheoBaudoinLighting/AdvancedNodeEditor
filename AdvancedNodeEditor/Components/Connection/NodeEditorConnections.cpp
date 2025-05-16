@@ -48,6 +48,7 @@ namespace NodeEditorCore {
                 return &connection;
             }
         }
+
         return nullptr;
     }
 
@@ -121,44 +122,35 @@ namespace NodeEditorCore {
                static_cast<PinType>(endPin.type) == PinType::Blue;
     }
 
-    int NodeEditor::addConnection(int startNodeId, int startPinId, int endNodeId, int endPinId, const UUID &uuid) {
+    int NodeEditor::addConnection(int startNodeId, int startPinId, int endNodeId, int endPinId, const UUID& uuid) {
         if (doesConnectionExist(startNodeId, startPinId, endNodeId, endPinId)) {
             return -1;
         }
-        
+
         Node* startNode = getNode(startNodeId);
         Node* endNode = getNode(endNodeId);
-        if (!startNode || !endNode) return -1;
-        
+        if (!startNode) {
+            return -1;
+        }
+        if (!endNode) {
+            return -1;
+        }
+
         Pin* startPinInternal = startNode->findPin(startPinId);
         Pin* endPinInternal = endNode->findPin(endPinId);
-        if (!startPinInternal || !endPinInternal) return -1;
-        
+
+        if (!startPinInternal) {
+            return -1;
+        }
+
+        if (!endPinInternal) {
+            return -1;
+        }
+
         if (startPinInternal->isInput || !endPinInternal->isInput) {
             return -1;
         }
 
-        Pin startPin, endPin;
-        
-        startPin.id = startPinInternal->id;
-        startPin.uuid = startPinInternal->uuid;
-        startPin.name = startPinInternal->name;
-        startPin.isInput = startPinInternal->isInput;
-        startPin.type = static_cast<PinType>(startPinInternal->type);
-        startPin.shape = static_cast<PinShape>(startPinInternal->shape);
-        
-        endPin.id = endPinInternal->id;
-        endPin.uuid = endPinInternal->uuid;
-        endPin.name = endPinInternal->name;
-        endPin.isInput = endPinInternal->isInput;
-        endPin.type = static_cast<PinType>(endPinInternal->type);
-        endPin.shape = static_cast<PinShape>(endPinInternal->shape);
-        
-        if (m_state.canConnectCallback && !m_state.canConnectCallback(startPin, endPin)) {
-            return -1;
-        }
-
-        // Créer la connexion
         int connectionId = m_state.nextConnectionId++;
         Connection connection(connectionId, startNodeId, startPinId, endNodeId, endPinId);
         connection.uuid = uuid.empty() ? generateUUID() : uuid;
@@ -166,9 +158,9 @@ namespace NodeEditorCore {
         connection.startPinUuid = startPinInternal->uuid;
         connection.endNodeUuid = endNode->uuid;
         connection.endPinUuid = endPinInternal->uuid;
-        
+
         m_state.connections.push_back(connection);
-        
+
         startPinInternal->connected = true;
         endPinInternal->connected = true;
 

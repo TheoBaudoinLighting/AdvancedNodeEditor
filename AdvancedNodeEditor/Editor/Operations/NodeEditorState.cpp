@@ -227,10 +227,11 @@ namespace NodeEditorCore {
         return node->metadata.getAttribute<UUID>("subgraphUuid", "");
     }
 
-    int NodeEditor::addPin(int nodeId, const std::string &name, bool isInput,
-                           PinType type, PinShape shape, const UUID &uuid) {
-        Node *node = getNode(nodeId);
-        if (!node) return -1;
+    int NodeEditor::addPin(int nodeId, const std::string& name, bool isInput, PinType type, PinShape shape, const UUID& uuid) {
+        Node* node = getNode(nodeId);
+        if (!node) {
+            return -1;
+        }
 
         int pinId = m_state.nextPinId++;
         Pin pin(uuid, pinId, name, isInput, type, shape);
@@ -368,38 +369,7 @@ namespace NodeEditorCore {
         return getGroupUUID(groupId);
     }
 
-    int NodeEditor::createSubgraph(const std::string& name, const UUID& uuid) {
-        int subgraphId = m_state.nextGroupId++;
 
-        auto subgraph = std::make_shared<Subgraph>();
-        subgraph->id = subgraphId;
-        subgraph->name = name;
-        subgraph->uuid = uuid.empty() ? generateUUID() : uuid;
-
-        m_subgraphs[subgraphId] = subgraph;
-
-        return subgraphId;
-    }
-
-    UUID NodeEditor::getSubgraphUUID(int subgraphId) const {
-        auto it = m_subgraphs.find(subgraphId);
-        if (it != m_subgraphs.end()) {
-            return it->second->uuid;
-        }
-
-        for (const auto& node : m_state.nodes) {
-            if (node.isSubgraph && node.subgraphId == subgraphId) {
-                return node.subgraphUuid;
-            }
-        }
-
-        return "";
-    }
-
-    UUID NodeEditor::createSubgraphWithUUID(const std::string& name) {
-        int subgraphId = createSubgraph(name);
-        return getSubgraphUUID(subgraphId);
-    }
 
     Node *NodeEditor::createNodeOfType(const std::string &type, const Vec2 &position) {
         auto it = m_registeredNodeTypes.find(type);
@@ -437,17 +407,7 @@ namespace NodeEditorCore {
         return nullptr;
     }
 
-    Subgraph* NodeEditor::getSubgraph(int subgraphId) {
-        auto it = m_subgraphs.find(subgraphId);
-        if (it != m_subgraphs.end()) {
-            return it->second.get();
-        }
-        return nullptr;
-    }
 
-    void NodeEditor::removeSubgraph(int subgraphId) {
-        m_subgraphs.erase(subgraphId);
-    }
 
     void NodeEditor::removePinByUUID(const UUID &nodeUuid, const UUID &pinUuid) {
         int nodeId = getNodeId(nodeUuid);
