@@ -118,12 +118,10 @@ namespace NodeEditorCore {
         std::unordered_map<int, std::vector<int>> dependencyGraph;
         std::unordered_map<int, int> inDegree;
 
-        // Construire le graphe de dépendances
         for (const auto& connection : m_editor.getConnections()) {
             int startNodeId = connection.startNodeId;
             int endNodeId = connection.endNodeId;
 
-            // Ignorer les connexions qui ne sont pas dans le subgraph courant
             if (getCurrentSubgraphId() >= 0 && !isConnectionInSubgraph(connection.id, getCurrentSubgraphId())) {
                 continue;
             }
@@ -140,7 +138,6 @@ namespace NodeEditorCore {
             inDegree[endNodeId]++;
         }
 
-        // Si aucune dépendance trouvée, ajouter tous les nœuds au résultat
         if (dependencyGraph.empty()) {
             for (const auto& node : m_editor.getNodes()) {
                 if (getCurrentSubgraphId() < 0 || node.getSubgraphId() == getCurrentSubgraphId()) {
@@ -178,41 +175,4 @@ namespace NodeEditorCore {
 
         return result;
     }
-
-    std::vector<int> NodeEditor::getEvaluationOrder() const {
-        NodeEvaluator evaluator(*const_cast<NodeEditor*>(this));
-        return evaluator.getEvaluationOrder();
-    }
-
-    std::vector<UUID> NodeEditor::getEvaluationOrderUUIDs() const {
-        std::vector<UUID> result;
-        std::vector<int> order = getEvaluationOrder();
-
-        for (int nodeId : order) {
-            result.push_back(getNodeUUID(nodeId));
-        }
-
-        return result;
-    }
-
-    std::vector<NodeEvaluator::ConnectionInfo> NodeEditor::getInputConnections(int nodeId) {
-        return NodeEvaluator::getInputConnections(*this, nodeId);
-    }
-
-    std::vector<NodeEvaluator::ConnectionInfo> NodeEditor::getInputConnectionsByUUID(const UUID& nodeUuid) {
-        return NodeEvaluator::getInputConnectionsByUUID(*this, nodeUuid);
-    }
-
-    std::vector<NodeEvaluator::ConnectionInfo> NodeEditor::getOutputConnections(int nodeId) {
-        return NodeEvaluator::getOutputConnections(*this, nodeId);
-    }
-
-    std::vector<NodeEvaluator::ConnectionInfo> NodeEditor::getOutputConnectionsByUUID(const UUID& nodeUuid) {
-        return NodeEvaluator::getOutputConnectionsByUUID(*this, nodeUuid);
-    }
-
-
-
-
-
 }

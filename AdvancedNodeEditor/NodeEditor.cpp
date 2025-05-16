@@ -4,19 +4,19 @@ namespace NodeEditorCore {
     std::vector<NodeEvaluator::ConnectionInfo> NodeEditor::getInputConnections(int nodeId) {
         std::vector<NodeEvaluator::ConnectionInfo> result;
 
-        for (const auto &connection: getConnections()) {
+        for (const auto &connection: m_state.connections) {
             if (connection.endNodeId == nodeId) {
                 NodeEvaluator::ConnectionInfo info;
                 info.connectionId = connection.id;
-                info.connectionUuid = getConnectionUUID(connection.id);
+                info.connectionUuid = connection.uuid;
                 info.sourceNodeId = connection.startNodeId;
-                info.sourceNodeUuid = getNodeUUID(connection.startNodeId);
+                info.sourceNodeUuid = connection.startNodeUuid;
                 info.sourcePinId = connection.startPinId;
-                info.sourcePinUuid = getPinUUID(connection.startNodeId, connection.startPinId);
+                info.sourcePinUuid = connection.startPinUuid;
                 info.targetNodeId = connection.endNodeId;
-                info.targetNodeUuid = getNodeUUID(connection.endNodeId);
+                info.targetNodeUuid = connection.endNodeUuid;
                 info.targetPinId = connection.endPinId;
-                info.targetPinUuid = getPinUUID(connection.endNodeId, connection.endPinId);
+                info.targetPinUuid = connection.endPinUuid;
                 result.push_back(info);
             }
         }
@@ -26,25 +26,26 @@ namespace NodeEditorCore {
 
     std::vector<NodeEvaluator::ConnectionInfo> NodeEditor::getInputConnectionsByUUID(const UUID &nodeUuid) {
         int nodeId = getNodeId(nodeUuid);
+        if (nodeId == -1) return {};
         return getInputConnections(nodeId);
     }
 
     std::vector<NodeEvaluator::ConnectionInfo> NodeEditor::getOutputConnections(int nodeId) {
         std::vector<NodeEvaluator::ConnectionInfo> result;
 
-        for (const auto &connection: getConnections()) {
+        for (const auto &connection: m_state.connections) {
             if (connection.startNodeId == nodeId) {
                 NodeEvaluator::ConnectionInfo info;
                 info.connectionId = connection.id;
-                info.connectionUuid = getConnectionUUID(connection.id);
+                info.connectionUuid = connection.uuid;
                 info.sourceNodeId = connection.startNodeId;
-                info.sourceNodeUuid = getNodeUUID(connection.startNodeId);
+                info.sourceNodeUuid = connection.startNodeUuid;
                 info.sourcePinId = connection.startPinId;
-                info.sourcePinUuid = getPinUUID(connection.startNodeId, connection.startPinId);
+                info.sourcePinUuid = connection.startPinUuid;
                 info.targetNodeId = connection.endNodeId;
-                info.targetNodeUuid = getNodeUUID(connection.endNodeId);
+                info.targetNodeUuid = connection.endNodeUuid;
                 info.targetPinId = connection.endPinId;
-                info.targetPinUuid = getPinUUID(connection.endNodeId, connection.endPinId);
+                info.targetPinUuid = connection.endPinUuid;
                 result.push_back(info);
             }
         }
@@ -54,13 +55,14 @@ namespace NodeEditorCore {
 
     std::vector<NodeEvaluator::ConnectionInfo> NodeEditor::getOutputConnectionsByUUID(const UUID &nodeUuid) {
         int nodeId = getNodeId(nodeUuid);
+        if (nodeId == -1) return {};
         return getOutputConnections(nodeId);
     }
 
     std::vector<int> NodeEditor::getEvaluationOrder() const {
-        NodeEvaluator evaluator(m_editor);
-        return evaluator.getEvaluationOrder();
+        return NodeEvaluator::getEvaluationOrder(const_cast<NodeEditor&>(*this));
     }
+
 
     std::vector<UUID> NodeEditor::getEvaluationOrderUUIDs() const {
         std::vector<UUID> result;
@@ -71,14 +73,6 @@ namespace NodeEditorCore {
         }
 
         return result;
-    }
-
-    void NodeEditor::enableNodeAvoidance(bool enable) {
-        m_editor.enableNodeAvoidance(enable);
-    }
-
-    bool NodeEditor::isNodeAvoidanceEnabled() const {
-        return m_editor.isNodeAvoidanceEnabled();
     }
 
     void NodeEditor::setGraphTitle(const std::string &title) {
@@ -259,10 +253,6 @@ namespace NodeEditorCore {
         m_viewManager.startViewTransition(targetState, duration, ViewManager::ViewTransitionType::EaseInOut);
     }
 
-    bool NodeEditor::isShowingSubgraphBreadcrumbs() const {
-        return m_breadcrumbManager.getConfig().showSubgraphPath;
-    }
-
     void NodeEditor::setShowSubgraphBreadcrumbs(bool show) {
         auto config = m_breadcrumbManager.getConfig();
         config.showSubgraphPath = show;
@@ -275,78 +265,11 @@ namespace NodeEditorCore {
         m_breadcrumbManager.setConfig(config);
     }
 
-    int NodeEditor::getSubgraphDepth(int subgraphId) const {
-        if (subgraphId < 0) return 0;
-
-        int depth = 0;
-        int currentId = subgraphId;
-
-        while (currentId >= 0) {
-            const Subgraph *sg = getSubgraph(currentId);
-            if (!sg) break;
-
-            depth++;
-            currentId = sg->parentSubgraphId;
-        }
-
-        return depth;
-    }
-
-    void NodeEditor::drawSubgraphBreadcrumbs(ImDrawList *drawList, const ImVec2 &canvasPos) {
-        std::vector<std::string> path;
-        int parentId = m_state.currentSubgraphId;
-
-        while (parentId >= 0) {
-            Subgraph *sg = getSubgraph(parentId);
-            if (sg) {
-                path.insert(path.begin(), sg->name);
-                parentId = sg->parentSubgraphId;
-            } else {
-                break;
-            }
-        }
-
-        if (path.empty()) return;
-
-        m_breadcrumbManager.setViewScale(m_state.viewScale);
-        m_breadcrumbManager.setCurrentSubgraph(path.back(), path);
-
-        auto config = m_breadcrumbManager.getConfig();
-        config.position = GraphTitleManager::TitlePosition::TopCenter;
-        m_breadcrumbManager.setConfig(config);
-
-        m_breadcrumbManager.draw(drawList, canvasPos, ImGui::GetWindowSize());
-    }
-
-    void NodeEditor::zoomToFit(float padding) {
-        m_editor.zoomToFit(padding);
-    }
-
-    void NodeEditor::zoomToFitSelected(float padding) {
-        m_editor.zoomToFitSelected(padding);
-    }
-
-    void NodeEditor::smoothCenterView(float duration) {
-        m_editor.smoothCenterView(duration);
-    }
-
-    void NodeEditor::smoothCenterOnNode(int nodeId, float duration) {
-        m_editor.smoothCenterOnNode(nodeId, duration);
-    }
-
     void NodeEditor::smoothCenterOnNodeByUUID(const UUID &uuid, float duration) {
-        int nodeId = m_editor.getNodeId(uuid);
+        int nodeId = getNodeId(uuid);
         if (nodeId != -1) {
-            m_editor.smoothCenterOnNode(nodeId, duration);
+            smoothCenterOnNode(nodeId, duration);
         }
-    }
-
-    void NodeEditor::setGraphTitle(const std::string &title) {
-        m_editor.setGraphTitle(title);
-    }
-
-    std::string NodeEditor::getGraphTitle() const {
-        return m_editor.getGraphTitle();
     }
 
     void NodeEditor::setGraphTitlePosition(TitlePosition position) {
@@ -379,7 +302,7 @@ namespace NodeEditorCore {
                 break;
         }
 
-        m_editor.setGraphTitlePosition(corePosition);
+        setGraphTitlePosition(corePosition);
     }
 
     void NodeEditor::setGraphTitleStyle(TitleStyle style) {
@@ -409,28 +332,26 @@ namespace NodeEditorCore {
                 break;
         }
 
-        m_editor.setGraphTitleStyle(coreStyle);
+        setGraphTitleStyle(coreStyle);
     }
 
     void NodeEditor::setGraphTitleColor(const Color &textColor, const Color &backgroundColor) {
-        auto &titleManager = m_editor.getTitleManager();
-        auto config = titleManager.getConfig();
+        auto config = m_titleManager.getConfig();
 
         config.textColor = NodeEditorCore::Color(textColor.r, textColor.g, textColor.b, textColor.a);
         config.backgroundColor = NodeEditorCore::Color(backgroundColor.r, backgroundColor.g, backgroundColor.b,
                                                        backgroundColor.a);
 
-        titleManager.setConfig(config);
+        m_titleManager.setConfig(config);
     }
 
     void NodeEditor::setGraphTitleCustomPosition(const Vec2 &position) {
-        auto &titleManager = m_editor.getTitleManager();
-        auto config = titleManager.getConfig();
+        auto config = m_titleManager.getConfig();
 
         config.customPosition = NodeEditorCore::Vec2(position.x, position.y);
         config.position = NodeEditorCore::GraphTitleManager::TitlePosition::Custom;
 
-        titleManager.setConfig(config);
+        m_titleManager.setConfig(config);
     }
 
     void NodeEditor::setConnectionStyle(ConnectionStyle style) {
@@ -451,11 +372,11 @@ namespace NodeEditorCore {
                 break;
         }
 
-        m_editor.setConnectionStyle(coreStyle);
+        setConnectionStyle(coreStyle);
     }
 
     NodeEditor::ConnectionStyle NodeEditor::getConnectionStyle() const {
-        auto coreStyle = m_editor.getConnectionStyleManager().getDefaultStyle();
+        auto coreStyle = m_connectionStyleManager.getDefaultStyle();
 
         switch (coreStyle) {
             case NodeEditorCore::ConnectionStyleManager::ConnectionStyle::Bezier:
@@ -472,79 +393,41 @@ namespace NodeEditorCore {
     }
 
     void NodeEditor::setConnectionThickness(float thickness) {
-        auto &styleManager = m_editor.getConnectionStyleManager();
-        auto config = styleManager.getConfig();
-
+        auto config = m_connectionStyleManager.getConfig();
         config.thickness = thickness;
-        styleManager.setConfig(config);
+        m_connectionStyleManager.setConfig(config);
     }
 
     float NodeEditor::getConnectionThickness() const {
-        return m_editor.getConnectionStyleManager().getConfig().thickness;
+        return m_connectionStyleManager.getConfig().thickness;
     }
 
     void NodeEditor::setConnectionColor(const Color &color) {
-        auto &styleManager = m_editor.getConnectionStyleManager();
-        auto config = styleManager.getConfig();
+        auto config = m_connectionStyleManager.getConfig();
 
         config.startColor = NodeEditorCore::Color(color.r, color.g, color.b, color.a);
         config.endColor = NodeEditorCore::Color(color.r, color.g, color.b, color.a);
         config.useGradient = false;
 
-        styleManager.setConfig(config);
+        m_connectionStyleManager.setConfig(config);
     }
 
     void NodeEditor::setConnectionGradient(const Color &startColor, const Color &endColor) {
-        auto &styleManager = m_editor.getConnectionStyleManager();
-        auto config = styleManager.getConfig();
+        auto config = m_connectionStyleManager.getConfig();
 
         config.startColor = NodeEditorCore::Color(startColor.r, startColor.g, startColor.b, startColor.a);
         config.endColor = NodeEditorCore::Color(endColor.r, endColor.g, endColor.b, endColor.a);
         config.useGradient = true;
 
-        styleManager.setConfig(config);
+        m_connectionStyleManager.setConfig(config);
     }
 
     void NodeEditor::setConnectionSelectedColor(const Color &color) {
-        auto &styleManager = m_editor.getConnectionStyleManager();
-        auto config = styleManager.getConfig();
+        auto config = m_connectionStyleManager.getConfig();
 
         config.selectedColor = NodeEditorCore::Color(color.r, color.g, color.b, color.a);
 
-        styleManager.setConfig(config);
-    }
-
-    void NodeEditor::setGridColor(const Color &color) {
-        NodeEditorCore::Color coreColor(color.r, color.g, color.b, color.a);
-        m_editor.setGridColor(coreColor);
-    }
-
-    Color NodeEditor::getGridColor() const {
-        NodeEditorCore::Color coreColor = m_editor.getGridColor();
-        return Color(coreColor.r, coreColor.g, coreColor.b, coreColor.a);
-    }
-
-    void NodeEditor::setBackgroundColor(const Color &color) {
-        NodeEditorCore::Color coreColor(color.r, color.g, color.b, color.a);
-        m_editor.setBackgroundColor(coreColor);
-    }
-
-    Color NodeEditor::getBackgroundColor() const {
-        NodeEditorCore::Color coreColor = m_editor.getBackgroundColor();
-        return Color(coreColor.r, coreColor.g, coreColor.b, coreColor.a);
-    }
-
-    void NodeEditor::setSubgraphDepthColor(int depth, const Color &color) {
-        NodeEditorCore::Color coreColor(color.r, color.g, color.b, color.a);
-        m_editor.setSubgraphDepthColor(depth, coreColor);
-    }
-
-    void NodeEditor::setShowSubgraphBreadcrumbs(bool show) {
-        m_editor.setShowSubgraphBreadcrumbs(show);
-    }
-
-    bool NodeEditor::isShowingSubgraphBreadcrumbs() const {
-        return m_editor.isShowingSubgraphBreadcrumbs();
+        m_connectionStyleManager.setConfig(config);
     }
 
     void NodeEditor::setSubgraphBreadcrumbStyle(TitleStyle style) {
@@ -574,7 +457,9 @@ namespace NodeEditorCore {
                 break;
         }
 
-        m_editor.setSubgraphBreadcrumbStyle(coreStyle);
+        auto config = m_breadcrumbManager.getConfig();
+        config.style = coreStyle;
+        m_breadcrumbManager.setConfig(config);
     }
 
     void NodeEditor::enableMinimap(bool enable) {
@@ -612,31 +497,4 @@ namespace NodeEditorCore {
         config.size = size;
         m_minimapManager.setConfig(config);
     }
-
-    void NodeEditor::updateMinimapBounds() {
-        Vec2 min(std::numeric_limits<float>::max(), std::numeric_limits<float>::max());
-        Vec2 max(-std::numeric_limits<float>::max(), -std::numeric_limits<float>::max());
-
-        for (const auto& node : m_state.nodes) {
-            if (!isNodeInCurrentSubgraph(node)) continue;
-
-            min.x = std::min(min.x, node.position.x);
-            min.y = std::min(min.y, node.position.y);
-            max.x = std::max(max.x, node.position.x + node.size.x);
-            max.y = std::max(max.y, node.position.y + node.size.y);
-        }
-
-        float padding = 100.0f;
-        min.x -= padding;
-        min.y -= padding;
-        max.x += padding;
-        max.y += padding;
-
-        m_minimapManager.setViewBounds(min, max);
-        m_minimapManager.setViewPosition(m_state.viewPosition);
-        m_minimapManager.setViewScale(m_state.viewScale);
-    }
-
-
-
 }

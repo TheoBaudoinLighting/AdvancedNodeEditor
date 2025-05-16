@@ -60,10 +60,10 @@ add_executable(AdvancedNodeEditor
 include(FetchContent)
 
 # --- ImGui ---
-if(USE_SYSTEM_IMGUI)
+if (USE_SYSTEM_IMGUI)
     find_package(imgui REQUIRED)
     target_link_libraries(AdvancedNodeEditor PRIVATE imgui::imgui)
-else()
+else ()
     FetchContent_Declare(
             imgui
             GIT_REPOSITORY https://github.com/ocornut/imgui.git
@@ -87,13 +87,13 @@ else()
             ${imgui_SOURCE_DIR}/backends
             ${imgui_SOURCE_DIR}/misc/cpp
     )
-endif()
+endif ()
 
 # --- SDL2 ---
-if(USE_SYSTEM_SDL2)
+if (USE_SYSTEM_SDL2)
     find_package(SDL2 REQUIRED)
     target_link_libraries(AdvancedNodeEditor PRIVATE SDL2::SDL2)
-else()
+else ()
     FetchContent_Declare(
             SDL2
             GIT_REPOSITORY https://github.com/libsdl-org/SDL.git
@@ -101,27 +101,27 @@ else()
     )
     FetchContent_MakeAvailable(SDL2)
     target_link_libraries(AdvancedNodeEditor PRIVATE SDL2::SDL2)
-endif()
+endif ()
 
 # === Includes and defs ===
 target_compile_definitions(AdvancedNodeEditor PRIVATE IMGUI_DEFINE_MATH_OPERATORS)
 
 # === Add OpenGL libraries ===
-if(WIN32)
+if (WIN32)
     target_link_libraries(AdvancedNodeEditor PRIVATE opengl32)
-elseif(APPLE)
+elseif (APPLE)
     find_package(OpenGL REQUIRED)
     target_link_libraries(AdvancedNodeEditor PRIVATE ${OPENGL_gl_LIBRARY})
-else()
+else ()
     find_package(OpenGL REQUIRED)
     target_link_libraries(AdvancedNodeEditor PRIVATE ${OPENGL_gl_LIBRARY})
-endif()
+endif ()
 
 # === Configure SDL2 main handling ===
 target_compile_definitions(AdvancedNodeEditor PRIVATE SDL_MAIN_HANDLED)
 
 # === Google Test ===
-if(BUILD_TESTS)
+if (BUILD_TESTS)
     # Enable testing for the project
     enable_testing()
 
@@ -151,41 +151,62 @@ if(BUILD_TESTS)
 
     # Add ALL source files to test executable (excluding main.cpp)
     target_sources(node_editor_tests PRIVATE
-            AdvancedNodeEditor/Core/Types/CoreTypes.h
-            AdvancedNodeEditor/Core/Conversions/Conversions.h
-            AdvancedNodeEditor/Core/Style/StyleDefinitions.cpp
-            AdvancedNodeEditor/Core/Style/StyleDefinitions.h
-            AdvancedNodeEditor/Components/Node/NodeEditorComponents.cpp
-            AdvancedNodeEditor/Editor/Operations/NodeEditorState.cpp
-            AdvancedNodeEditor/NodeEditor.h
             AdvancedNodeEditor/Components/Connection/NodeEditorConnections.cpp
             AdvancedNodeEditor/Components/Group/NodeEditorGroups.cpp
-            AdvancedNodeEditor/Rendering/NodeEditorRendering.cpp
+            AdvancedNodeEditor/Components/Node/NodeEditorComponents.cpp
+            AdvancedNodeEditor/Components/Subgraph/NodeEditorSubgraphs.cpp
+            AdvancedNodeEditor/Components/UUID/NodeEditorUuidOperations.cpp
+
+            AdvancedNodeEditor/Core/Conversions/Conversions.cpp
+            AdvancedNodeEditor/Core/Conversions/Conversions.h
+
+            AdvancedNodeEditor/Core/Style/ConnectionStyleManager.cpp
+            AdvancedNodeEditor/Core/Style/ConnectionStyleManager.h
+            AdvancedNodeEditor/Core/Style/InteractionMode.h
+            AdvancedNodeEditor/Core/Style/StyleDefinitions.cpp
+            AdvancedNodeEditor/Core/Style/StyleDefinitions.h
+
+            AdvancedNodeEditor/Core/Types/CoreTypes.h
+
+            AdvancedNodeEditor/Editor/Controller/NodeEditorController.cpp
+            AdvancedNodeEditor/Editor/Controller/NodeEditorController.h
+
+            AdvancedNodeEditor/Editor/Model/NodeEditorModel.cpp
+            AdvancedNodeEditor/Editor/Model/NodeEditorModel.h
+
             AdvancedNodeEditor/Editor/Operations/NodeEditorInteractions.cpp
+            AdvancedNodeEditor/Editor/Operations/NodeEditorOperations.cpp
+            AdvancedNodeEditor/Editor/Operations/NodeEditorState.cpp
+
+            AdvancedNodeEditor/Editor/View/GraphTitleManager.cpp
+            AdvancedNodeEditor/Editor/View/GraphTitleManager.h
+            AdvancedNodeEditor/Editor/View/MinimapManager.cpp
+            AdvancedNodeEditor/Editor/View/MinimapManager.h
+            AdvancedNodeEditor/Editor/View/NodeBoundingBoxManager.cpp
+            AdvancedNodeEditor/Editor/View/NodeBoundingBoxManager.h
+            AdvancedNodeEditor/Editor/View/NodeEditorView.cpp
+            AdvancedNodeEditor/Editor/View/NodeEditorView.h
+            AdvancedNodeEditor/Editor/View/ViewManager.cpp
+            AdvancedNodeEditor/Editor/View/ViewManager.h
+
+            AdvancedNodeEditor/Evaluation/NodeEditorEvaluation.cpp
+            AdvancedNodeEditor/Evaluation/NodeEditorEvaluation.h
+            AdvancedNodeEditor/Evaluation/NodeEvaluator.h
+
+            AdvancedNodeEditor/Rendering/NodeEditorRendering.cpp
             AdvancedNodeEditor/Rendering/NodeEditorDrawing.cpp
             AdvancedNodeEditor/Rendering/NodeEditorDrawNodes.cpp
             AdvancedNodeEditor/Rendering/NodeEditorDrawConnections.cpp
             AdvancedNodeEditor/Rendering/NodeEditorDrawGroups.cpp
-            AdvancedNodeEditor/Editor/Operations/NodeEditorOperations.cpp
             AdvancedNodeEditor/Rendering/NodeEditorUtilities.cpp
-            AdvancedNodeEditor/Components/Subgraph/NodeEditorSubgraphs.cpp
-            AdvancedNodeEditor/Components/UUID/NodeEditorUuidOperations.cpp
-            AdvancedNodeEditor/Core/Conversions/Conversions.cpp
-            AdvancedNodeEditor/Evaluation/NodeEditorEvaluation.cpp
-            AdvancedNodeEditor/Core/Style/InteractionMode.h
             AdvancedNodeEditor/Utils/UuidGenerator.h
-            AdvancedNodeEditor/Editor/Model/NodeEditorModel.cpp
-            AdvancedNodeEditor/Editor/Controller/NodeEditorController.cpp
-            AdvancedNodeEditor/Editor/View/NodeEditorView.cpp
-            AdvancedNodeEditor/Editor/View/ViewManager.cpp
-            AdvancedNodeEditor/Editor/View/GraphTitleManager.cpp
-            AdvancedNodeEditor/Core/Style/ConnectionStyleManager.cpp
-            AdvancedNodeEditor/Editor/View/NodeBoundingBoxManager.cpp
-            AdvancedNodeEditor/Editor/View/MinimapManager.cpp
+
+            AdvancedNodeEditor/NodeEditor.cpp
+            AdvancedNodeEditor/NodeEditor.h
     )
 
     # Add ImGui and SDL sources to tests
-    if(NOT USE_SYSTEM_IMGUI)
+    if (NOT USE_SYSTEM_IMGUI)
         target_sources(node_editor_tests PRIVATE
                 ${imgui_SOURCE_DIR}/imgui.cpp
                 ${imgui_SOURCE_DIR}/imgui_draw.cpp
@@ -197,7 +218,7 @@ if(BUILD_TESTS)
                 ${imgui_SOURCE_DIR}
                 ${imgui_SOURCE_DIR}/misc/cpp
         )
-    endif()
+    endif ()
 
     # Link with Google Test and other dependencies
     target_link_libraries(node_editor_tests PRIVATE
@@ -205,26 +226,26 @@ if(BUILD_TESTS)
             GTest::gtest_main
     )
 
-    if(USE_SYSTEM_IMGUI)
+    if (USE_SYSTEM_IMGUI)
         target_link_libraries(node_editor_tests PRIVATE imgui::imgui)
-    endif()
+    endif ()
 
-    if(USE_SYSTEM_SDL2)
+    if (USE_SYSTEM_SDL2)
         target_link_libraries(node_editor_tests PRIVATE SDL2::SDL2)
-    else()
+    else ()
         target_link_libraries(node_editor_tests PRIVATE SDL2::SDL2)
-    endif()
+    endif ()
 
     # OpenGL libraries for tests
-    if(WIN32)
+    if (WIN32)
         target_link_libraries(node_editor_tests PRIVATE opengl32)
-    elseif(APPLE)
+    elseif (APPLE)
         target_link_libraries(node_editor_tests PRIVATE ${OPENGL_gl_LIBRARY})
-    else()
+    else ()
         target_link_libraries(node_editor_tests PRIVATE ${OPENGL_gl_LIBRARY})
-    endif()
+    endif ()
 
     # Add tests to CTest
     include(GoogleTest)
     gtest_discover_tests(node_editor_tests)
-endif()
+endif ()
