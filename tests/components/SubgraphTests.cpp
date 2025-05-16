@@ -188,3 +188,115 @@ TEST_F(SubgraphTests, BasicUUIDOperations) {
     ASSERT_NE(node, nullptr);
     EXPECT_EQ(node->id, 1);
 }
+
+TEST_F(SubgraphTests, EnterSubgraphByUUID) {
+    UUID uuid = editor.createSubgraphWithUUID("TestSubgraph");
+    ASSERT_FALSE(uuid.empty());
+
+    int subgraphId = editor.getSubgraphId(uuid);
+    ASSERT_NE(subgraphId, -1);
+
+    bool result = editor.enterSubgraphByUUID(uuid);
+    ASSERT_TRUE(result);
+    EXPECT_EQ(editor.getCurrentSubgraphId(), subgraphId);
+
+    result = editor.enterSubgraphByUUID("non-existent-uuid");
+    ASSERT_FALSE(result);
+}
+
+TEST_F(SubgraphTests, ExitSubgraph) {
+    UUID parentUuid = editor.createSubgraphWithUUID("ParentSubgraph");
+    editor.enterSubgraphByUUID(parentUuid);
+
+    UUID childUuid = editor.createSubgraphWithUUID("ChildSubgraph");
+    editor.enterSubgraphByUUID(childUuid);
+
+    EXPECT_EQ(editor.getCurrentSubgraphId(), editor.getSubgraphId(childUuid));
+
+    bool result = editor.exitSubgraph();
+    ASSERT_TRUE(result);
+    EXPECT_EQ(editor.getCurrentSubgraphId(), editor.getSubgraphId(parentUuid));
+
+    result = editor.exitSubgraph();
+    ASSERT_TRUE(result);
+    EXPECT_EQ(editor.getCurrentSubgraphId(), -1);
+
+    result = editor.exitSubgraph();
+    ASSERT_FALSE(result);
+}
+
+TEST_F(SubgraphTests, GetSubgraphId) {
+    UUID uuid = editor.createSubgraphWithUUID("TestSubgraph");
+    ASSERT_FALSE(uuid.empty());
+
+    int subgraphId = editor.getSubgraphId(uuid);
+    ASSERT_NE(subgraphId, -1);
+
+    int nonExistentId = editor.getSubgraphId("non-existent-uuid");
+    ASSERT_EQ(nonExistentId, -1);
+}
+
+TEST_F(SubgraphTests, CreateSubgraphNode) {
+    UUID uuid = editor.createSubgraphWithUUID("TestSubgraph");
+    int subgraphId = editor.getSubgraphId(uuid);
+
+    editor.enterSubgraphByUUID(uuid);
+    int inputNodeId = editor.addNode("Input", "Subgraph.Input", Vec2(100, 100));
+    int inputPinId = editor.addPin(inputNodeId, "Value", false, PinType::Blue);
+    std::cout << "Pin créé pour le nœud d'entrée: ID=" << inputPinId << std::endl;
+
+    int outputNodeId = editor.addNode("Output", "Subgraph.Output", Vec2(500, 100));
+    int outputPinId = editor.addPin(outputNodeId, "Value", true, PinType::Blue);
+    std::cout << "Pin créé pour le nœud de sortie: ID=" << outputPinId << std::endl;
+
+    // Configurer les interfaces du subgraph
+    Subgraph* subgraph = editor.getSubgraph(subgraphId);
+    ASSERT_NE(subgraph, nullptr);
+    subgraph->exposeOutput(inputNodeId, inputPinId);  // Utiliser l'ID réel
+    subgraph->exposeInput(outputNodeId, outputPinId); // Utiliser l'ID réel
+
+    editor.exitSubgraph();
+
+    Node* subgraphNode = editor.createSubgraphNode(subgraphId, "SubgraphNode", Vec2(300, 200));
+    ASSERT_NE(subgraphNode, nullptr);
+
+    EXPECT_TRUE(subgraphNode->isSubgraph);
+    EXPECT_EQ(subgraphNode->subgraphId, subgraphId);
+    EXPECT_EQ(subgraphNode->subgraphUuid, uuid);
+
+    // Vérifier que les pins ont été créés
+    EXPECT_EQ(subgraphNode->inputs.size(), 1);
+    EXPECT_EQ(subgraphNode->outputs.size(), 1);
+
+    Node* nonExistentNode = editor.createSubgraphNode(-1, "NonExistentNode", Vec2(400, 200));
+    ASSERT_EQ(nonExistentNode, nullptr);
+}
+
+TEST_F(SubgraphTests, SubgraphNavigation) {
+    UUID level1 = editor.createSubgraphWithUUID("Level1");
+    editor.enterSubgraphByUUID(level1);
+
+    UUID level2 = editor.createSubgraphWithUUID("Level2");
+    editor.enterSubgraphByUUID(level2);
+
+    UUID level3 = editor.createSubgraphWithUUID("Level3");
+    editor.enterSubgraphByUUID(level3);
+
+    EXPECT_EQ(editor.getCurrentSubgraphId(), editor.getSubgraphId(level3));
+
+    editor.exitSubgraph();
+    EXPECT_EQ(editor.getCurrentSubgraphId(), editor.getSubgraphId(level2));
+
+    editor.exitSubgraph();
+    EXPECT_EQ(editor.getCurrentSubgraphId(), editor.getSubgraphId(level1));
+
+    editor.exitSubgraph();
+    EXPECT_EQ(editor.getCurrentSubgraphId(), -1);
+
+    // Test de navigation directe
+    editor.enterSubgraphByUUID(level3);
+    EXPECT_EQ(editor.getCurrentSubgraphId(), editor.getSubgraphId(level3));
+
+    editor.enterSubgraphByUUID(level1);
+    EXPECT_EQ(editor.getCurrentSubgraphId(), editor.getSubgraphId(level1));
+}
