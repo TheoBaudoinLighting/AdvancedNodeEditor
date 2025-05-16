@@ -119,53 +119,7 @@ namespace NodeEditorCore {
         }
     }
 
-    int NodeEditor::addConnection(int startNodeId, int startPinId, int endNodeId, int endPinId, const UUID &uuid) {
-        if (doesConnectionExist(startNodeId, startPinId, endNodeId, endPinId)) {
-            return -1;
-        }
 
-        const Pin *startPin = getPin(startNodeId, startPinId);
-        const Pin *endPin = getPin(endNodeId, endPinId);
-
-        if (!startPin || !endPin) {
-            return -1;
-        }
-
-        if (startPin->isInput || !endPin->isInput) {
-            return -1;
-        }
-
-        if (m_state.canConnectCallback && !m_state.canConnectCallback(*startPin, *endPin)) {
-            return -1;
-        }
-
-        int connectionId = m_state.nextConnectionId++;
-        m_state.connections.emplace_back(connectionId, startNodeId, startPinId, endNodeId, endPinId);
-
-        Connection *connection = getConnection(connectionId);
-        if (connection) {
-            connection->uuid = uuid.empty() ? generateUUID() : uuid;
-            connection->startNodeUuid = getNodeUUID(startNodeId);
-            connection->startPinUuid = getPinUUID(startNodeId, startPinId);
-            connection->endNodeUuid = getNodeUUID(endNodeId);
-            connection->endPinUuid = getPinUUID(endNodeId, endPinId);
-            updateConnectionUuidMap();
-        }
-
-        Node *startNode = getNode(startNodeId);
-        Node *endNode = getNode(endNodeId);
-        Pin *startPinInternal = startNode ? startNode->findPin(startPinId) : nullptr;
-        Pin *endPinInternal = endNode ? endNode->findPin(endPinId) : nullptr;
-
-        if (startPinInternal) startPinInternal->connected = true;
-        if (endPinInternal) endPinInternal->connected = true;
-
-        if (m_state.connectionCreatedCallback) {
-            m_state.connectionCreatedCallback(connectionId, connection ? connection->uuid : "");
-        }
-
-        return connectionId;
-    }
 
     const std::vector<Node> &NodeEditor::getNodes() const {
         return m_state.nodes;
@@ -305,66 +259,72 @@ namespace NodeEditorCore {
         removeFromVec(node->outputs);
     }
 
-    const Pin *NodeEditor::getPin(int nodeId, int pinId) const {
-        static Pin convertedPin;
-
-        const Node *node = getNode(nodeId);
+    const Pin* NodeEditor::getPin(int nodeId, int pinId) const {
+        const Node* node = getNode(nodeId);
         if (!node) return nullptr;
 
-        for (const auto &pin: node->inputs) {
+        for (const auto& pin : node->inputs) {
             if (pin.id == pinId) {
-                convertedPin.id = pin.id;
-                convertedPin.uuid = pin.uuid;
-                convertedPin.name = pin.name;
-                convertedPin.isInput = pin.isInput;
-                convertedPin.type = static_cast<PinType>(pin.type);
-                convertedPin.shape = static_cast<PinShape>(pin.shape);
-                return &convertedPin;
+                static thread_local Pin result;
+                result.id = pin.id;
+                result.uuid = pin.uuid;
+                result.name = pin.name;
+                result.isInput = pin.isInput;
+                result.type = static_cast<PinType>(pin.type);
+                result.shape = static_cast<PinShape>(pin.shape);
+                result.connected = pin.connected;
+                return &result;
             }
         }
 
-        for (const auto &pin: node->outputs) {
+        for (const auto& pin : node->outputs) {
             if (pin.id == pinId) {
-                convertedPin.id = pin.id;
-                convertedPin.uuid = pin.uuid;
-                convertedPin.name = pin.name;
-                convertedPin.isInput = pin.isInput;
-                convertedPin.type = static_cast<PinType>(pin.type);
-                convertedPin.shape = static_cast<PinShape>(pin.shape);
-                return &convertedPin;
+                static thread_local Pin result;
+                result.id = pin.id;
+                result.uuid = pin.uuid;
+                result.name = pin.name;
+                result.isInput = pin.isInput;
+                result.type = static_cast<PinType>(pin.type);
+                result.shape = static_cast<PinShape>(pin.shape);
+                result.connected = pin.connected;
+                return &result;
             }
         }
 
         return nullptr;
     }
 
-    Pin *NodeEditor::getPin(int nodeId, int pinId) {
-        static Pin convertedPin;
 
-        Node *node = getNode(nodeId);
+
+    Pin* NodeEditor::getPin(int nodeId, int pinId) {
+        Node* node = getNode(nodeId);
         if (!node) return nullptr;
 
-        for (auto &pin: node->inputs) {
+        for (auto& pin : node->inputs) {
             if (pin.id == pinId) {
-                convertedPin.id = pin.id;
-                convertedPin.uuid = pin.uuid;
-                convertedPin.name = pin.name;
-                convertedPin.isInput = pin.isInput;
-                convertedPin.type = static_cast<PinType>(pin.type);
-                convertedPin.shape = static_cast<PinShape>(pin.shape);
-                return &convertedPin;
+                static thread_local Pin result;
+                result.id = pin.id;
+                result.uuid = pin.uuid;
+                result.name = pin.name;
+                result.isInput = pin.isInput;
+                result.type = static_cast<PinType>(pin.type);
+                result.shape = static_cast<PinShape>(pin.shape);
+                result.connected = pin.connected;
+                return &result;
             }
         }
 
-        for (auto &pin: node->outputs) {
+        for (auto& pin : node->outputs) {
             if (pin.id == pinId) {
-                convertedPin.id = pin.id;
-                convertedPin.uuid = pin.uuid;
-                convertedPin.name = pin.name;
-                convertedPin.isInput = pin.isInput;
-                convertedPin.type = static_cast<PinType>(pin.type);
-                convertedPin.shape = static_cast<PinShape>(pin.shape);
-                return &convertedPin;
+                static thread_local Pin result;
+                result.id = pin.id;
+                result.uuid = pin.uuid;
+                result.name = pin.name;
+                result.isInput = pin.isInput;
+                result.type = static_cast<PinType>(pin.type);
+                result.shape = static_cast<PinShape>(pin.shape);
+                result.connected = pin.connected;
+                return &result;
             }
         }
 
@@ -401,45 +361,6 @@ namespace NodeEditorCore {
         if (nodeId == -1) return "";
 
         return addPinWithUUID(nodeId, name, isInput, type, shape);
-    }
-
-    UUID NodeEditor::addConnectionWithUUID(int startNodeId, int startPinId, int endNodeId, int endPinId) {
-        int connectionId = addConnection(startNodeId, startPinId, endNodeId, endPinId);
-        return getConnectionUUID(connectionId);
-    }
-
-    UUID NodeEditor::addConnectionWithUUIDByUUID(const UUID &startNodeUuid, const UUID &startPinUuid,
-                                                 const UUID &endNodeUuid, const UUID &endPinUuid) {
-        int startNodeId = getNodeId(startNodeUuid);
-        int endNodeId = getNodeId(endNodeUuid);
-
-        if (startNodeId == -1 || endNodeId == -1) return "";
-
-        Node *startNode = getNode(startNodeId);
-        Node *endNode = getNode(endNodeId);
-
-        if (!startNode || !endNode) return "";
-
-        int startPinId = -1;
-        int endPinId = -1;
-
-        for (const auto &pin: startNode->outputs) {
-            if (pin.uuid == startPinUuid) {
-                startPinId = pin.id;
-                break;
-            }
-        }
-
-        for (const auto &pin: endNode->inputs) {
-            if (pin.uuid == endPinUuid) {
-                endPinId = pin.id;
-                break;
-            }
-        }
-
-        if (startPinId == -1 || endPinId == -1) return "";
-
-        return addConnectionWithUUID(startNodeId, startPinId, endNodeId, endPinId);
     }
 
     UUID NodeEditor::addGroupWithUUID(const std::string &name, const Vec2 &position, const Vec2 &size) {

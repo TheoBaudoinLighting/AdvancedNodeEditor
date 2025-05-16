@@ -121,6 +121,66 @@ namespace NodeEditorCore {
                static_cast<PinType>(endPin.type) == PinType::Blue;
     }
 
+    int NodeEditor::addConnection(int startNodeId, int startPinId, int endNodeId, int endPinId, const UUID &uuid) {
+        if (doesConnectionExist(startNodeId, startPinId, endNodeId, endPinId)) {
+            return -1;
+        }
+        
+        Node* startNode = getNode(startNodeId);
+        Node* endNode = getNode(endNodeId);
+        if (!startNode || !endNode) return -1;
+        
+        Pin* startPinInternal = startNode->findPin(startPinId);
+        Pin* endPinInternal = endNode->findPin(endPinId);
+        if (!startPinInternal || !endPinInternal) return -1;
+        
+        if (startPinInternal->isInput || !endPinInternal->isInput) {
+            return -1;
+        }
+
+        Pin startPin, endPin;
+        
+        startPin.id = startPinInternal->id;
+        startPin.uuid = startPinInternal->uuid;
+        startPin.name = startPinInternal->name;
+        startPin.isInput = startPinInternal->isInput;
+        startPin.type = static_cast<PinType>(startPinInternal->type);
+        startPin.shape = static_cast<PinShape>(startPinInternal->shape);
+        
+        endPin.id = endPinInternal->id;
+        endPin.uuid = endPinInternal->uuid;
+        endPin.name = endPinInternal->name;
+        endPin.isInput = endPinInternal->isInput;
+        endPin.type = static_cast<PinType>(endPinInternal->type);
+        endPin.shape = static_cast<PinShape>(endPinInternal->shape);
+        
+        if (m_state.canConnectCallback && !m_state.canConnectCallback(startPin, endPin)) {
+            return -1;
+        }
+
+        // Créer la connexion
+        int connectionId = m_state.nextConnectionId++;
+        Connection connection(connectionId, startNodeId, startPinId, endNodeId, endPinId);
+        connection.uuid = uuid.empty() ? generateUUID() : uuid;
+        connection.startNodeUuid = startNode->uuid;
+        connection.startPinUuid = startPinInternal->uuid;
+        connection.endNodeUuid = endNode->uuid;
+        connection.endPinUuid = endPinInternal->uuid;
+        
+        m_state.connections.push_back(connection);
+        
+        startPinInternal->connected = true;
+        endPinInternal->connected = true;
+
+        updateConnectionUuidMap();
+
+        if (m_state.connectionCreatedCallback) {
+            m_state.connectionCreatedCallback(connectionId, connection.uuid);
+        }
+
+        return connectionId;
+    }
+
     void NodeEditor::createConnection(int startNodeId, int startPinId, int endNodeId, int endPinId) {
         const Pin *apiStartPin = getPin(startNodeId, startPinId);
         const Pin *apiEndPin = getPin(endNodeId, endPinId);
@@ -187,9 +247,7 @@ namespace NodeEditorCore {
 
     void NodeEditor::deselectAllConnections() {
         for (auto it = m_state.connections.begin(); it != m_state.connections.end(); ++it) {
-            if (it != m_state.connections.end()) {
-                it->selected = false;
-            }
+            it->selected = false;
         }
     }
 
@@ -200,8 +258,83 @@ namespace NodeEditorCore {
 
     void NodeEditor::updateConnectionUuidMap() {
         m_state.connectionUuidMap.clear();
-        for (auto &connection: m_state.connections) {
+        for (auto& connection: m_state.connections) {
             m_state.connectionUuidMap[connection.uuid] = &connection;
         }
+    }
+
+    int NodeEditor::addConnectionByUUID(const UUID &startNodeUuid, const UUID &startPinUuid,
+                                          const UUID &endNodeUuid, const UUID &endPinUuid, const UUID &uuid) {
+        int startNodeId = getNodeId(startNodeUuid);
+        int endNodeId = getNodeId(endNodeUuid);
+        
+        if (startNodeId == -1 || endNodeId == -1) return -1;
+        
+        Node *startNode = getNode(startNodeId);
+        Node *endNode = getNode(endNodeId);
+        
+        if (!startNode || !endNode) return -1;
+        
+        int startPinId = -1;
+        int endPinId = -1;
+        
+        for (const auto &pin: startNode->outputs) {
+            if (pin.uuid == startPinUuid) {
+                startPinId = pin.id;
+                break;
+            }
+        }
+        
+        for (const auto &pin: endNode->inputs) {
+            if (pin.uuid == endPinUuid) {
+                endPinId = pin.id;
+                break;
+            }
+        }
+        
+        if (startPinId == -1 || endPinId == -1) return -1;
+        
+        return addConnection(startNodeId, startPinId, endNodeId, endPinId, uuid);
+    }
+
+    UUID NodeEditor::addConnectionWithUUID(int startNodeId, int startPinId, int endNodeId, int endPinId) {
+        int connectionId = addConnection(startNodeId, startPinId, endNodeId, endPinId);
+        if (connectionId == -1) return "";
+        return getConnectionUUID(connectionId);
+    }
+
+    UUID NodeEditor::addConnectionWithUUIDByUUID(const UUID& startNodeUuid, const UUID& startPinUuid,
+                                               const UUID& endNodeUuid, const UUID& endPinUuid) {
+        int connectionId = addConnectionByUUID(startNodeUuid, startPinUuid, endNodeUuid, endPinUuid, "");
+        if (connectionId == -1) return "";
+        return getConnectionUUID(connectionId);
+    }
+
+    Connection* NodeEditor::getConnectionByUUID(const UUID& uuid) {
+        auto it = m_state.connectionUuidMap.find(uuid);
+        if (it != m_state.connectionUuidMap.end()) {
+            return it->second;
+        }
+        
+        for (auto& connection : m_state.connections) {
+            if (connection.uuid == uuid) {
+                return &connection;
+            }
+        }
+        return nullptr;
+    }
+
+    const Connection* NodeEditor::getConnectionByUUID(const UUID& uuid) const {
+        auto it = m_state.connectionUuidMap.find(uuid);
+        if (it != m_state.connectionUuidMap.end()) {
+            return it->second;
+        }
+        
+        for (const auto& connection : m_state.connections) {
+            if (connection.uuid == uuid) {
+                return &connection;
+            }
+        }
+        return nullptr;
     }
 }
