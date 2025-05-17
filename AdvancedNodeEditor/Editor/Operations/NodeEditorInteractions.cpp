@@ -6,101 +6,106 @@
 namespace NodeEditorCore {
     void NodeEditor::processInteraction() {
         ImVec2 mousePos = ImGui::GetMousePos();
+        ImVec2 canvasPos = ImGui::GetCursorScreenPos();
 
-        if (ImGui::IsKeyPressed(ImGuiKey_Escape)) {
-            endCurrentInteraction();
-            return;
-        }
+        // Gestion des événements de souris
+        bool isMouseDoubleClicked = ImGui::IsMouseDoubleClicked(0);
+        bool isMouseClicked = ImGui::IsMouseClicked(0);
+        bool isMouseReleased = ImGui::IsMouseReleased(0);
+        bool isMouseDragging = ImGui::IsMouseDragging(0);
+        bool isMiddleMousePressed = ImGui::IsMouseDown(2);
 
-        if (ImGui::IsKeyPressed(ImGuiKey_Delete)) {
-            processDeleteKeyPress();
-            return;
-        }
-
-        if (ImGui::IsMouseDown(ImGuiMouseButton_Middle)) {
-            m_state.viewPosition.x += ImGui::GetIO().MouseDelta.x;
-            m_state.viewPosition.y += ImGui::GetIO().MouseDelta.y;
-
-            ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeAll);
-
-            if (m_state.interactionMode != InteractionMode::PanCanvas) {
-                m_state.interactionMode = InteractionMode::PanCanvas;
-            }
-            return;
-        } else if (m_state.interactionMode == InteractionMode::PanCanvas) {
-            m_state.interactionMode = InteractionMode::None;
-        }
-
-        if (m_state.interactionMode != InteractionMode::None) {
-            switch (m_state.interactionMode) {
-                case InteractionMode::DragNode:
-                    ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeAll);
-                    break;
-                case InteractionMode::DragConnection:
-                    ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
-                    break;
-                case InteractionMode::BoxSelect:
-                    ImGui::SetMouseCursor(ImGuiMouseCursor_Arrow);
-                    break;
-                case InteractionMode::DragGroup:
-                    ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeAll);
-                    break;
-                case InteractionMode::ResizeGroup:
-                    ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeNESW);
-                    break;
-                default:
-                    break;
-            }
-
-            updateCurrentInteraction(mousePos);
-
-            if (ImGui::IsMouseReleased(ImGuiMouseButton_Left) &&
-                m_state.interactionMode != InteractionMode::ContextMenu) {
-                endCurrentInteraction();
-            }
-
-            return;
-        }
-
+        // Mise à jour des éléments survolés avant toute interaction
         updateHoveredElements(mousePos);
 
-        if (ImGui::IsMouseClicked(ImGuiMouseButton_Right)) {
-            processContextMenu();
-            return;
-        }
-
-        if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
-            if (m_state.hoveredPinId != -1 && m_state.hoveredNodeId != -1) {
-                const Node *node = getNode(m_state.hoveredNodeId);
-                if (node) {
-                    const Pin *pin = node->findPin(m_state.hoveredPinId);
-                    if (pin) {
-                        startConnectionDrag(m_state.hoveredNodeId, m_state.hoveredPinId);
+        // Gestion du double-clic sur les nœuds pour entrer/sortir des subgraphs
+        if (isMouseDoubleClicked && m_state.hoveredNodeId >= 0) {
+            Node* node = getNode(m_state.hoveredNodeId);
+            if (node && node->isSubgraph) {
+                // Double-clic sur un nœud subgraph: entrer dans le subgraph
+                enterSubgraph(node->subgraphId);
+                return;
+            } else if (node && m_state.currentSubgraphId >= 0) {
+                // Dans un subgraph, vérifier si on a cliqué sur les nœuds Input/Output
+                Subgraph* subgraph = getSubgraph(m_state.currentSubgraphId);
+                if (subgraph) {
+                    int inputNodeId = subgraph->metadata.getAttribute<int>("inputNodeId", -1);
+                    int outputNodeId = subgraph->metadata.getAttribute<int>("outputNodeId", -1);
+                    if (node->id == inputNodeId || node->id == outputNodeId) {
+                        // Double-clic sur le nœud d'entrée ou de sortie: sortir du subgraph
+                        exitSubgraph();
                         return;
                     }
                 }
             }
-
-            if (m_state.hoveredNodeId != -1) {
-                startNodeDrag(m_state.hoveredNodeId, mousePos);
-                return;
-            }
-
-            if (m_state.hoveredConnectionId != -1) {
-                selectConnection(m_state.hoveredConnectionId, ImGui::GetIO().KeyCtrl);
-                return;
-            }
-
-            if (m_state.hoveredGroupId != -1) {
-                startGroupInteraction(mousePos);
-                return;
-            }
-
-            startBoxSelect(mousePos);
         }
 
-        if (ImGui::GetIO().MouseWheel != 0.0f) {
-            processZoom(mousePos);
+        // Gestion du déplacement de la vue avec le bouton du milieu
+        if (isMiddleMousePressed) {
+            if (!m_state.dragging) {
+                m_state.dragging = true;
+                m_state.dragOffset = Vec2(mousePos.x, mousePos.y);
+                ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeAll);
+            } else {
+                float dx = mousePos.x - m_state.dragOffset.x;
+                float dy = mousePos.y - m_state.dragOffset.y;
+                m_state.viewPosition.x += dx;
+                m_state.viewPosition.y += dy;
+                m_state.dragOffset = Vec2(mousePos.x, mousePos.y);
+            }
+            return;
+        } else if (m_state.dragging && !isMiddleMousePressed) {
+            m_state.dragging = false;
+            ImGui::SetMouseCursor(ImGuiMouseCursor_Arrow);
+        }
+
+        // Traitement des clics et sélections
+        if (isMouseClicked) {
+            // Priorité aux pins et aux nœuds
+            if (m_state.hoveredPinId >= 0 && m_state.hoveredNodeId >= 0) {
+                // Commencer une connexion à partir d'un pin
+                startConnectionDrag(m_state.hoveredNodeId, m_state.hoveredPinId);
+            } else if (m_state.hoveredNodeId >= 0) {
+                // Sélectionner ou déplacer un nœud
+                Node* node = getNode(m_state.hoveredNodeId);
+                if (node) {
+                    selectNode(m_state.hoveredNodeId, ImGui::GetIO().KeyCtrl);
+                    startNodeDrag(m_state.hoveredNodeId, mousePos);
+                }
+            } else if (m_state.hoveredConnectionId >= 0) {
+                // Sélectionner une connexion
+                selectConnection(m_state.hoveredConnectionId, ImGui::GetIO().KeyCtrl);
+            } else if (m_state.hoveredGroupId >= 0) {
+                // Interagir avec un groupe
+                startGroupInteraction(mousePos);
+            } else {
+                // Clic sur le canevas vide - sélection en boîte ou désélection
+                startBoxSelect(mousePos);
+                if (!ImGui::GetIO().KeyCtrl) {
+                    deselectAllNodes();
+                    deselectAllConnections();
+                }
+            }
+        }
+
+        // Mise à jour de l'interaction en cours
+        if (m_state.interactionMode != InteractionMode::None) {
+            if (isMouseDragging) {
+                updateCurrentInteraction(mousePos);
+            }
+
+            if (isMouseReleased) {
+                endCurrentInteraction();
+            }
+        }
+
+        // Gestion du zoom, de la suppression, etc.
+        processZoom(mousePos);
+        processDeleteKeyPress();
+
+        if (ImGui::IsKeyPressed(ImGuiKey_Escape)) {
+            // Annuler l'interaction en cours
+            endCurrentInteraction();
         }
     }
 
@@ -132,45 +137,22 @@ namespace NodeEditorCore {
     }
 
     void NodeEditor::processNodeDragging() {
-        if (m_state.activeNodeId == -1) return;
+        if (m_state.interactionMode != InteractionMode::DragNode) return;
 
         ImVec2 mousePos = ImGui::GetMousePos();
+        Vec2 mouseDelta = Vec2(mousePos.x - m_state.dragStart.x, mousePos.y - m_state.dragStart.y);
 
-        Node *activeNode = getNode(m_state.activeNodeId);
-        if (!activeNode) return;
+        // Convertir le delta de l'espace écran à l'espace canevas
+        Vec2 scaledDelta = Vec2(mouseDelta.x / m_state.viewScale, mouseDelta.y / m_state.viewScale);
 
-        ImVec2 newScreenPos = ImVec2(
-            mousePos.x - m_state.dragOffset.x,
-            mousePos.y - m_state.dragOffset.y
-        );
-
-        Vec2 newCanvasPos = screenToCanvas(Vec2::fromImVec2(newScreenPos));
-        Vec2 delta = newCanvasPos - activeNode->position;
-
-        activeNode->position = newCanvasPos;
-
-        for (auto &node: m_state.nodes) {
-            if (node.selected && node.id != m_state.activeNodeId) {
-                node.position = node.position + delta;
+        // Mettre à jour la position de tous les nœuds sélectionnés
+        for (auto& node : m_state.nodes) {
+            if (node.selected) {
+                auto it = m_state.draggedNodePositions.find(node.id);
+                if (it != m_state.draggedNodePositions.end()) {
+                    node.position = it->second + scaledDelta;
+                }
             }
-        }
-
-        ImVec2 windowPos = ImGui::GetWindowPos();
-        ImVec2 windowSize = ImGui::GetWindowSize();
-
-        const float edgeDist = 20.0f;
-        const float scrollSpeed = 10.0f;
-
-        if (mousePos.x < windowPos.x + edgeDist) {
-            m_state.viewPosition.x += scrollSpeed;
-        } else if (mousePos.x > windowPos.x + windowSize.x - edgeDist) {
-            m_state.viewPosition.x -= scrollSpeed;
-        }
-
-        if (mousePos.y < windowPos.y + edgeDist) {
-            m_state.viewPosition.y += scrollSpeed;
-        } else if (mousePos.y > windowPos.y + windowSize.y - edgeDist) {
-            m_state.viewPosition.y -= scrollSpeed;
         }
     }
 
@@ -183,28 +165,25 @@ namespace NodeEditorCore {
         ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
     }
 
-    void NodeEditor::startNodeDrag(int nodeId, const ImVec2 &mousePos) {
+    void NodeEditor::startNodeDrag(int nodeId, const ImVec2& mousePos) {
+        Node* node = getNode(nodeId);
+        if (!node) return;
+
         m_state.interactionMode = InteractionMode::DragNode;
         m_state.activeNodeId = nodeId;
-        Node *node = getNode(nodeId);
+        m_state.activeNodeUuid = node->uuid;
+        m_state.dragStart = Vec2(mousePos.x, mousePos.y);
 
-        if (node) {
-            if (!node->selected) {
-                if (!ImGui::GetIO().KeyCtrl) {
-                    deselectAllNodes();
-                }
-                node->selected = true;
-            }
-
-            ImVec2 nodePos = canvasToScreen(node->position).toImVec2();
-            m_state.dragOffset = Vec2(
-                mousePos.x - nodePos.x,
-                mousePos.y - nodePos.y
-            );
-            m_state.dragging = true;
+        if (!node->selected) {
+            selectNode(nodeId, ImGui::GetIO().KeyCtrl);
         }
 
-        ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeAll);
+        m_state.draggedNodePositions.clear();
+        for (const auto& node : m_state.nodes) {
+            if (node.selected) {
+                m_state.draggedNodePositions[node.id] = node.position;
+            }
+        }
     }
 
     void NodeEditor::startGroupInteraction(const ImVec2 &mousePos) {
@@ -293,7 +272,8 @@ namespace NodeEditorCore {
         }
     }
 
-    void NodeEditor::updateHoveredElements(const ImVec2 &mousePos) {
+    void NodeEditor::updateHoveredElements(const ImVec2& mousePos) {
+        // Réinitialisation des éléments survolés
         m_state.hoveredNodeId = -1;
         m_state.hoveredNodeUuid = "";
         m_state.hoveredPinId = -1;
@@ -303,52 +283,65 @@ namespace NodeEditorCore {
         m_state.hoveredGroupId = -1;
         m_state.hoveredGroupUuid = "";
 
-        for (const auto &node: m_state.nodes) {
-            if (!isNodeInCurrentSubgraph(node)) continue;
+        ImVec2 canvasPos = ImGui::GetCursorScreenPos();
 
-            for (const auto &pin: node.inputs) {
-                Pin apiPin;
-                apiPin.id = pin.id;
-                apiPin.name = pin.name;
-                apiPin.isInput = pin.isInput;
-                apiPin.type = static_cast<PinType>(pin.type);
-                apiPin.shape = static_cast<PinShape>(pin.shape);
-
-                if (isPinHovered(node, apiPin, ImGui::GetWindowPos())) {
-                    m_state.hoveredNodeId = node.id;
-                    m_state.hoveredNodeUuid = node.uuid;
-                    m_state.hoveredPinId = pin.id;
-                    m_state.hoveredPinUuid = pin.uuid;
-                    return;
-                }
+        // Recherche des connexions survolées
+        for (const auto& connection : m_state.connections) {
+            if (!isNodeInCurrentSubgraph(*getNode(connection.startNodeId)) ||
+                !isNodeInCurrentSubgraph(*getNode(connection.endNodeId))) {
+                continue;
             }
 
-            for (const auto &pin: node.outputs) {
-                Pin apiPin;
-                apiPin.id = pin.id;
-                apiPin.name = pin.name;
-                apiPin.isInput = pin.isInput;
-                apiPin.type = static_cast<PinType>(pin.type);
-                apiPin.shape = static_cast<PinShape>(pin.shape);
-
-                if (isPinHovered(node, apiPin, ImGui::GetWindowPos())) {
-                    m_state.hoveredNodeId = node.id;
-                    m_state.hoveredNodeUuid = node.uuid;
-                    m_state.hoveredPinId = pin.id;
-                    m_state.hoveredPinUuid = pin.uuid;
-                    return;
-                }
+            if (isConnectionHovered(connection, canvasPos)) {
+                m_state.hoveredConnectionId = connection.id;
+                m_state.hoveredConnectionUuid = connection.uuid;
+                return;
             }
         }
 
-        for (auto it = m_state.nodes.rbegin(); it != m_state.nodes.rend(); ++it) {
-            const Node &node = *it;
-
+        // Recherche des nœuds et pins survolés
+        for (const auto& node : m_state.nodes) {
             if (!isNodeInCurrentSubgraph(node)) continue;
 
             ImVec2 nodePos = canvasToScreen(node.position).toImVec2();
             ImVec2 nodeSize = Vec2(node.size.x * m_state.viewScale, node.size.y * m_state.viewScale).toImVec2();
 
+            // Vérifier si la souris est sur un pin
+            for (const auto& pin : node.inputs) {
+                Pin apiPin;
+                apiPin.id = pin.id;
+                apiPin.name = pin.name;
+                apiPin.isInput = pin.isInput;
+                apiPin.type = static_cast<PinType>(pin.type);
+                apiPin.shape = static_cast<PinShape>(pin.shape);
+
+                if (isPinHovered(node, apiPin, canvasPos)) {
+                    m_state.hoveredNodeId = node.id;
+                    m_state.hoveredNodeUuid = node.uuid;
+                    m_state.hoveredPinId = pin.id;
+                    m_state.hoveredPinUuid = pin.uuid;
+                    return;
+                }
+            }
+
+            for (const auto& pin : node.outputs) {
+                Pin apiPin;
+                apiPin.id = pin.id;
+                apiPin.name = pin.name;
+                apiPin.isInput = pin.isInput;
+                apiPin.type = static_cast<PinType>(pin.type);
+                apiPin.shape = static_cast<PinShape>(pin.shape);
+
+                if (isPinHovered(node, apiPin, canvasPos)) {
+                    m_state.hoveredNodeId = node.id;
+                    m_state.hoveredNodeUuid = node.uuid;
+                    m_state.hoveredPinId = pin.id;
+                    m_state.hoveredPinUuid = pin.uuid;
+                    return;
+                }
+            }
+
+            // Vérifier si la souris est sur le nœud
             if (isPointInRect(mousePos, nodePos, ImVec2(nodePos.x + nodeSize.x, nodePos.y + nodeSize.y))) {
                 m_state.hoveredNodeId = node.id;
                 m_state.hoveredNodeUuid = node.uuid;
@@ -356,26 +349,19 @@ namespace NodeEditorCore {
             }
         }
 
-        for (const auto &connection: m_state.connections) {
-            if (isConnectionHovered(connection, ImGui::GetWindowPos())) {
-                m_state.hoveredConnectionId = connection.id;
-                m_state.hoveredConnectionUuid = connection.uuid;
-                return;
-            }
-        }
+        // Recherche des groupes survolés
+        for (const auto& group : m_state.groups) {
+            if ((m_state.currentSubgraphId == -1 && group.getSubgraphId() == -1) ||
+                (m_state.currentSubgraphId >= 0 && group.getSubgraphId() == m_state.currentSubgraphId)) {
 
-        for (auto it = m_state.groups.rbegin(); it != m_state.groups.rend(); ++it) {
-            const Group &group = *it;
+                ImVec2 groupPos = canvasToScreen(group.position).toImVec2();
+                ImVec2 groupSize = Vec2(group.size.x * m_state.viewScale, group.size.y * m_state.viewScale).toImVec2();
 
-            if (m_state.currentSubgraphId >= 0 && group.getSubgraphId() != m_state.currentSubgraphId) continue;
-
-            ImVec2 groupPos = canvasToScreen(group.position).toImVec2();
-            ImVec2 groupSize = Vec2(group.size.x * m_state.viewScale, group.size.y * m_state.viewScale).toImVec2();
-
-            if (isPointInRect(mousePos, groupPos, ImVec2(groupPos.x + groupSize.x, groupPos.y + groupSize.y))) {
-                m_state.hoveredGroupId = group.id;
-                m_state.hoveredGroupUuid = group.uuid;
-                return;
+                if (isPointInRect(mousePos, groupPos, ImVec2(groupPos.x + groupSize.x, groupPos.y + groupSize.y))) {
+                    m_state.hoveredGroupId = group.id;
+                    m_state.hoveredGroupUuid = group.uuid;
+                    return;
+                }
             }
         }
     }
@@ -784,32 +770,44 @@ namespace NodeEditorCore {
         }
     }
 
-    void NodeEditor::processZoom(const ImVec2 &mousePos) {
-        float oldScale = m_state.viewScale;
-        float newScale = m_state.viewScale * (ImGui::GetIO().MouseWheel > 0.0f ? 1.1f : 0.9f);
+    void NodeEditor::processZoom(const ImVec2& mousePos) {
+        float zoom = ImGui::GetIO().MouseWheel;
 
-        newScale = std::max(0.2f, std::min(newScale, 3.0f));
+        // Ne rien faire si pas de zoom détecté
+        if (std::abs(zoom) < 0.01f) return;
 
-        ImVec2 viewCenter = ImVec2(
-            ImGui::GetWindowSize().x * 0.5f,
-            ImGui::GetWindowSize().y * 0.5f
+        // Calculer le point de zoom dans l'espace du canevas
+        Vec2 canvasPos = screenToCanvas(Vec2(mousePos.x, mousePos.y));
+
+        // Facteur de zoom - plus petit pour un contrôle plus fin
+        float zoomFactor = 1.1f;
+        float newScale = m_state.viewScale;
+
+        if (zoom > 0) {
+            // Zoom in
+            newScale *= zoomFactor;
+        } else {
+            // Zoom out
+            newScale /= zoomFactor;
+        }
+
+        // Limiter l'échelle de zoom
+        newScale = std::max(0.1f, std::min(newScale, 3.0f));
+
+        // Ajuster la position de la vue pour maintenir le point de zoom fixe
+        float scaleRatio = newScale / m_state.viewScale;
+        Vec2 newViewPos = Vec2(
+            mousePos.x - (mousePos.x - m_state.viewPosition.x) * scaleRatio,
+            mousePos.y - (mousePos.y - m_state.viewPosition.y) * scaleRatio
         );
 
-        ImVec2 mouseRelPos = ImVec2(
-            mousePos.x - ImGui::GetWindowPos().x,
-            mousePos.y - ImGui::GetWindowPos().y
-        );
-
-        ImVec2 mouseOffset = ImVec2(
-            mouseRelPos.x - viewCenter.x,
-            mouseRelPos.y - viewCenter.y
-        );
-
-        m_state.viewPosition.x = viewCenter.x - (viewCenter.x - m_state.viewPosition.x) * (newScale / oldScale) +
-                                 mouseOffset.x * (1.0f - (newScale / oldScale));
-        m_state.viewPosition.y = viewCenter.y - (viewCenter.y - m_state.viewPosition.y) * (newScale / oldScale) +
-                                 mouseOffset.y * (1.0f - (newScale / oldScale));
+        // Mettre à jour l'état
         m_state.viewScale = newScale;
+        m_state.viewPosition = newViewPos;
+
+        // Mettre à jour le gestionnaire de vue pour qu'il soit synchronisé
+        m_viewManager.setViewScale(newScale);
+        m_viewManager.setViewPosition(newViewPos);
     }
 
     void NodeEditor::duplicateNode(int nodeId) {

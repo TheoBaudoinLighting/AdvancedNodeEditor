@@ -6,20 +6,21 @@ namespace NodeEditorCore {
         std::vector<Connection> visibleConnections;
         int currentSubgraphId = m_state.currentSubgraphId;
 
-        if (currentSubgraphId >= 0) {
-            std::vector<int> connectionIds = getConnectionsInSubgraph(currentSubgraphId);
-            std::unordered_set<int> connectionIdSet(connectionIds.begin(), connectionIds.end());
+        // Filtrer les connexions visibles en fonction du subgraph actuel
+        for (const auto &connection: m_state.connections) {
+            const Node *startNode = getNode(connection.startNodeId);
+            const Node *endNode = getNode(connection.endNodeId);
 
-            for (const auto &connection: m_state.connections) {
-                if (connectionIdSet.find(connection.id) != connectionIdSet.end()) {
-                    visibleConnections.push_back(connection);
-                }
-            }
-        } else {
-            for (const auto &connection: m_state.connections) {
-                if (connection.getSubgraphId() == -1) {
-                    visibleConnections.push_back(connection);
-                }
+            if (!startNode || !endNode) continue;
+
+            // Vérifier si les deux nœuds de la connexion sont dans le même subgraph
+            if ((currentSubgraphId >= 0 &&
+                 startNode->getSubgraphId() == currentSubgraphId &&
+                 endNode->getSubgraphId() == currentSubgraphId) ||
+                (currentSubgraphId == -1 &&
+                 startNode->getSubgraphId() == -1 &&
+                 endNode->getSubgraphId() == -1)) {
+                visibleConnections.push_back(connection);
             }
         }
 

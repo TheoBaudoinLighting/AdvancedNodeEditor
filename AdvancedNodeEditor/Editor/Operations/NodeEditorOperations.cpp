@@ -36,50 +36,47 @@ namespace NodeEditorCore {
     }
 
     void NodeEditor::selectNode(int nodeId, bool append) {
-        if (!isNodeSelectableForDelete(nodeId)) {
-            return;
-        }
-
         if (!append) {
-            deselectAllNodes();
+            for (auto &node : m_state.nodes) {
+                node.selected = false;
+            }
         }
 
-        Node *node = getNode(nodeId);
-        if (node) {
-            node->selected = true;
+        for (auto &node : m_state.nodes) {
+            if (node.id == nodeId) {
+                node.selected = true;
+                break;
+            }
         }
     }
 
     void NodeEditor::deselectNode(int nodeId) {
-        Node *node = getNode(nodeId);
-        if (node) {
-            node->selected = false;
+        for (auto &node : m_state.nodes) {
+            if (node.id == nodeId) {
+                node.selected = false;
+                break;
+            }
         }
     }
 
     void NodeEditor::selectAllNodes() {
-        for (auto &node: m_state.nodes) {
-            node.selected = true;
+        for (auto &node : m_state.nodes) {
+            if ((m_state.currentSubgraphId >= 0 && node.getSubgraphId() == m_state.currentSubgraphId) ||
+                (m_state.currentSubgraphId == -1 && node.getSubgraphId() == -1)) {
+                node.selected = true;
+                }
         }
     }
 
     void NodeEditor::deselectAllNodes() {
-        for (auto &node: m_state.nodes) {
+        for (auto &node : m_state.nodes) {
             node.selected = false;
-        }
-
-        for (auto &connection: m_state.connections) {
-            connection.selected = false;
-        }
-
-        for (auto &group: m_state.groups) {
-            group.selected = false;
         }
     }
 
     std::vector<int> NodeEditor::getSelectedNodes() const {
         std::vector<int> selectedNodes;
-        for (const auto &node: m_state.nodes) {
+        for (const auto &node : m_state.nodes) {
             if (node.selected) {
                 selectedNodes.push_back(node.id);
             }

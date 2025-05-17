@@ -180,6 +180,13 @@ namespace NodeEditorCore {
         connection.endNodeUuid = endNode->uuid;
         connection.endPinUuid = endPinInternal->uuid;
 
+        // Assigner automatiquement la connexion au subgraph si les deux nœuds font partie du même subgraph
+        if (startNode->getSubgraphId() == endNode->getSubgraphId() && startNode->getSubgraphId() >= 0) {
+            connection.subgraphId = startNode->getSubgraphId();
+        } else {
+            connection.subgraphId = -1;
+        }
+
         startPinInternal->connected = true;
         endPinInternal->connected = true;
 

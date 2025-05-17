@@ -249,11 +249,10 @@ TEST_F(SubgraphTests, CreateSubgraphNode) {
     int outputPinId = editor.addPin(outputNodeId, "Value", true, PinType::Blue);
     std::cout << "Pin créé pour le nœud de sortie: ID=" << outputPinId << std::endl;
 
-    // Configurer les interfaces du subgraph
     Subgraph* subgraph = editor.getSubgraph(subgraphId);
     ASSERT_NE(subgraph, nullptr);
-    subgraph->exposeOutput(inputNodeId, inputPinId);  // Utiliser l'ID réel
-    subgraph->exposeInput(outputNodeId, outputPinId); // Utiliser l'ID réel
+    subgraph->exposeOutput(inputNodeId, inputPinId);
+    subgraph->exposeInput(outputNodeId, outputPinId);
 
     editor.exitSubgraph();
 

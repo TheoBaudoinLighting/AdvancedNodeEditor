@@ -67,10 +67,21 @@ namespace NodeEditorCore {
     }
 
     void NodeEditor::beginFrame() {
+        if (!m_viewManager.isViewTransitioning()) {
+            m_viewManager.setViewPosition(m_state.viewPosition);
+            m_viewManager.setViewScale(m_state.viewScale);
+        }
+
         m_state.hoveredNodeId = -1;
         m_state.hoveredPinId = -1;
         m_state.hoveredConnectionId = -1;
         m_state.hoveredGroupId = -1;
+
+        m_state.magnetPinNodeId = -1;
+        m_state.magnetPinId = -1;
+        m_state.magnetPinNodeUuid = "";
+        m_state.magnetPinUuid = "";
+        m_state.canConnectToMagnetPin = true;
 
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
     }

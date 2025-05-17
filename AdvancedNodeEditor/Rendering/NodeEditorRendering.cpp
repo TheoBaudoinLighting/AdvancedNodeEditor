@@ -9,14 +9,12 @@ namespace NodeEditorCore {
         ImGui::BeginChild("Canvas", ImVec2(0, 0), false,
                           ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoScrollWithMouse);
 
-
         ImVec2 canvasPos = ImGui::GetCursorScreenPos();
         ImVec2 canvasSize = ImGui::GetContentRegionAvail();
         ImDrawList *drawList = ImGui::GetWindowDrawList();
 
-        m_viewManager.updateViewTransition(ImGui::GetIO().DeltaTime);
-
         if (m_viewManager.isViewTransitioning()) {
+            m_viewManager.updateViewTransition(ImGui::GetIO().DeltaTime);
             m_state.viewPosition = m_viewManager.getViewPosition();
             m_state.viewScale = m_viewManager.getViewScale();
         }
@@ -111,6 +109,7 @@ namespace NodeEditorCore {
 
         ImGui::EndChild();
     }
+
 
     void NodeEditor::drawGrid(ImDrawList *drawList, const ImVec2 &canvasPos) {
         const float GRID_STEP_MAJOR = 64.0f * m_state.viewScale;

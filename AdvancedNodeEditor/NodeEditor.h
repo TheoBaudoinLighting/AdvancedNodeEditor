@@ -493,6 +493,8 @@ namespace NodeEditorCore {
             Vec2 groupStartSize;
             Vec2 contextMenuPos;
 
+            std::unordered_map<int, Vec2> draggedNodePositions;
+
             State();
         };
 
@@ -526,6 +528,8 @@ namespace NodeEditorCore {
         std::unordered_map<int, Color> m_depthColors;
         std::shared_ptr<NodeBoundingBoxManager> m_nodeBoundingBoxManager;
         bool m_nodeAvoidanceEnabled;
+
+
 
         void processInteraction();
         void processBoxSelection(const ImVec2& canvasPos);

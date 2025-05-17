@@ -173,7 +173,16 @@ namespace NodeEditorCore {
         auto it = m_subgraphs.find(subgraphId);
         if (it == m_subgraphs.end()) return {};
 
-        return it->second->nodeIds;
+        std::vector<int> result;
+        for (int nodeId : it->second->nodeIds) {
+            const Node* node = getNode(nodeId);
+            if (node && !node->isProtected &&
+                !(nodeId == it->second->metadata.getAttribute<int>("inputNodeId", -1) ||
+                  nodeId == it->second->metadata.getAttribute<int>("outputNodeId", -1))) {
+                result.push_back(nodeId);
+                  }
+        }
+        return result;
     }
 
     std::vector<int> NodeEditor::getConnectionsInSubgraph(int subgraphId) const {
