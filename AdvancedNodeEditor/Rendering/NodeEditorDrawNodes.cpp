@@ -2,7 +2,7 @@
 #include <algorithm>
 
 namespace NodeEditorCore {
-    void NodeEditor::drawNodes(ImDrawList* drawList, const ImVec2& canvasPos) {
+    void NodeEditor::drawNodes(ImDrawList *drawList, const ImVec2 &canvasPos) {
         std::vector<Node> visibleNodes;
         int currentSubgraphId = m_state.currentSubgraphId;
 
@@ -10,20 +10,34 @@ namespace NodeEditorCore {
             std::vector<int> nodeIds = getNodesInSubgraph(currentSubgraphId);
             std::unordered_set<int> nodeIdSet(nodeIds.begin(), nodeIds.end());
 
-            for (const auto& node : m_state.nodes) {
+            for (const auto &node: m_state.nodes) {
                 if (nodeIdSet.find(node.id) != nodeIdSet.end()) {
                     visibleNodes.push_back(node);
                 }
             }
         } else {
-            for (const auto& node : m_state.nodes) {
+            for (const auto &node: m_state.nodes) {
                 if (node.getSubgraphId() == -1) {
                     visibleNodes.push_back(node);
                 }
             }
         }
 
-        for (const auto& node : visibleNodes) {
+        for (const auto &node: visibleNodes) {
+            bool isInputNode = false;
+            bool isOutputNode = false;
+
+            if (currentSubgraphId >= 0) {
+                Subgraph *subgraph = getSubgraph(currentSubgraphId);
+                if (subgraph) {
+                    int inputNodeId = subgraph->metadata.getAttribute<int>("inputNodeId", -1);
+                    int outputNodeId = subgraph->metadata.getAttribute<int>("outputNodeId", -1);
+
+                    isInputNode = (node.id == inputNodeId);
+                    isOutputNode = (node.id == outputNodeId);
+                }
+            }
+
             ImVec2 nodePos = canvasToScreen(node.position).toImVec2();
             ImVec2 nodeSize = Vec2(node.size.x * m_state.viewScale, node.size.y * m_state.viewScale).toImVec2();
 
@@ -31,58 +45,78 @@ namespace NodeEditorCore {
             const float headerHeight = 14.0f * m_state.viewScale;
             const float accentLineHeight = 1.0f * m_state.viewScale;
 
-            const internal::NodeColors& nodeColors = m_state.style.nodeColors.count(node.type) ?
-                                                m_state.style.nodeColors.at(node.type) :
-                                                m_state.style.nodeColors.at("Default");
+            ImU32 baseColor, headerColor, accentColor, borderColor, selectedColor, hoveredColor, glowColor;
 
-            ImU32 baseColor = IM_COL32(
-                nodeColors.base.r * 255,
-                nodeColors.base.g * 255,
-                nodeColors.base.b * 255,
-                nodeColors.base.a * 255
-            );
+            if (isInputNode) {
+                baseColor = IM_COL32(30, 80, 30, 230);
+                headerColor = IM_COL32(20, 60, 20, 230);
+                accentColor = IM_COL32(80, 180, 80, 255);
+                borderColor = IM_COL32(40, 100, 40, 200);
+                selectedColor = IM_COL32(100, 200, 100, 200);
+                hoveredColor = IM_COL32(60, 150, 60, 180);
+                glowColor = IM_COL32(40, 120, 40, 120);
+            } else if (isOutputNode) {
+                baseColor = IM_COL32(80, 30, 30, 230);
+                headerColor = IM_COL32(60, 20, 20, 230);
+                accentColor = IM_COL32(180, 80, 80, 255);
+                borderColor = IM_COL32(100, 40, 40, 200);
+                selectedColor = IM_COL32(200, 100, 100, 200);
+                hoveredColor = IM_COL32(150, 60, 60, 180);
+                glowColor = IM_COL32(120, 40, 40, 120);
+            } else {
+                const internal::NodeColors &nodeColors = m_state.style.nodeColors.count(node.type)
+                                                             ? m_state.style.nodeColors.at(node.type)
+                                                             : m_state.style.nodeColors.at("Default");
 
-            ImU32 headerColor = IM_COL32(
-                nodeColors.header.r * 255,
-                nodeColors.header.g * 255,
-                nodeColors.header.b * 255,
-                nodeColors.header.a * 255
-            );
+                baseColor = IM_COL32(
+                    nodeColors.base.r * 255,
+                    nodeColors.base.g * 255,
+                    nodeColors.base.b * 255,
+                    nodeColors.base.a * 255
+                );
 
-            ImU32 accentColor = IM_COL32(
-                nodeColors.accent.r * 255,
-                nodeColors.accent.g * 255,
-                nodeColors.accent.b * 255,
-                nodeColors.accent.a * 255
-            );
+                headerColor = IM_COL32(
+                    nodeColors.header.r * 255,
+                    nodeColors.header.g * 255,
+                    nodeColors.header.b * 255,
+                    nodeColors.header.a * 255
+                );
 
-            ImU32 borderColor = IM_COL32(
-                nodeColors.border.r * 255,
-                nodeColors.border.g * 255,
-                nodeColors.border.b * 255,
-                nodeColors.border.a * 255
-            );
+                accentColor = IM_COL32(
+                    nodeColors.accent.r * 255,
+                    nodeColors.accent.g * 255,
+                    nodeColors.accent.b * 255,
+                    nodeColors.accent.a * 255
+                );
 
-            ImU32 selectedColor = IM_COL32(
-                nodeColors.selected.r * 255,
-                nodeColors.selected.g * 255,
-                nodeColors.selected.b * 255,
-                nodeColors.selected.a * 255
-            );
+                borderColor = IM_COL32(
+                    nodeColors.border.r * 255,
+                    nodeColors.border.g * 255,
+                    nodeColors.border.b * 255,
+                    nodeColors.border.a * 255
+                );
 
-            ImU32 hoveredColor = IM_COL32(
-                nodeColors.hovered.r * 255,
-                nodeColors.hovered.g * 255,
-                nodeColors.hovered.b * 255,
-                nodeColors.hovered.a * 255
-            );
+                selectedColor = IM_COL32(
+                    nodeColors.selected.r * 255,
+                    nodeColors.selected.g * 255,
+                    nodeColors.selected.b * 255,
+                    nodeColors.selected.a * 255
+                );
 
-            ImU32 glowColor = IM_COL32(
-                nodeColors.glow.r * 255,
-                nodeColors.glow.g * 255,
-                nodeColors.glow.b * 255,
-                nodeColors.glow.a * 255
-            );
+                hoveredColor = IM_COL32(
+                    nodeColors.hovered.r * 255,
+                    nodeColors.hovered.g * 255,
+                    nodeColors.hovered.b * 255,
+                    nodeColors.hovered.a * 255
+                );
+
+                glowColor = IM_COL32(
+                    nodeColors.glow.r * 255,
+                    nodeColors.glow.g * 255,
+                    nodeColors.glow.b * 255,
+                    nodeColors.glow.a * 255
+                );
+            }
 
             if (node.disabled) {
                 baseColor = IM_COL32(40, 40, 40, 180);
@@ -91,23 +125,26 @@ namespace NodeEditorCore {
                 borderColor = IM_COL32(60, 60, 60, 180);
             }
 
+            bool isSelectable = isNodeSelectableForDelete(node.id);
+            ImU32 actualSelectedColor = isSelectable ? selectedColor : IM_COL32(100, 100, 100, 150);
+
             bool isHovered = m_state.hoveredNodeId == node.id;
             if (node.selected || isHovered) {
                 float glowSize = node.selected ? 8.0f : 6.0f;
 
-                ImU32 enhancedGlowColor = node.selected ?
-                    IM_COL32(
-                        nodeColors.selected.r * 255,
-                        nodeColors.selected.g * 255,
-                        nodeColors.selected.b * 255,
-                        static_cast<int>(nodeColors.selected.a * 100)
-                    ) :
-                    IM_COL32(
-                        nodeColors.hovered.r * 255,
-                        nodeColors.hovered.g * 255,
-                        nodeColors.hovered.b * 255,
-                        static_cast<int>(nodeColors.hovered.a * 80)
-                    );
+                ImU32 enhancedGlowColor = node.selected
+                                              ? IM_COL32(
+                                                  (actualSelectedColor >> 0) & 0xFF,
+                                                  (actualSelectedColor >> 8) & 0xFF,
+                                                  (actualSelectedColor >> 16) & 0xFF,
+                                                  100
+                                              )
+                                              : IM_COL32(
+                                                  (hoveredColor >> 0) & 0xFF,
+                                                  (hoveredColor >> 8) & 0xFF,
+                                                  (hoveredColor >> 16) & 0xFF,
+                                                  80
+                                              );
 
                 drawList->AddRectFilled(
                     ImVec2(nodePos.x - glowSize, nodePos.y - glowSize),
@@ -140,7 +177,7 @@ namespace NodeEditorCore {
             }
 
             float borderThickness = node.selected ? 2.0f : 1.0f;
-            ImU32 activeBorderColor = node.selected ? selectedColor : borderColor;
+            ImU32 activeBorderColor = node.selected ? actualSelectedColor : borderColor;
 
             for (float i = 0; i < borderThickness; i += 0.5f) {
                 drawList->AddRect(
@@ -151,7 +188,6 @@ namespace NodeEditorCore {
             }
 
             ImVec4 baseColorVec4 = ImGui::ColorConvertU32ToFloat4(baseColor);
-
             const int gradientSteps = 10;
             float stepHeight = nodeSize.y / gradientSteps;
 
@@ -209,7 +245,7 @@ namespace NodeEditorCore {
                                     mousePos.y >= templateBarMin.y && mousePos.y <= templateBarMax.y;
 
             bool hoverFlagBar = mousePos.x >= flagBarMin.x && mousePos.x <= flagBarMax.x &&
-                                 mousePos.y >= flagBarMin.y && mousePos.y <= flagBarMax.y;
+                                mousePos.y >= flagBarMin.y && mousePos.y <= flagBarMax.y;
 
             ImU32 disableColorBase = IM_COL32(100, 90, 30, hoverDisableBar ? 200 : 140);
             ImU32 templateColorBase = IM_COL32(80, 60, 120, hoverTemplateBar ? 200 : 140);
@@ -219,46 +255,52 @@ namespace NodeEditorCore {
             ImU32 templateColorActive = IM_COL32(210, 170, 255, 255);
             ImU32 flagColorActive = IM_COL32(150, 200, 255, 255);
 
-            ImU32 disableColor = node.disabled ? disableColorActive : (hoverDisableBar ? disableColorBase : headerColor);
-            ImU32 templateColor = node.isTemplate ? templateColorActive : (hoverTemplateBar ? templateColorBase : headerColor);
+            ImU32 disableColor = node.disabled
+                                     ? disableColorActive
+                                     : (hoverDisableBar ? disableColorBase : headerColor);
+            ImU32 templateColor = node.isTemplate
+                                      ? templateColorActive
+                                      : (hoverTemplateBar ? templateColorBase : headerColor);
             ImU32 flagColor = node.isCurrentFlag ? flagColorActive : (hoverFlagBar ? flagColorBase : headerColor);
 
-            drawList->AddRectFilled(
-                ImVec2(rightSideX - separatorWidth, nodePos.y),
-                ImVec2(rightSideX, nodePos.y + buttonHeight),
-                accentColor
-            );
+            if (!isInputNode && !isOutputNode) {
+                drawList->AddRectFilled(
+                    ImVec2(rightSideX - separatorWidth, nodePos.y),
+                    ImVec2(rightSideX, nodePos.y + buttonHeight),
+                    accentColor
+                );
 
-            drawList->AddRectFilled(
-                disableBarMin,
-                disableBarMax,
-                disableColor
-            );
+                drawList->AddRectFilled(
+                    disableBarMin,
+                    disableBarMax,
+                    disableColor
+                );
 
-            drawList->AddRectFilled(
-                ImVec2(rightSideX + buttonWidth, nodePos.y),
-                ImVec2(rightSideX + buttonWidth + separatorWidth, nodePos.y + buttonHeight),
-                accentColor
-            );
+                drawList->AddRectFilled(
+                    ImVec2(rightSideX + buttonWidth, nodePos.y),
+                    ImVec2(rightSideX + buttonWidth + separatorWidth, nodePos.y + buttonHeight),
+                    accentColor
+                );
 
-            drawList->AddRectFilled(
-                templateBarMin,
-                templateBarMax,
-                templateColor
-            );
+                drawList->AddRectFilled(
+                    templateBarMin,
+                    templateBarMax,
+                    templateColor
+                );
 
-            drawList->AddRectFilled(
-                ImVec2(rightSideX + 2 * buttonWidth + separatorWidth, nodePos.y),
-                ImVec2(rightSideX + 2 * buttonWidth + 2 * separatorWidth, nodePos.y + buttonHeight),
-                accentColor
-            );
+                drawList->AddRectFilled(
+                    ImVec2(rightSideX + 2 * buttonWidth + separatorWidth, nodePos.y),
+                    ImVec2(rightSideX + 2 * buttonWidth + 2 * separatorWidth, nodePos.y + buttonHeight),
+                    accentColor
+                );
 
-            drawList->AddRectFilled(
-                flagBarMin,
-                flagBarMax,
-                flagColor,
-                cornerRadius, ImDrawFlags_RoundCornersTopRight
-            );
+                drawList->AddRectFilled(
+                    flagBarMin,
+                    flagBarMax,
+                    flagColor,
+                    cornerRadius, ImDrawFlags_RoundCornersTopRight
+                );
+            }
 
             float accentLineY = nodePos.y + nodeSize.y / 2.0f - accentLineHeight / 2.0f;
             drawList->AddRectFilled(
@@ -294,8 +336,8 @@ namespace NodeEditorCore {
             float highlightThickness = 1.0f;
             ImU32 highlightColor = IM_COL32(255, 255, 255, 30);
             drawList->AddLine(
-                ImVec2(nodePos.x + cornerRadius, nodePos.y + highlightThickness/2.0f),
-                ImVec2(nodePos.x + nodeSize.x - cornerRadius, nodePos.y + highlightThickness/2.0f),
+                ImVec2(nodePos.x + cornerRadius, nodePos.y + highlightThickness / 2.0f),
+                ImVec2(nodePos.x + nodeSize.x - cornerRadius, nodePos.y + highlightThickness / 2.0f),
                 highlightColor,
                 highlightThickness
             );
@@ -368,7 +410,60 @@ namespace NodeEditorCore {
                 );
             }
 
+            if (isInputNode || isOutputNode) {
+                float iconSize = 15.0f * m_state.viewScale;
+                float iconX = nodePos.x + nodeSize.x - iconSize - 5.0f * m_state.viewScale;
+                float iconY = nodePos.y + 5.0f * m_state.viewScale;
+
+                ImU32 iconColor = isInputNode ? IM_COL32(120, 255, 120, 255) : IM_COL32(255, 120, 120, 255);
+
+                if (isInputNode) {
+                    drawList->AddTriangleFilled(
+                        ImVec2(iconX, iconY),
+                        ImVec2(iconX + iconSize, iconY + iconSize / 2),
+                        ImVec2(iconX, iconY + iconSize),
+                        iconColor
+                    );
+                } else {
+                    drawList->AddTriangleFilled(
+                        ImVec2(iconX + iconSize, iconY),
+                        ImVec2(iconX, iconY + iconSize / 2),
+                        ImVec2(iconX + iconSize, iconY + iconSize),
+                        iconColor
+                    );
+                }
+
+                float labelX = nodePos.x + 5.0f * m_state.viewScale;
+                float labelY = nodePos.y + 5.0f * m_state.viewScale;
+                ImU32 labelColor = IM_COL32(220, 220, 220, 255);
+
+                std::string nodeTypeLabel = isInputNode ? "ENTRÉE" : "SORTIE";
+                drawList->AddText(
+                    ImVec2(labelX, labelY),
+                    labelColor,
+                    nodeTypeLabel.c_str()
+                );
+            }
+
             drawNodePins(drawList, node, nodePos, nodeSize, canvasPos);
         }
+    }
+
+    bool NodeEditor::isNodeSelectableForDelete(int nodeId) const {
+        for (const auto &subgraphPair: m_subgraphs) {
+            int inputNodeId = subgraphPair.second->metadata.getAttribute<int>("inputNodeId", -1);
+            int outputNodeId = subgraphPair.second->metadata.getAttribute<int>("outputNodeId", -1);
+
+            if (nodeId == inputNodeId || nodeId == outputNodeId) {
+                return false;
+            }
+        }
+
+        const Node *node = getNode(nodeId);
+        if (node && node->isProtected) {
+            return false;
+        }
+
+        return true;
     }
 }

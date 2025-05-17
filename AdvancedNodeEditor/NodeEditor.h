@@ -255,6 +255,9 @@ namespace NodeEditorCore {
 
         Node *getSubgraphOutputNode(int subgraphId);
 
+        void synchronizeSubgraphConnections(int subgraphId, int subgraphNodeId);
+        void handleSubgraphConnections(int connectionId);
+
         void removeSubgraphByUUID(const UUID& uuid);
 
         UUID getSubgraphUUID(int subgraphId) const;
@@ -531,6 +534,9 @@ namespace NodeEditorCore {
         void drawGrid(ImDrawList* drawList, const ImVec2& canvasPos);
         void drawConnections(ImDrawList* drawList, const ImVec2& canvasPos);
         void drawNodes(ImDrawList* drawList, const ImVec2& canvasPos);
+
+        bool isNodeSelectableForDelete(int nodeId) const;
+
         void drawGroups(ImDrawList* drawList, const ImVec2& canvasPos);
         void drawBoxSelection(ImDrawList* drawList);
         void drawNodePins(ImDrawList* drawList, const Node& node, const ImVec2& nodePos, const ImVec2& nodeSize,

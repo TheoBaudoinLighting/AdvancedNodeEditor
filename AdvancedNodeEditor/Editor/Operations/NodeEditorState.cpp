@@ -100,15 +100,38 @@ namespace NodeEditorCore {
 
     void NodeEditor::removeNode(int nodeId) {
         auto it = std::find_if(m_state.nodes.begin(), m_state.nodes.end(),
-                               [nodeId](const Node &node) { return node.id == nodeId; });
+                              [nodeId](const Node &node) { return node.id == nodeId; });
 
         if (it != m_state.nodes.end()) {
+            if (it->isProtected) {
+                return;
+            }
+
+            for (const auto& subgraphPair : m_subgraphs) {
+                int inputNodeId = subgraphPair.second->metadata.getAttribute<int>("inputNodeId", -1);
+                int outputNodeId = subgraphPair.second->metadata.getAttribute<int>("outputNodeId", -1);
+
+                if (nodeId == inputNodeId || nodeId == outputNodeId) {
+                    return;
+                }
+            }
+
             m_state.connections.erase(
                 std::remove_if(m_state.connections.begin(), m_state.connections.end(),
-                               [nodeId](const Connection &conn) {
-                                   return conn.startNodeId == nodeId || conn.endNodeId == nodeId;
-                               }),
+                             [nodeId](const Connection &conn) {
+                                 return conn.startNodeId == nodeId || conn.endNodeId == nodeId;
+                             }),
                 m_state.connections.end());
+
+            if (it->groupId >= 0) {
+                auto groupIt = std::find_if(m_state.groups.begin(), m_state.groups.end(),
+                                          [groupId = it->groupId](const Group& group) {
+                                              return group.id == groupId;
+                                          });
+                if (groupIt != m_state.groups.end()) {
+                    groupIt->nodes.erase(nodeId);
+                }
+            }
 
             if (m_state.nodeRemovedCallback) {
                 m_state.nodeRemovedCallback(nodeId, it->uuid);

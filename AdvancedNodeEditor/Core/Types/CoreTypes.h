@@ -330,20 +330,21 @@ struct Node {
     int subgraphId;
     UUID subgraphUuid;
     Metadata metadata;
+    bool isProtected;
 
     Node() : id(-1), uuid(generateUUID()), position(0.0f, 0.0f), size(140.0f, 28.0f),
              selected(false), disabled(false), groupId(-1), isTemplate(false), isCurrentFlag(false),
-             labelPosition(NodeLabelPosition::Right), isSubgraph(false), subgraphId(-1) {}
+             labelPosition(NodeLabelPosition::Right), isSubgraph(false), subgraphId(-1), isProtected(false) {}
 
     Node(int id, const std::string& name, const std::string& type, const Vec2& pos)
         : id(id), uuid(generateUUID()), name(name), type(type), position(pos), size(140.0f, 28.0f),
           selected(false), disabled(false), groupId(-1), isTemplate(false), isCurrentFlag(false),
-          labelPosition(NodeLabelPosition::Right), isSubgraph(false), subgraphId(-1) {}
+          labelPosition(NodeLabelPosition::Right), isSubgraph(false), subgraphId(-1), isProtected(false) {}
 
     Node(const UUID& existingUuid, int id, const std::string& name, const std::string& type, const Vec2& pos)
         : id(id), uuid(existingUuid), name(name), type(type), position(pos), size(140.0f, 28.0f),
           selected(false), disabled(false), groupId(-1), isTemplate(false), isCurrentFlag(false),
-          labelPosition(NodeLabelPosition::Right), isSubgraph(false), subgraphId(-1) {}
+          labelPosition(NodeLabelPosition::Right), isSubgraph(false), subgraphId(-1), isProtected(false) {}
 
     Pin* findPin(int pinId) {
         for (auto& pin : inputs) {

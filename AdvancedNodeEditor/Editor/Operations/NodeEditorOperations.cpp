@@ -36,6 +36,10 @@ namespace NodeEditorCore {
     }
 
     void NodeEditor::selectNode(int nodeId, bool append) {
+        if (!isNodeSelectableForDelete(nodeId)) {
+            return;
+        }
+
         if (!append) {
             deselectAllNodes();
         }
