@@ -50,6 +50,29 @@ namespace NodeEditorCore {
         const float headerHeight = 14.0f * m_state.viewScale;
         const float accentLineHeight = 1.0f * m_state.viewScale;
 
+        bool isHovered = m_state.hoveredNodeId == node.id;
+
+        auto& nodeAnimState = m_animationManager.getNodeAnimationState(node.id);
+        m_animationManager.setNodeHovered(node.id, isHovered);
+
+        float scaleFactor = nodeAnimState.hoverScaleFactor;
+        ImVec2 nodeSizeOriginal = nodeSize;
+        ImVec2 nodePosOriginal = nodePos;
+
+        if (scaleFactor != 1.0f) {
+            float scaleOffsetX = (nodeSize.x * scaleFactor - nodeSize.x) * 0.5f;
+            float scaleOffsetY = (nodeSize.y * scaleFactor - nodeSize.y) * 0.5f;
+            nodeSize.x *= scaleFactor;
+            nodeSize.y *= scaleFactor;
+            nodePos.x -= scaleOffsetX;
+            nodePos.y -= scaleOffsetY;
+        }
+
+        float executionPulseIntensity = 0.0f;
+        if (nodeAnimState.executionPulse > 0.0f) {
+            executionPulseIntensity = std::sin(nodeAnimState.executionPulse * 3.14159f * 2.0f) * 0.5f + 0.5f;
+        }
+
         ImU32 baseColor, headerColor, accentColor, borderColor, selectedColor, hoveredColor, glowColor;
 
         if (isInputNode) {
@@ -123,8 +146,6 @@ namespace NodeEditorCore {
             );
         }
 
-        static float executionPulseIntensity = 0.0f;
-
         if (executionPulseIntensity > 0.0f) {
             ImVec4 baseColorVec4 = ImGui::ColorConvertU32ToFloat4(baseColor);
             ImVec4 accentColorVec4 = ImGui::ColorConvertU32ToFloat4(accentColor);
@@ -151,27 +172,6 @@ namespace NodeEditorCore {
         bool isSelectable = isNodeSelectableForDelete(node.id);
         ImU32 actualSelectedColor = isSelectable ? selectedColor : IM_COL32(100, 100, 100, 150);
 
-        bool isHovered = m_state.hoveredNodeId == node.id;
-
-        auto& nodeAnimState = m_animationManager.getNodeAnimationState(node.id);
-        m_animationManager.setNodeHovered(node.id, isHovered);
-
-        float scaleFactor = nodeAnimState.hoverScaleFactor;
-        ImVec2 nodeSizeOriginal = nodeSize;
-        ImVec2 nodePosOriginal = nodePos;
-
-        if (scaleFactor != 1.0f) {
-            float scaleOffsetX = (nodeSize.x * scaleFactor - nodeSize.x) * 0.5f;
-            float scaleOffsetY = (nodeSize.y * scaleFactor - nodeSize.y) * 0.5f;
-            nodeSize.x *= scaleFactor;
-            nodeSize.y *= scaleFactor;
-            nodePos.x -= scaleOffsetX;
-            nodePos.y -= scaleOffsetY;
-        }
-
-        if (nodeAnimState.executionPulse > 0.0f) {
-            executionPulseIntensity = std::sin(nodeAnimState.executionPulse * 3.14159f * 2.0f) * 0.5f + 0.5f;
-        }
         if (node.selected || isHovered) {
             float glowSize = node.selected ? 8.0f : 6.0f;
 
@@ -429,6 +429,77 @@ namespace NodeEditorCore {
             highlightColor,
             highlightThickness
         );
+
+        if (nodeAnimState.justConnected && nodeAnimState.connectionGlow > 0.0f) {
+            std::string pinTypeName = pinTypeToString(static_cast<PinType>(nodeAnimState.lastConnectedPinType));
+            const internal::PinColors &pinColors = m_state.style.pinColors.count(pinTypeName)
+                                                ? m_state.style.pinColors.at(pinTypeName)
+                                                : m_state.style.pinColors.at("Default");
+
+            ImU32 pinGlowColor = IM_COL32(
+                pinColors.connected.r * 255,
+                pinColors.connected.g * 255,
+                pinColors.connected.b * 255,
+                static_cast<int>(255 * (1.0f - nodeAnimState.connectionGlow))
+            );
+
+            const float orbitRadius = 10.0f * m_state.viewScale;
+            const float centralRadius = std::max(nodeSize.x, nodeSize.y) / 2.0f + orbitRadius;
+
+            ImVec2 nodeCenter = ImVec2(
+                nodePos.x + nodeSize.x / 2.0f,
+                nodePos.y + nodeSize.y / 2.0f
+            );
+
+            const int particleCount = 3;
+            const float particleSize = 4.0f * m_state.viewScale;
+
+            for (int i = 0; i < particleCount; i++) {
+                float angle = nodeAnimState.connectionGlowAngle + (i * 6.28318f / particleCount);
+                ImVec2 particlePos = ImVec2(
+                    nodeCenter.x + std::cos(angle) * centralRadius,
+                    nodeCenter.y + std::sin(angle) * centralRadius
+                );
+
+                drawList->AddCircleFilled(
+                    particlePos,
+                    particleSize,
+                    pinGlowColor
+                );
+
+                const int trailCount = 5;
+                for (int t = 1; t <= trailCount; t++) {
+                    float trailAngle = angle - (t * 0.15f);
+                    float fadeOut = 1.0f - (static_cast<float>(t) / trailCount);
+
+                    ImVec2 trailPos = ImVec2(
+                        nodeCenter.x + std::cos(trailAngle) * centralRadius,
+                        nodeCenter.y + std::sin(trailAngle) * centralRadius
+                    );
+
+                    ImU32 trailColor = IM_COL32(
+                        pinColors.connected.r * 255,
+                        pinColors.connected.g * 255,
+                        pinColors.connected.b * 255,
+                        static_cast<int>(255 * fadeOut * (1.0f - nodeAnimState.connectionGlow))
+                    );
+
+                    drawList->AddCircleFilled(
+                        trailPos,
+                        particleSize * fadeOut,
+                        trailColor
+                    );
+                }
+            }
+
+            drawList->AddCircle(
+                nodeCenter,
+                centralRadius,
+                pinGlowColor,
+                32,
+                2.0f * m_state.viewScale
+            );
+        }
 
         if (node.labelPosition != NodeLabelPosition::None) {
             float textPosY = nodePos.y + nodeSize.y * 0.5f - ImGui::GetFontSize() * 0.5f;

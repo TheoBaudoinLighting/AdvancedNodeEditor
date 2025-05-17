@@ -117,7 +117,7 @@ namespace NodeEditorCore {
         ImGui::EndChild();
     }
 
-    void NodeEditor::arrangeNodesWithAnimation(const std::vector<int>& nodeIds, const ArrangementType type) {
+    void NodeEditor::arrangeNodesWithAnimation(const std::vector<int> &nodeIds, const ArrangementType type) {
         std::vector<Vec2> targetPositions;
 
         switch (type) {
@@ -176,7 +176,7 @@ namespace NodeEditorCore {
         }
 
         Vec2 center(0.0f, 0.0f);
-        for (const auto& pos : targetPositions) {
+        for (const auto &pos: targetPositions) {
             center = center + pos;
         }
         if (!targetPositions.empty()) {
@@ -184,8 +184,8 @@ namespace NodeEditorCore {
         }
 
         Vec2 currentCenter(0.0f, 0.0f);
-        for (int nodeId : nodeIds) {
-            Node* node = getNode(nodeId);
+        for (int nodeId: nodeIds) {
+            Node *node = getNode(nodeId);
             if (node) {
                 currentCenter = currentCenter + node->position;
             }
@@ -196,7 +196,7 @@ namespace NodeEditorCore {
 
         Vec2 offset = currentCenter - center;
         for (size_t i = 0; i < nodeIds.size(); ++i) {
-            Node* node = getNode(nodeIds[i]);
+            Node *node = getNode(nodeIds[i]);
             if (node) {
                 Vec2 targetPos = targetPositions[i] + offset;
                 m_animationManager.setNodeTargetPosition(node->id, targetPos);
@@ -205,14 +205,22 @@ namespace NodeEditorCore {
     }
 
 
-    void NodeEditor::drawGrid(ImDrawList *drawList, const ImVec2 &canvasPos) {
+    void NodeEditor::drawGrid(ImDrawList* drawList, const ImVec2& canvasPos) {
     const float GRID_STEP_MAJOR = 64.0f * m_state.viewScale;
     const float GRID_STEP_MINOR = 16.0f * m_state.viewScale;
 
-    drawList->AddRectFilled(
+    ImVec2 windowSize = ImGui::GetWindowSize();
+
+    ImColor colorTopLeft(22, 27, 34, 255);
+    ImColor colorBottomRight(11, 15, 22, 255);
+
+    drawList->AddRectFilledMultiColor(
         canvasPos,
-        ImVec2(canvasPos.x + ImGui::GetWindowWidth(), canvasPos.y + ImGui::GetWindowHeight()),
-        IM_COL32(15, 18, 25, 255)
+        ImVec2(canvasPos.x + windowSize.x, canvasPos.y + windowSize.y),
+        colorTopLeft,                                      // Coin supérieur gauche
+        ImColor(16, 22, 30, 255),                          // Coin supérieur droit
+        colorBottomRight,                                  // Coin inférieur droit
+        ImColor(14, 18, 26, 255)                           // Coin inférieur gauche
     );
 
     float intensityMultiplier = 1.0f;
@@ -220,6 +228,7 @@ namespace NodeEditorCore {
         int depth = getSubgraphDepth(m_state.currentSubgraphId);
         intensityMultiplier = std::max(0.5f, 1.0f - depth * 0.1f);
     }
+
 
     ImU32 gridMinorColor = IM_COL32(
         60 * intensityMultiplier,
@@ -234,8 +243,6 @@ namespace NodeEditorCore {
         120 * intensityMultiplier,
         80
     );
-
-    ImVec2 windowSize = ImGui::GetWindowSize();
 
     for (float x = fmodf(m_state.viewPosition.x, GRID_STEP_MINOR); x < windowSize.x; x += GRID_STEP_MINOR) {
         if (fmodf(x - fmodf(m_state.viewPosition.x, GRID_STEP_MAJOR), GRID_STEP_MAJOR) != 0.0f) {

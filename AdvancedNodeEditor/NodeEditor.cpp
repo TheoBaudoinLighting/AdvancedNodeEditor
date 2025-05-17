@@ -439,4 +439,55 @@ namespace NodeEditorCore {
         config.size = size;
         m_minimapManager.setConfig(config);
     }
+
+    void NodeEditor::activateConnectionFlowTemporary(int connectionId, float duration) {
+        Connection* conn = getConnection(connectionId);
+        if (conn) {
+            conn->isActive = true;
+            m_animationManager.activateConnectionFlow(connectionId, false, duration);
+        }
+    }
+
+    void NodeEditor::activateConnectionFlowInfinite(int connectionId) {
+        Connection* conn = getConnection(connectionId);
+        if (conn) {
+            conn->isActive = true;
+            m_animationManager.activateConnectionFlow(connectionId, true);
+        }
+    }
+
+    void NodeEditor::deactivateConnectionFlow(int connectionId) {
+        Connection* conn = getConnection(connectionId);
+        if (conn) {
+            conn->isActive = false;
+            m_animationManager.deactivateConnectionFlow(connectionId);
+        }
+    }
+
+    void NodeEditor::activateAllConnectionFlows(bool temporary, float duration) {
+        for (auto& connection : m_state.connections) {
+            connection.isActive = true;
+            m_animationManager.activateConnectionFlow(connection.id, !temporary, duration);
+        }
+    }
+
+    void NodeEditor::deactivateAllConnectionFlows() {
+        for (auto& connection : m_state.connections) {
+            connection.isActive = false;
+            m_animationManager.deactivateConnectionFlow(connection.id);
+        }
+    }
+
+    void NodeEditor::toggleConnectionFlow(int connectionId, bool active, bool temporary, float duration) {
+        Connection* conn = getConnection(connectionId);
+        if (!conn) return;
+
+        conn->isActive = active;
+
+        if (active) {
+            m_animationManager.activateConnectionFlow(connectionId, !temporary, duration);
+        } else {
+            m_animationManager.deactivateConnectionFlow(connectionId);
+        }
+    }
 }

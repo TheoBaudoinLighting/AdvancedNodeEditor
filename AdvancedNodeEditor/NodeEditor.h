@@ -426,6 +426,19 @@ namespace NodeEditorCore {
         const MinimapManager& getMinimapManager() const { return m_minimapManager; }
         void setMinimapPosition(const Vec2& position);
         void setMinimapSize(const Vec2& size);
+
+        void activateConnectionFlowTemporary(int connectionId, float duration);
+
+        void activateConnectionFlowInfinite(int connectionId);
+
+        void deactivateConnectionFlow(int connectionId);
+
+        void activateAllConnectionFlows(bool temporary, float duration);
+
+        void deactivateAllConnectionFlows();
+
+        void toggleConnectionFlow(int connectionId, bool active, bool temporary, float duration);
+
         void updateMinimapBounds();
 
         SerializedState serialize() const;

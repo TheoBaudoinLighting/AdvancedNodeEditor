@@ -237,11 +237,72 @@ namespace NodeEditorCore {
     }
 
     void NodeEditor::createConnection(int startNodeId, int startPinId, int endNodeId, int endPinId) {
-        const Pin *apiStartPin = getPin(startNodeId, startPinId);
-        const Pin *apiEndPin = getPin(endNodeId, endPinId);
-
-        if (!apiStartPin || !apiEndPin) {
+        if (doesConnectionExist(startNodeId, startPinId, endNodeId, endPinId)) {
             return;
+        }
+
+        const Pin *startPin = getPin(startNodeId, startPinId);
+        const Pin *endPin = getPin(endNodeId, endPinId);
+
+        if (!startPin || !endPin) {
+            return;
+        }
+
+        Connection connection;
+        connection.id = m_state.nextConnectionId++;
+        connection.startNodeId = startNodeId;
+        connection.startPinId = startPinId;
+        connection.endNodeId = endNodeId;
+        connection.endPinId = endPinId;
+        connection.selected = false;
+        connection.isActive = true;
+
+        m_state.connections.push_back(connection);
+
+        Node *startNode = getNode(startNodeId);
+        Node *endNode = getNode(endNodeId);
+
+        if (startNode && endNode) {
+            for (auto &pin: startNode->inputs) {
+                if (pin.id == startPinId) {
+                    pin.connected = true;
+                    break;
+                }
+            }
+
+            for (auto &pin: startNode->outputs) {
+                if (pin.id == startPinId) {
+                    pin.connected = true;
+                    break;
+                }
+            }
+
+            for (auto &pin: endNode->inputs) {
+                if (pin.id == endPinId) {
+                    pin.connected = true;
+                    break;
+                }
+            }
+
+            for (auto &pin: endNode->outputs) {
+                if (pin.id == endPinId) {
+                    pin.connected = true;
+                    break;
+                }
+            }
+        }
+
+        Connection &newConnection = m_state.connections.back();
+        newConnection.isActive = true;
+        m_animationManager.activateConnectionFlow(newConnection.id, false, 3.0f);
+
+        if (startPin && endPin) {
+            m_animationManager.setNodeJustConnected(startNodeId, static_cast<int>(startPin->type));
+            m_animationManager.setNodeJustConnected(endNodeId, static_cast<int>(endPin->type));
+        }
+
+        if (m_state.connectionCreatedCallback) {
+            m_state.connectionCreatedCallback(connection.id, getConnectionUUID(connection.id));
         }
     }
 
