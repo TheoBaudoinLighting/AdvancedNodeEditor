@@ -180,13 +180,13 @@ namespace NodeEditorCore {
         if (it == m_subgraphs.end()) return {};
 
         std::vector<int> result;
-        for (int nodeId : it->second->nodeIds) {
-            const Node* node = getNode(nodeId);
+        for (int nodeId: it->second->nodeIds) {
+            const Node *node = getNode(nodeId);
             if (node && !node->isProtected &&
                 !(nodeId == it->second->metadata.getAttribute<int>("inputNodeId", -1) ||
                   nodeId == it->second->metadata.getAttribute<int>("outputNodeId", -1))) {
                 result.push_back(nodeId);
-                  }
+            }
         }
         return result;
     }

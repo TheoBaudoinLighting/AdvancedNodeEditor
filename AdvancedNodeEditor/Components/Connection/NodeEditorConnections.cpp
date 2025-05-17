@@ -143,15 +143,14 @@ namespace NodeEditorCore {
         }
 
         bool typeCompatible =
-            static_cast<PinType>(outputPin.type) == static_cast<PinType>(inputPin.type) ||
-            static_cast<PinType>(outputPin.type) == PinType::Blue ||
-            static_cast<PinType>(inputPin.type) == PinType::Blue;
+                static_cast<PinType>(outputPin.type) == static_cast<PinType>(inputPin.type) ||
+                static_cast<PinType>(outputPin.type) == PinType::Blue ||
+                static_cast<PinType>(inputPin.type) == PinType::Blue;
 
         return typeCompatible;
     }
 
     int NodeEditor::addConnection(int startNodeId, int startPinId, int endNodeId, int endPinId, const UUID &uuid) {
-
         if (doesConnectionExist(startNodeId, startPinId, endNodeId, endPinId)) {
             return -1;
         }
@@ -238,7 +237,6 @@ namespace NodeEditorCore {
     }
 
     void NodeEditor::createConnection(int startNodeId, int startPinId, int endNodeId, int endPinId) {
-
         const Pin *apiStartPin = getPin(startNodeId, startPinId);
         const Pin *apiEndPin = getPin(endNodeId, endPinId);
 
@@ -378,5 +376,4 @@ namespace NodeEditorCore {
         }
         return nullptr;
     }
-
 }

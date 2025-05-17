@@ -181,45 +181,90 @@ namespace NodeEditorCore {
             }
         }
 
-        float borderThickness = node.selected ? 2.0f : 1.0f;
-        ImU32 activeBorderColor = node.selected ? actualSelectedColor : borderColor;
+        ImVec4 baseColorVec4 = ImGui::ColorConvertU32ToFloat4(baseColor);
 
-        for (float i = 0; i < borderThickness; i += 0.5f) {
+        ImVec4 saturatedBorderColorVec4 = baseColorVec4;
+        saturatedBorderColorVec4.x = std::min(saturatedBorderColorVec4.x * 2.0f, 1.0f);
+        saturatedBorderColorVec4.y = std::min(saturatedBorderColorVec4.y * 2.0f, 1.0f);
+        saturatedBorderColorVec4.z = std::min(saturatedBorderColorVec4.z * 2.0f, 1.0f);
+        saturatedBorderColorVec4.w = 0.85f;
+        ImU32 saturatedBorderColor = ImGui::ColorConvertFloat4ToU32(saturatedBorderColorVec4);
+
+        ImU32 activeBorderColor = node.selected ? actualSelectedColor : saturatedBorderColor;
+
+        float outlineOffset = 1.0f;
+        float borderThickness = node.selected ? 2.0f : 1.5f;
+
+        drawList->AddRect(
+            ImVec2(nodePos.x - outlineOffset, nodePos.y - outlineOffset),
+            ImVec2(nodePos.x + nodeSize.x + outlineOffset, nodePos.y + nodeSize.y + outlineOffset),
+            activeBorderColor, cornerRadius + outlineOffset, 0, borderThickness
+        );
+
+        const int segments = 3;
+        for (int segment = 0; segment < segments; segment++) {
+            float t = static_cast<float>(segment) / (segments - 1);
+            ImVec4 gradientBorderColor = saturatedBorderColorVec4;
+            gradientBorderColor.x = std::min(gradientBorderColor.x * (1.3f - t * 0.3f), 1.0f);
+            gradientBorderColor.y = std::min(gradientBorderColor.y * (1.3f - t * 0.3f), 1.0f);
+            gradientBorderColor.z = std::min(gradientBorderColor.z * (1.3f - t * 0.3f), 1.0f);
+            ImU32 segmentBorderColor = node.selected ? actualSelectedColor : ImGui::ColorConvertFloat4ToU32(gradientBorderColor);
+
+            float offset = outlineOffset + segment * (borderThickness / segments) / 2.0f;
+
             drawList->AddRect(
-                ImVec2(nodePos.x - i, nodePos.y - i),
-                ImVec2(nodePos.x + nodeSize.x + i, nodePos.y + nodeSize.y + i),
-                activeBorderColor, cornerRadius, 0, 1.0f
+                ImVec2(nodePos.x - offset, nodePos.y - offset),
+                ImVec2(nodePos.x + nodeSize.x + offset, nodePos.y + nodeSize.y + offset),
+                segmentBorderColor, cornerRadius + offset, 0, borderThickness / (segments * 1.5f)
             );
         }
 
-        ImVec4 baseColorVec4 = ImGui::ColorConvertU32ToFloat4(baseColor);
         const int gradientSteps = 10;
-        float stepHeight = nodeSize.y / gradientSteps;
 
-        for (int step = 0; step < gradientSteps; step++) {
-            float t = static_cast<float>(step) / (gradientSteps - 1);
+        for (int y = 0; y < gradientSteps; y++) {
+            for (int x = 0; x < gradientSteps; x++) {
+                float tx = static_cast<float>(x) / (gradientSteps - 1);
+                float ty = static_cast<float>(y) / (gradientSteps - 1);
 
-            ImU32 gradientColor = ImGui::ColorConvertFloat4ToU32(ImVec4(
-                baseColorVec4.x * (1.1f - t * 0.2f),
-                baseColorVec4.y * (1.1f - t * 0.2f),
-                baseColorVec4.z * (1.1f - t * 0.2f),
-                baseColorVec4.w
-            ));
+                float diagonal = (tx + ty) / 2.0f;
 
-            float yStart = nodePos.y + step * stepHeight;
-            float yEnd = nodePos.y + (step + 1) * stepHeight;
+                ImU32 gradientColor = ImGui::ColorConvertFloat4ToU32(ImVec4(
+                    baseColorVec4.x * (1.25f - diagonal * 0.5f),
+                    baseColorVec4.y * (1.25f - diagonal * 0.5f),
+                    baseColorVec4.z * (1.25f - diagonal * 0.5f),
+                    baseColorVec4.w
+                ));
 
-            ImDrawFlags cornerFlags = ImDrawFlags_RoundCornersNone;
-            if (step == 0)
-                cornerFlags = ImDrawFlags_RoundCornersTop;
-            else if (step == gradientSteps - 1)
-                cornerFlags = ImDrawFlags_RoundCornersBottom;
+                float xStart = nodePos.x + (nodeSize.x * x) / gradientSteps;
+                float yStart = nodePos.y + (nodeSize.y * y) / gradientSteps;
+                float xEnd = nodePos.x + (nodeSize.x * (x + 1)) / gradientSteps;
+                float yEnd = nodePos.y + (nodeSize.y * (y + 1)) / gradientSteps;
 
-            drawList->AddRectFilled(
-                ImVec2(nodePos.x, yStart),
-                ImVec2(nodePos.x + nodeSize.x, yEnd),
-                gradientColor, cornerRadius, cornerFlags
-            );
+                ImDrawFlags cornerFlags = ImDrawFlags_RoundCornersNone;
+
+                if (x == 0 && y == 0)
+                    cornerFlags = ImDrawFlags_RoundCornersTopLeft;
+                else if (x == gradientSteps - 1 && y == 0)
+                    cornerFlags = ImDrawFlags_RoundCornersTopRight;
+                else if (x == 0 && y == gradientSteps - 1)
+                    cornerFlags = ImDrawFlags_RoundCornersBottomLeft;
+                else if (x == gradientSteps - 1 && y == gradientSteps - 1)
+                    cornerFlags = ImDrawFlags_RoundCornersBottomRight;
+
+                if (cornerFlags == ImDrawFlags_RoundCornersNone) {
+                    drawList->AddRectFilled(
+                        ImVec2(xStart, yStart),
+                        ImVec2(xEnd, yEnd),
+                        gradientColor
+                    );
+                } else {
+                    drawList->AddRectFilled(
+                        ImVec2(xStart, yStart),
+                        ImVec2(xEnd, yEnd),
+                        gradientColor, cornerRadius, cornerFlags
+                    );
+                }
+            }
         }
 
         drawList->AddRectFilled(
