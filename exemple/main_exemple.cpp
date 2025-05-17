@@ -83,18 +83,20 @@ Node* CreateNodeOfType(const std::string& type, const Vec2& pos) {
     }
     node->iconSymbol = def.iconSymbol;
 
-    int pinId = 1;
+
+    std::cout << "[LOG] Node créé: " << node->name << " (id=" << node->id << ")" << std::endl;
+    
+    static int globalPinId = 1;  // doit être au niveau global ou static dans le bon contexte
+
     for (const auto& input : def.inputs) {
-        std::cout << "[LOG]   Ajout input pin: " << input.first << std::endl;
-        node->inputs.push_back(Pin(pinId++, input.first, true, input.second));
+        node->inputs.push_back(Pin(globalPinId++, input.first, true, input.second));
     }
 
     for (const auto& output : def.outputs) {
-        std::cout << "[LOG]   Ajout output pin: " << output.first << std::endl;
-        node->outputs.push_back(Pin(pinId++, output.first, false, output.second));
+        node->outputs.push_back(Pin(globalPinId++, output.first, false, output.second));
     }
 
-    std::cout << "[LOG] Node créé: " << node->name << " (id=" << node->id << ")" << std::endl;
+    
     return node;
 }
 
@@ -202,15 +204,96 @@ int main(int argc, char* argv[]) {
 
         std::cout << "[LOG] Connexion des noeuds du subgraph de math..." << std::endl;
         std::cout << "[LOG]   inputNodeId->addNodeId" << std::endl;
-        editor.addConnection(inputNodeId, 1, addNodeId, 1);
+
+        // Afficher les détails des nœuds avant de tenter la connexion
+        Node* inputNode = editor.getNode(inputNodeId);
+        Node* addNode = editor.getNode(addNodeId);
+        if (inputNode) {
+            std::cout << "[DEBUG] Nœud d'entrée (ID " << inputNodeId << "):" << std::endl;
+            std::cout << "[DEBUG]   Outputs:" << std::endl;
+            for (const auto& pin : inputNode->outputs) {
+                std::cout << "[DEBUG]     ID=" << pin.id << ", Nom='" << pin.name << "'" << std::endl;
+            }
+        }
+        if (addNode) {
+            std::cout << "[DEBUG] Nœud add (ID " << addNodeId << "):" << std::endl;
+            std::cout << "[DEBUG]   Inputs:" << std::endl;
+            for (const auto& pin : addNode->inputs) {
+                std::cout << "[DEBUG]     ID=" << pin.id << ", Nom='" << pin.name << "'" << std::endl;
+            }
+        }
+
+        // Utiliser les IDs réels des pins au lieu des valeurs codées en dur
+        if (inputNode && !inputNode->outputs.empty() && addNode && !addNode->inputs.empty()) {
+            editor.addConnection(inputNodeId, inputNode->outputs[0].id, addNodeId, addNode->inputs[0].id);
+        } else {
+            std::cout << "[ERREUR] Impossible de connecter inputNode->addNode: pins manquants" << std::endl;
+        }
+
         std::cout << "[LOG]   input2NodeId->addNodeId" << std::endl;
-        editor.addConnection(input2NodeId, 1, addNodeId, 2);
+
+        // Afficher les détails pour le deuxième nœud d'entrée
+        Node* input2Node = editor.getNode(input2NodeId);
+        if (input2Node) {
+            std::cout << "[DEBUG] Nœud d'entrée 2 (ID " << input2NodeId << "):" << std::endl;
+            std::cout << "[DEBUG]   Outputs:" << std::endl;
+            for (const auto& pin : input2Node->outputs) {
+                std::cout << "[DEBUG]     ID=" << pin.id << ", Nom='" << pin.name << "'" << std::endl;
+            }
+        }
+
+        // Utiliser les IDs réels des pins
+        if (input2Node && !input2Node->outputs.empty() && addNode && addNode->inputs.size() >= 2) {
+            editor.addConnection(input2NodeId, input2Node->outputs[0].id, addNodeId, addNode->inputs[1].id);
+        } else {
+            std::cout << "[ERREUR] Impossible de connecter input2Node->addNode: pins manquants" << std::endl;
+        }
+
         std::cout << "[LOG]   addNodeId->multiplyNodeId (1)" << std::endl;
-        editor.addConnection(addNodeId, 3, multiplyNodeId, 1);
+
+        // Afficher les détails du nœud multiply
+        Node* multiplyNode = editor.getNode(multiplyNodeId);
+        if (multiplyNode) {
+            std::cout << "[DEBUG] Nœud multiply (ID " << multiplyNodeId << "):" << std::endl;
+            std::cout << "[DEBUG]   Inputs:" << std::endl;
+            for (const auto& pin : multiplyNode->inputs) {
+                std::cout << "[DEBUG]     ID=" << pin.id << ", Nom='" << pin.name << "'" << std::endl;
+            }
+        }
+
+        // Utiliser les IDs réels des pins
+        if (addNode && !addNode->outputs.empty() && multiplyNode && !multiplyNode->inputs.empty()) {
+            editor.addConnection(addNodeId, addNode->outputs[0].id, multiplyNodeId, multiplyNode->inputs[0].id);
+        } else {
+            std::cout << "[ERREUR] Impossible de connecter addNode->multiplyNode (1): pins manquants" << std::endl;
+        }
+
         std::cout << "[LOG]   addNodeId->multiplyNodeId (2)" << std::endl;
-        editor.addConnection(addNodeId, 3, multiplyNodeId, 2);
+        // Utiliser les IDs réels des pins
+        if (addNode && !addNode->outputs.empty() && multiplyNode && multiplyNode->inputs.size() >= 2) {
+            editor.addConnection(addNodeId, addNode->outputs[0].id, multiplyNodeId, multiplyNode->inputs[1].id);
+        } else {
+            std::cout << "[ERREUR] Impossible de connecter addNode->multiplyNode (2): pins manquants" << std::endl;
+        }
+
         std::cout << "[LOG]   multiplyNodeId->outputNodeId" << std::endl;
-        editor.addConnection(multiplyNodeId, 3, outputNodeId, 1);
+
+        // Afficher les détails du nœud de sortie
+        Node* outputNode = editor.getNode(outputNodeId);
+        if (outputNode) {
+            std::cout << "[DEBUG] Nœud de sortie (ID " << outputNodeId << "):" << std::endl;
+            std::cout << "[DEBUG]   Inputs:" << std::endl;
+            for (const auto& pin : outputNode->inputs) {
+                std::cout << "[DEBUG]     ID=" << pin.id << ", Nom='" << pin.name << "'" << std::endl;
+            }
+        }
+
+        // Utiliser les IDs réels des pins
+        if (multiplyNode && !multiplyNode->outputs.empty() && outputNode && !outputNode->inputs.empty()) {
+            editor.addConnection(multiplyNodeId, multiplyNode->outputs[0].id, outputNodeId, outputNode->inputs[0].id);
+        } else {
+            std::cout << "[ERREUR] Impossible de connecter multiplyNode->outputNode: pins manquants" << std::endl;
+        }
 
         std::cout << "[LOG]   Récupération du subgraph mathSubgraph" << std::endl;
         auto mathSubgraph = editor.getSubgraph(editor.getSubgraphId(mathSubgraphUuid));
@@ -239,11 +322,69 @@ int main(int argc, char* argv[]) {
 
         std::cout << "[LOG] Connexion des noeuds du subgraph de rendu..." << std::endl;
         std::cout << "[LOG]   geomInputNodeId->rendererNodeId" << std::endl;
-        editor.addConnection(geomInputNodeId, 1, rendererNodeId, 1);
+
+        // Afficher les détails des nœuds avant de tenter la connexion
+        Node* geomInputNode = editor.getNode(geomInputNodeId);
+        Node* rendererNode = editor.getNode(rendererNodeId);
+        if (geomInputNode) {
+            std::cout << "[DEBUG] Nœud d'entrée géométrie (ID " << geomInputNodeId << "):" << std::endl;
+            std::cout << "[DEBUG]   Outputs:" << std::endl;
+            for (const auto& pin : geomInputNode->outputs) {
+                std::cout << "[DEBUG]     ID=" << pin.id << ", Nom='" << pin.name << "'" << std::endl;
+            }
+        }
+        if (rendererNode) {
+            std::cout << "[DEBUG] Nœud renderer (ID " << rendererNodeId << "):" << std::endl;
+            std::cout << "[DEBUG]   Inputs:" << std::endl;
+            for (const auto& pin : rendererNode->inputs) {
+                std::cout << "[DEBUG]     ID=" << pin.id << ", Nom='" << pin.name << "'" << std::endl;
+            }
+        }
+
+        // Utiliser les IDs réels des pins au lieu des valeurs codées en dur
+        if (geomInputNode && !geomInputNode->outputs.empty() && rendererNode && !rendererNode->inputs.empty()) {
+            editor.addConnection(geomInputNodeId, geomInputNode->outputs[0].id, rendererNodeId, rendererNode->inputs[0].id);
+        } else {
+            std::cout << "[ERREUR] Impossible de connecter geomInputNode->rendererNode: pins manquants" << std::endl;
+        }
+
         std::cout << "[LOG]   materialNodeId->rendererNodeId" << std::endl;
-        editor.addConnection(materialNodeId, 2, rendererNodeId, 2);
+
+        // Afficher les détails du nœud matériau
+        Node* materialNode = editor.getNode(materialNodeId);
+        if (materialNode) {
+            std::cout << "[DEBUG] Nœud material (ID " << materialNodeId << "):" << std::endl;
+            std::cout << "[DEBUG]   Outputs:" << std::endl;
+            for (const auto& pin : materialNode->outputs) {
+                std::cout << "[DEBUG]     ID=" << pin.id << ", Nom='" << pin.name << "'" << std::endl;
+            }
+        }
+
+        // Utiliser les IDs réels des pins
+        if (materialNode && !materialNode->outputs.empty() && rendererNode && rendererNode->inputs.size() >= 2) {
+            editor.addConnection(materialNodeId, materialNode->outputs[0].id, rendererNodeId, rendererNode->inputs[1].id);
+        } else {
+            std::cout << "[ERREUR] Impossible de connecter materialNode->rendererNode: pins manquants" << std::endl;
+        }
+
         std::cout << "[LOG]   rendererNodeId->renderOutputNodeId" << std::endl;
-        editor.addConnection(rendererNodeId, 3, renderOutputNodeId, 1);
+
+        // Afficher les détails du nœud de sortie
+        Node* renderOutputNode = editor.getNode(renderOutputNodeId);
+        if (renderOutputNode) {
+            std::cout << "[DEBUG] Nœud de sortie rendu (ID " << renderOutputNodeId << "):" << std::endl;
+            std::cout << "[DEBUG]   Inputs:" << std::endl;
+            for (const auto& pin : renderOutputNode->inputs) {
+                std::cout << "[DEBUG]     ID=" << pin.id << ", Nom='" << pin.name << "'" << std::endl;
+            }
+        }
+
+        // Utiliser les IDs réels des pins
+        if (rendererNode && !rendererNode->outputs.empty() && renderOutputNode && !renderOutputNode->inputs.empty()) {
+            editor.addConnection(rendererNodeId, rendererNode->outputs[0].id, renderOutputNodeId, renderOutputNode->inputs[0].id);
+        } else {
+            std::cout << "[ERREUR] Impossible de connecter rendererNode->renderOutputNode: pins manquants" << std::endl;
+        }
 
         std::cout << "[LOG]   Récupération du subgraph renderSubgraph" << std::endl;
         auto renderSubgraph = editor.getSubgraph(editor.getSubgraphId(renderSubgraphUuid));
@@ -278,12 +419,79 @@ int main(int argc, char* argv[]) {
 
         std::cout << "[LOG] Connexion des noeuds dans le graphe principal..." << std::endl;
         std::cout << "[LOG]   boxNodeId->mathSubgraphNodeId" << std::endl;
-        editor.addConnection(boxNodeId, 2, mathSubgraphNodeId, 1);
-        std::cout << "[LOG]   sphereNodeId->mathSubgraphNodeId" << std::endl;
-        editor.addConnection(sphereNodeId, 2, mathSubgraphNodeId, 2);
-        std::cout << "[LOG]   mathSubgraphNodeId->renderSubgraphNodeId" << std::endl;
-        editor.addConnection(mathSubgraphNodeId, 3, renderSubgraphNodeId, 1);
 
+        // Afficher les détails des nœuds avant de tenter la connexion
+        Node* boxNode = editor.getNode(boxNodeId);
+        if (mathSubgraphNode && boxNode) {
+            std::cout << "[DEBUG] Nœud box (ID " << boxNodeId << "):" << std::endl;
+            std::cout << "[DEBUG]   Outputs:" << std::endl;
+            for (const auto& pin : boxNode->outputs) {
+                std::cout << "[DEBUG]     ID=" << pin.id << ", Nom='" << pin.name << "'" << std::endl;
+            }
+            
+            std::cout << "[DEBUG] Nœud mathSubgraph (ID " << mathSubgraphNodeId << "):" << std::endl;
+            std::cout << "[DEBUG]   Inputs:" << std::endl;
+            for (const auto& pin : mathSubgraphNode->inputs) {
+                std::cout << "[DEBUG]     ID=" << pin.id << ", Nom='" << pin.name << "'" << std::endl;
+            }
+            
+            // Utiliser les IDs réels des pins au lieu des valeurs codées en dur
+            if (!boxNode->outputs.empty() && !mathSubgraphNode->inputs.empty()) {
+                editor.addConnection(boxNodeId, boxNode->outputs[0].id, mathSubgraphNodeId, mathSubgraphNode->inputs[0].id);
+            } else {
+                std::cout << "[ERREUR] Impossible de connecter boxNode->mathSubgraphNode: pins manquants" << std::endl;
+            }
+        } else {
+            std::cout << "[ERREUR] Un ou plusieurs nœuds manquants pour la connexion boxNode->mathSubgraphNode" << std::endl;
+        }
+
+        std::cout << "[LOG]   sphereNodeId->mathSubgraphNodeId" << std::endl;
+
+        // Afficher les détails du nœud sphère
+        Node* sphereNode = editor.getNode(sphereNodeId);
+        if (sphereNode) {
+            std::cout << "[DEBUG] Nœud sphere (ID " << sphereNodeId << "):" << std::endl;
+            std::cout << "[DEBUG]   Outputs:" << std::endl;
+            for (const auto& pin : sphereNode->outputs) {
+                std::cout << "[DEBUG]     ID=" << pin.id << ", Nom='" << pin.name << "'" << std::endl;
+            }
+        }
+
+        if (sphereNode && mathSubgraphNode) {
+            // Utiliser les IDs réels des pins
+            if (!sphereNode->outputs.empty() && mathSubgraphNode->inputs.size() >= 2) {
+                editor.addConnection(sphereNodeId, sphereNode->outputs[0].id, mathSubgraphNodeId, mathSubgraphNode->inputs[1].id);
+            } else {
+                std::cout << "[ERREUR] Impossible de connecter sphereNode->mathSubgraphNode: pins manquants" << std::endl;
+            }
+        } else {
+            std::cout << "[ERREUR] Un ou plusieurs nœuds manquants pour la connexion sphereNode->mathSubgraphNode" << std::endl;
+        }
+
+        std::cout << "[LOG]   mathSubgraphNodeId->renderSubgraphNodeId" << std::endl;
+
+        if (mathSubgraphNode && renderSubgraphNode) {
+            std::cout << "[DEBUG] Nœud mathSubgraph (ID " << mathSubgraphNodeId << ") pour connexion sortie:" << std::endl;
+            std::cout << "[DEBUG]   Outputs:" << std::endl;
+            for (const auto& pin : mathSubgraphNode->outputs) {
+                std::cout << "[DEBUG]     ID=" << pin.id << ", Nom='" << pin.name << "'" << std::endl;
+            }
+            
+            std::cout << "[DEBUG] Nœud renderSubgraph (ID " << renderSubgraphNodeId << "):" << std::endl;
+            std::cout << "[DEBUG]   Inputs:" << std::endl;
+            for (const auto& pin : renderSubgraphNode->inputs) {
+                std::cout << "[DEBUG]     ID=" << pin.id << ", Nom='" << pin.name << "'" << std::endl;
+            }
+            
+            // Utiliser les IDs réels des pins
+            if (!mathSubgraphNode->outputs.empty() && !renderSubgraphNode->inputs.empty()) {
+                editor.addConnection(mathSubgraphNodeId, mathSubgraphNode->outputs[0].id, renderSubgraphNodeId, renderSubgraphNode->inputs[0].id);
+            } else {
+                std::cout << "[ERREUR] Impossible de connecter mathSubgraphNode->renderSubgraphNode: pins manquants" << std::endl;
+            }
+        } else {
+            std::cout << "[ERREUR] Un ou plusieurs nœuds manquants pour la connexion mathSubgraphNode->renderSubgraphNode" << std::endl;
+        }
 
         enum class CurrentPanel {
             NodeEditor,

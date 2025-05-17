@@ -108,6 +108,8 @@ namespace NodeEditorCore {
         const Pin* getPinByUUID(const UUID& nodeUuid, const UUID& pinUuid) const;
         UUID getPinUUID(int nodeId, int pinId) const;
 
+        void createDefaultPinsForNode(int nodeId);
+
         int addConnection(int startNodeId, int startPinId, int endNodeId, int endPinId, const UUID& uuid = "");
         int addConnectionByUUID(const UUID& startNodeUuid, const UUID& startPinUuid,
                               const UUID& endNodeUuid, const UUID& endPinUuid, const UUID& uuid = "");

@@ -76,17 +76,17 @@ namespace NodeEditorCore {
     };
 
     enum class PinType {
-        Blue,
-        Red,
-        Green,
-        Yellow,
-        Purple,
-        Cyan,
-        Orange,
-        White,
-        Black,
-        Gray,
-        Custom
+        Blue,    // Type 0
+        Red,     // Type 1
+        Green,   // Type 2
+        Yellow,  // Type 3
+        Purple,  // Type 4
+        Cyan,    // Type 5
+        Orange,  // Type 6
+        White,   // Type 7
+        Black,   // Type 8
+        Gray,    // Type 9
+        Custom   // Type 10
     };
 
     enum class PinShape {

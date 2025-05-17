@@ -2,6 +2,7 @@
 #include "../../Core/Style/InteractionMode.h"
 #include <algorithm>
 #include <cfloat>
+#include <iostream>
 
 namespace NodeEditorCore {
     void NodeEditor::processInteraction() {
@@ -122,38 +123,89 @@ namespace NodeEditorCore {
                 updateCurrentInteraction(mousePos);
             }
 
+            if (m_state.interactionMode == InteractionMode::DragConnection) {
+                processConnectionCreation();
+            }
+
+
             // Au relâchement
             if (isMouseReleased) {
-                // NOUVEAU: Log pour le débogage
-
                 // IMPORTANT: SI nous sommes en mode de création de connexion
                 if (m_state.interactionMode == InteractionMode::DragConnection) {
-                    // IMPORTANT: Vérification directe pour le débogage
-                    drawList->AddText(ImVec2(10, 290), IM_COL32(255, 0, 0, 255),
-                                      ("Creating connection: " + std::to_string(m_state.connectingNodeId) +
-                                       " to " + std::to_string(m_state.magnetPinNodeId)).c_str());
+                    std::cout << "Mouse released. magnetPinNodeId = " << m_state.magnetPinNodeId
+                            << ", magnetPinId = " << m_state.magnetPinId << std::endl;
 
-                    // Essayer de créer une connexion directement ici
+                    // IMPORTANT: Vérification directe pour le débogage
                     if (m_state.magnetPinNodeId != -1 && m_state.magnetPinId != -1) {
                         const Node *sourceNode = getNode(m_state.connectingNodeId);
-                        if (sourceNode) {
-                            const Pin *sourcePinInternal = sourceNode->findPin(m_state.connectingPinId);
-                            if (sourcePinInternal) {
-                                bool isSourceInput = sourcePinInternal->isInput;
+                        const Node *targetNode = getNode(m_state.magnetPinNodeId);
+
+                        if (sourceNode && targetNode) {
+                            const Pin *sourcePin = sourceNode->findPin(m_state.connectingPinId);
+                            const Pin *targetPin = targetNode->findPin(m_state.magnetPinId);
+
+                            if (sourcePin && targetPin) {
+                                // Forcer la direction correcte : source est sortie, cible est entrée
                                 int connectionId = -1;
 
-                                if (isSourceInput) {
-                                    // Source est entrée, cible est sortie
+                                // Si la source est un pin d'entrée, inverser les nœuds
+                                if (sourcePin->isInput) {
+                                    std::cout << "Tentative de connexion inversée (entrée -> sortie)" << std::endl;
+                                    std::cout << "  - Pin source: nœud " << m_state.connectingNodeId << ", pin " <<
+                                            m_state.connectingPinId
+                                            << " (type=" << static_cast<int>(sourcePin->type) << ", isInput=true)" <<
+                                            std::endl;
+                                    std::cout << "  - Pin cible: nœud " << m_state.magnetPinNodeId << ", pin " <<
+                                            m_state.magnetPinId
+                                            << " (type=" << static_cast<int>(targetPin->type) << ", isInput=" << (
+                                                targetPin->isInput ? "true" : "false") << ")" << std::endl;
+
                                     connectionId = addConnection(m_state.magnetPinNodeId, m_state.magnetPinId,
                                                                  m_state.connectingNodeId, m_state.connectingPinId);
+                                    drawList->AddText(ImVec2(10, 330), IM_COL32(255, 0, 0, 255),
+                                                      ("Inverted connection: output to input"));
                                 } else {
-                                    // Source est sortie, cible est entrée
+                                    std::cout << "Tentative de connexion normale (sortie -> entrée)" << std::endl;
+                                    std::cout << "  - Pin source: nœud " << m_state.connectingNodeId << ", pin " <<
+                                            m_state.connectingPinId
+                                            << " (type=" << static_cast<int>(sourcePin->type) << ", isInput=false)" <<
+                                            std::endl;
+                                    std::cout << "  - Pin cible: nœud " << m_state.magnetPinNodeId << ", pin " <<
+                                            m_state.magnetPinId
+                                            << " (type=" << static_cast<int>(targetPin->type) << ", isInput=" << (
+                                                targetPin->isInput ? "true" : "false") << ")" << std::endl;
+
                                     connectionId = addConnection(m_state.connectingNodeId, m_state.connectingPinId,
                                                                  m_state.magnetPinNodeId, m_state.magnetPinId);
+                                    drawList->AddText(ImVec2(10, 330), IM_COL32(255, 0, 0, 255),
+                                                      ("Normal connection: output to input"));
                                 }
 
-                                drawList->AddText(ImVec2(10, 310), IM_COL32(255, 0, 0, 255),
-                                                  ("Connection result: " + std::to_string(connectionId)).c_str());
+                                std::cout << "Résultat de la création de connexion: " << connectionId << std::endl;
+                                if (connectionId == -1) {
+                                    std::cout <<
+                                            "ÉCHEC: La création de connexion a échoué. Vérifiez les points suivants:" <<
+                                            std::endl;
+                                    std::cout << "  1. Les deux nœuds existent-ils? "
+                                            << (sourceNode && targetNode ? "Oui" : "Non") << std::endl;
+                                    std::cout << "  2. Les deux pins existent-ils? "
+                                            << (sourcePin && targetPin ? "Oui" : "Non") << std::endl;
+                                    std::cout << "  3. Les pins sont-ils de types compatibles? Types: "
+                                            << static_cast<int>(sourcePin->type) << " et "
+                                            << static_cast<int>(targetPin->type) << std::endl;
+                                    std::cout << "  4. Est-ce qu'une connexion existe déjà entre ces pins? "
+                                            << (doesConnectionExist(m_state.connectingNodeId, m_state.connectingPinId,
+                                                                    m_state.magnetPinNodeId, m_state.magnetPinId)
+                                                    ? "Oui"
+                                                    : "Non") << std::endl;
+
+                                    if (sourcePin->isInput == targetPin->isInput) {
+                                        std::cout << "  ERREUR: Les deux pins sont du même type (entrée/sortie)!" <<
+                                                std::endl;
+                                    }
+                                } else {
+                                    std::cout << "SUCCÈS: Connexion créée avec l'ID " << connectionId << std::endl;
+                                }
                             }
                         }
                     }
@@ -172,6 +224,11 @@ namespace NodeEditorCore {
         if (ImGui::IsKeyPressed(ImGuiKey_Escape)) {
             endCurrentInteraction();
         }
+
+        if (m_state.magnetPinNodeId == -1) {
+        } else
+            std::cout << "[DEBUG] Pin magnétique trouvé: node=" << m_state.magnetPinNodeId << ", pin=" << m_state.
+                    magnetPinId << std::endl;
     }
 
     void NodeEditor::updateCurrentInteraction(const ImVec2 &mousePos) {
@@ -300,22 +357,11 @@ namespace NodeEditorCore {
     void NodeEditor::endCurrentInteraction() {
         if (m_state.interactionMode == InteractionMode::DragConnection &&
             m_state.magnetPinNodeId != -1 && m_state.magnetPinId != -1) {
-            const Node *sourceNode = getNode(m_state.connectingNodeId);
-            if (sourceNode) {
-                const Pin *sourcePinInternal = sourceNode->findPin(m_state.connectingPinId);
-                if (sourcePinInternal) {
-                    bool isSourceInput = sourcePinInternal->isInput;
-                    int connectionId = -1;
-
-                    if (isSourceInput) {
-                        connectionId = addConnection(m_state.magnetPinNodeId, m_state.magnetPinId,
-                                                     m_state.connectingNodeId, m_state.connectingPinId);
-                    } else {
-                        connectionId = addConnection(m_state.connectingNodeId, m_state.connectingPinId,
-                                                     m_state.magnetPinNodeId, m_state.magnetPinId);
-                    }
-                }
-            }
+            std::cout <<
+                    "endCurrentInteraction: Connexion détectée mais non créée ici car déjà gérée dans processInteraction()"
+                    << std::endl;
+            // Suppression du code dupliqué qui tentait de créer une connexion ici
+            // C'est déjà fait dans le handler de relâchement de souris dans processInteraction()
         }
 
         m_state.interactionMode = InteractionMode::None;
@@ -649,6 +695,7 @@ namespace NodeEditorCore {
             return;
 
         ImVec2 mousePos = ImGui::GetMousePos();
+        ImDrawList *drawList = ImGui::GetWindowDrawList();
 
         const Node *sourceNode = getNode(m_state.connectingNodeId);
         if (!sourceNode) return;
@@ -666,13 +713,24 @@ namespace NodeEditorCore {
 
         float closestDist = m_state.magnetThreshold * m_state.magnetThreshold;
 
+        drawList->AddText(ImVec2(10, 370), IM_COL32(255, 0, 0, 255),
+                          ("Searching: " + std::string(isSourceInput ? "Output pins" : "Input pins") +
+                           ", Nodes: " + std::to_string(m_state.nodes.size())).c_str());
+
+        int eligiblePins = 0;
+
         for (const auto &node: m_state.nodes) {
             if (node.id == m_state.connectingNodeId || !isNodeInCurrentSubgraph(node))
                 continue;
 
             const auto &pins = isSourceInput ? node.outputs : node.inputs;
+            drawList->AddText(ImVec2(10, 390), IM_COL32(255, 0, 0, 255),
+                              ("Node " + std::to_string(node.id) + " has " +
+                               std::to_string(pins.size()) + " eligible pins").c_str());
 
             for (const auto &pinInternal: pins) {
+                eligiblePins++;
+
                 Pin apiPin;
                 apiPin.id = pinInternal.id;
                 apiPin.name = pinInternal.name;
@@ -685,6 +743,8 @@ namespace NodeEditorCore {
                 float dx = mousePos.x - pinPos.x;
                 float dy = mousePos.y - pinPos.y;
                 float dist = dx * dx + dy * dy;
+
+                drawList->AddCircle(pinPos, std::sqrt(closestDist), IM_COL32(0, 255, 0, 100));
 
                 if (dist < closestDist) {
                     Pin sourceApiPin;
@@ -702,6 +762,9 @@ namespace NodeEditorCore {
                         canConnect = canCreateConnection(sourceApiPin, apiPin);
                     }
 
+                    drawList->AddText(pinPos, canConnect ? IM_COL32(0, 255, 0, 255) : IM_COL32(255, 0, 0, 255),
+                                      canConnect ? "OK" : "X");
+
                     if (canConnect) {
                         m_state.magnetPinNodeId = node.id;
                         m_state.magnetPinId = pinInternal.id;
@@ -709,35 +772,20 @@ namespace NodeEditorCore {
                         m_state.magnetPinUuid = pinInternal.uuid;
                         m_state.canConnectToMagnetPin = true;
                         closestDist = dist;
+
+                        drawList->AddCircleFilled(pinPos, 8.0f, IM_COL32(0, 255, 0, 200));
                     }
                 }
             }
         }
 
-        if (ImGui::IsMouseReleased(ImGuiMouseButton_Left)) {
-            if (m_state.magnetPinNodeId != -1 && m_state.canConnectToMagnetPin) {
-                int connectionId = -1;
+        drawList->AddText(ImVec2(10, 410), IM_COL32(255, 0, 0, 255),
+                          ("Eligible pins found: " + std::to_string(eligiblePins)).c_str());
 
-                if (isSourceInput) {
-                    connectionId = addConnection(m_state.magnetPinNodeId, m_state.magnetPinId,
-                                                 m_state.connectingNodeId, m_state.connectingPinId);
-                } else {
-                    connectionId = addConnection(m_state.connectingNodeId, m_state.connectingPinId,
-                                                 m_state.magnetPinNodeId, m_state.magnetPinId);
-                }
-
-                if (connectionId != -1) {
-                    // Connexion créée avec succès
-                } else {
-                    // La connexion a échoué
-                }
-            }
-
-            m_state.connecting = false;
-            m_state.connectingNodeId = -1;
-            m_state.connectingPinId = -1;
-            m_state.interactionMode = InteractionMode::None;
-        }
+        drawList->AddText(ImVec2(10, 430), IM_COL32(255, 0, 0, 255),
+                          ("Magnet found: " + std::string(m_state.magnetPinNodeId != -1 ? "YES" : "NO") +
+                           ", Node: " + std::to_string(m_state.magnetPinNodeId) +
+                           ", Pin: " + std::to_string(m_state.magnetPinId)).c_str());
     }
 
     ImVec2 NodeEditor::getPinPos(const Node &node, const Pin &pin, const ImVec2 &canvasPos) const {
@@ -748,7 +796,6 @@ namespace NodeEditorCore {
         float pinSpacing = 25.0f * m_state.viewScale;
         float leftMargin = 20.0f * m_state.viewScale;
 
-        ImVec2 result;
 
         if (pin.isInput) {
             int pinIndex = -1;
