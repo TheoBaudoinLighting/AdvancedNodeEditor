@@ -75,6 +75,18 @@ namespace NodeEditorCore {
         m_boundingBoxCheck = func;
     }
 
+    inline ImU32 ImLerpColor(ImU32 col_a, ImU32 col_b, float t) {
+        ImVec4 a = ImGui::ColorConvertU32ToFloat4(col_a);
+        ImVec4 b = ImGui::ColorConvertU32ToFloat4(col_b);
+        
+        return ImGui::ColorConvertFloat4ToU32(ImVec4(
+            a.x + (b.x - a.x) * t,
+            a.y + (b.y - a.y) * t,
+            a.z + (b.z - a.z) * t,
+            a.w + (b.w - a.w) * t
+        ));
+    }
+
     void ConnectionStyleManager::drawBezierConnection(
         ImDrawList *drawList, const ImVec2 &start, const ImVec2 &end,
         bool isStartInput, bool isEndInput,
@@ -123,7 +135,7 @@ namespace NodeEditorCore {
             );
         }
 
-        if (!m_config.useGradient && startColor == endColor) {
+        if (!m_config.useGradient || startColor == endColor) {
             drawList->AddBezierCubic(start, cp1, cp2, end, startColor, thickness);
 
             if (m_config.drawHighlight && (selected || hovered)) {
@@ -141,7 +153,7 @@ namespace NodeEditorCore {
                 ImVec2 pos1 = ImBezierCubicCalc(start, cp1, cp2, end, t1);
 
                 float tMid = (t0 + t1) * 0.5f;
-                ImU32 segmentColor = ImLerp(startColor, endColor, tMid);
+                ImU32 segmentColor = ImLerpColor(startColor, endColor, tMid);
 
                 drawList->AddLine(pos0, pos1, segmentColor, thickness);
 
@@ -184,7 +196,7 @@ namespace NodeEditorCore {
             );
         }
 
-        if (!m_config.useGradient && startColor == endColor) {
+        if (!m_config.useGradient || startColor == endColor) {
             drawList->AddLine(start, end, startColor, thickness);
 
             if (m_config.drawHighlight && (selected || hovered)) {
@@ -202,7 +214,7 @@ namespace NodeEditorCore {
                 ImVec2 pos1 = ImLerp(start, end, t1);
 
                 float tMid = (t0 + t1) * 0.5f;
-                ImU32 segmentColor = ImLerp(startColor, endColor, tMid);
+                ImU32 segmentColor = ImLerpColor(startColor, endColor, tMid);
 
                 drawList->AddLine(pos0, pos1, segmentColor, thickness);
 
@@ -252,7 +264,7 @@ namespace NodeEditorCore {
             );
         }
 
-        if (!m_config.useGradient && startColor == endColor) {
+        if (!m_config.useGradient || startColor == endColor) {
             drawList->AddLine(start, middle, startColor, thickness);
             drawList->AddLine(middle, end, startColor, thickness);
 
@@ -272,7 +284,7 @@ namespace NodeEditorCore {
                 ImVec2 pos1 = ImLerp(start, middle, t1);
 
                 float tMid = (t0 + t1) * 0.5f;
-                ImU32 segmentColor = ImLerp(startColor, endColor, tMid * 0.5f);
+                ImU32 segmentColor = ImLerpColor(startColor, endColor, tMid * 0.5f);
 
                 drawList->AddLine(pos0, pos1, segmentColor, thickness);
 
@@ -290,7 +302,7 @@ namespace NodeEditorCore {
                 ImVec2 pos1 = ImLerp(middle, end, t1);
 
                 float tMid = (t0 + t1) * 0.5f;
-                ImU32 segmentColor = ImLerp(startColor, endColor, 0.5f + tMid * 0.5f);
+                ImU32 segmentColor = ImLerpColor(startColor, endColor, 0.5f + tMid * 0.5f);
 
                 drawList->AddLine(pos0, pos1, segmentColor, thickness);
 
@@ -324,7 +336,7 @@ namespace NodeEditorCore {
                 }
             }
 
-            ImU32 midColor = ImLerp(startColor, endColor, 0.5f);
+            ImU32 midColor = ImLerpColor(startColor, endColor, 0.5f);
             drawList->AddBezierQuadratic(cornerStart, middle, cornerEnd, midColor, thickness);
         }
 
@@ -399,7 +411,7 @@ namespace NodeEditorCore {
             }
         }
 
-        if (!m_config.useGradient && startColor == endColor) {
+        if (!m_config.useGradient || startColor == endColor) {
             for (size_t i = 0; i < points.size() - 1; i++) {
                 drawList->AddLine(points[i], points[i + 1], startColor, thickness);
 
@@ -423,7 +435,7 @@ namespace NodeEditorCore {
                     ImVec2 pos1 = ImLerp(points[i], points[i + 1], t1);
 
                     float overallT0 = segmentProgress + t0 / segmentsPerLine * (nextSegmentProgress - segmentProgress);
-                    ImU32 segmentColor = ImLerp(startColor, endColor, overallT0);
+                    ImU32 segmentColor = ImLerpColor(startColor, endColor, overallT0);
 
                     drawList->AddLine(pos0, pos1, segmentColor, thickness);
 
@@ -438,7 +450,7 @@ namespace NodeEditorCore {
         if (cornerRadius > 0.0f && points.size() > 2) {
             for (size_t i = 1; i < points.size() - 1; i++) {
                 float segmentProgress = static_cast<float>(i - 1) / (points.size() - 3);
-                ImU32 cornerColor = ImLerp(startColor, endColor, segmentProgress);
+                ImU32 cornerColor = ImLerpColor(startColor, endColor, segmentProgress);
 
                 ImVec2 dir1 = ImVec2(points[i].x - points[i - 1].x, points[i].y - points[i - 1].y);
                 ImVec2 dir2 = ImVec2(points[i + 1].x - points[i].x, points[i + 1].y - points[i].y);
