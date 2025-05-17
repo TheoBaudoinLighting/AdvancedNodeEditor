@@ -11,7 +11,7 @@ namespace NodeEditorCore {
     std::vector<NodeEvaluator::ConnectionInfo> NodeEditor::getInputConnections(int nodeId) {
         std::vector<NodeEvaluator::ConnectionInfo> result;
 
-        for (const auto& connection : m_state.connections) {
+        for (const auto &connection: m_state.connections) {
             if (connection.endNodeId == nodeId) {
                 NodeEvaluator::ConnectionInfo info;
                 info.connectionId = connection.id;
@@ -31,7 +31,7 @@ namespace NodeEditorCore {
         return result;
     }
 
-    std::vector<NodeEvaluator::ConnectionInfo> NodeEditor::getInputConnectionsByUUID(const UUID& nodeUuid) {
+    std::vector<NodeEvaluator::ConnectionInfo> NodeEditor::getInputConnectionsByUUID(const UUID &nodeUuid) {
         int nodeId = getNodeId(nodeUuid);
         if (nodeId == -1) return {};
         return getInputConnections(nodeId);
@@ -40,7 +40,7 @@ namespace NodeEditorCore {
     std::vector<NodeEvaluator::ConnectionInfo> NodeEditor::getOutputConnections(int nodeId) {
         std::vector<NodeEvaluator::ConnectionInfo> result;
 
-        for (const auto& connection : m_state.connections) {
+        for (const auto &connection: m_state.connections) {
             if (connection.startNodeId == nodeId) {
                 NodeEvaluator::ConnectionInfo info;
                 info.connectionId = connection.id;
@@ -60,22 +60,22 @@ namespace NodeEditorCore {
         return result;
     }
 
-    std::vector<NodeEvaluator::ConnectionInfo> NodeEditor::getOutputConnectionsByUUID(const UUID& nodeUuid) {
+    std::vector<NodeEvaluator::ConnectionInfo> NodeEditor::getOutputConnectionsByUUID(const UUID &nodeUuid) {
         int nodeId = getNodeId(nodeUuid);
         if (nodeId == -1) return {};
         return getOutputConnections(nodeId);
     }
 
-    std::vector<int> NodeEvaluator::getEvaluationOrder(NodeEditor& editor) {
+    std::vector<int> NodeEvaluator::getEvaluationOrder(NodeEditor &editor) {
         NodeEvaluator evaluator(editor);
         return evaluator.getEvaluationOrder();
     }
 
-    std::vector<UUID> NodeEvaluator::getEvaluationOrderUUIDs(NodeEditor& editor) {
+    std::vector<UUID> NodeEvaluator::getEvaluationOrderUUIDs(NodeEditor &editor) {
         std::vector<UUID> result;
         std::vector<int> order = getEvaluationOrder(editor);
 
-        for (int nodeId : order) {
+        for (int nodeId: order) {
             UUID uuid = editor.getNodeUUID(nodeId);
             if (!uuid.empty()) {
                 result.push_back(uuid);
@@ -85,10 +85,10 @@ namespace NodeEditorCore {
         return result;
     }
 
-    NodeEvaluator::Connection* NodeEvaluator::getConnection(int connectionId) {
+    NodeEvaluator::Connection *NodeEvaluator::getConnection(int connectionId) {
         static Connection result;
 
-        for (const auto& connection : m_editor.getConnections()) {
+        for (const auto &connection: m_editor.getConnections()) {
             if (connection.id == connectionId) {
                 result.id = connection.id;
                 result.startNodeId = connection.startNodeId;
@@ -112,19 +112,19 @@ namespace NodeEditorCore {
 
     std::vector<int> NodeEvaluator::getEvaluationOrder() {
         std::vector<int> result;
-        std::unordered_map<int, std::vector<int>> dependencyGraph;
+        std::unordered_map<int, std::vector<int> > dependencyGraph;
         std::unordered_map<int, int> inDegree;
 
-        const auto& allConnections = m_editor.getConnections();
+        const auto &allConnections = m_editor.getConnections();
 
-        for (const auto& connection : allConnections) {
+        for (const auto &connection: allConnections) {
             int startNodeId = connection.startNodeId;
             int endNodeId = connection.endNodeId;
 
             int currentSubgraphId = getCurrentSubgraphId();
             if (currentSubgraphId >= 0) {
-                const Node* startNode = m_editor.getNode(startNodeId);
-                const Node* endNode = m_editor.getNode(endNodeId);
+                const Node *startNode = m_editor.getNode(startNodeId);
+                const Node *endNode = m_editor.getNode(endNodeId);
 
                 if (!startNode || !endNode ||
                     !m_editor.isNodeInSubgraph(*startNode, currentSubgraphId) ||
@@ -146,7 +146,7 @@ namespace NodeEditorCore {
         }
 
         if (dependencyGraph.empty()) {
-            for (const auto& node : m_editor.getNodes()) {
+            for (const auto &node: m_editor.getNodes()) {
                 int currentSubgraphId = getCurrentSubgraphId();
                 if (currentSubgraphId >= 0 && !m_editor.isNodeInSubgraph(node, currentSubgraphId)) {
                     continue;
@@ -157,7 +157,7 @@ namespace NodeEditorCore {
                 }
 
                 if (node.name == "Input") {
-                    for (const auto& other : m_editor.getNodes()) {
+                    for (const auto &other: m_editor.getNodes()) {
                         if (currentSubgraphId >= 0 && !m_editor.isNodeInSubgraph(other, currentSubgraphId)) {
                             continue;
                         }
@@ -168,7 +168,7 @@ namespace NodeEditorCore {
                         }
                     }
                 } else if (node.name == "Process") {
-                    for (const auto& other : m_editor.getNodes()) {
+                    for (const auto &other: m_editor.getNodes()) {
                         if (currentSubgraphId >= 0 && !m_editor.isNodeInSubgraph(other, currentSubgraphId)) {
                             continue;
                         }
@@ -183,7 +183,7 @@ namespace NodeEditorCore {
         }
 
         if (dependencyGraph.empty()) {
-            for (const auto& node : m_editor.getNodes()) {
+            for (const auto &node: m_editor.getNodes()) {
                 int currentSubgraphId = getCurrentSubgraphId();
                 if (currentSubgraphId < 0 || m_editor.isNodeInSubgraph(node, currentSubgraphId)) {
                     result.push_back(node.id);
@@ -193,7 +193,7 @@ namespace NodeEditorCore {
         }
 
         std::queue<int> q;
-        for (const auto& pair : dependencyGraph) {
+        for (const auto &pair: dependencyGraph) {
             if (inDegree[pair.first] == 0) {
                 q.push(pair.first);
             }
@@ -204,7 +204,7 @@ namespace NodeEditorCore {
             q.pop();
             result.push_back(current);
 
-            for (int dependent : dependencyGraph[current]) {
+            for (int dependent: dependencyGraph[current]) {
                 if (--inDegree[dependent] == 0) {
                     q.push(dependent);
                 }
@@ -212,7 +212,7 @@ namespace NodeEditorCore {
         }
 
         std::unordered_set<int> visited(result.begin(), result.end());
-        for (const auto& pair : dependencyGraph) {
+        for (const auto &pair: dependencyGraph) {
             if (visited.find(pair.first) == visited.end()) {
                 result.push_back(pair.first);
             }

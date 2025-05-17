@@ -1,26 +1,24 @@
 #include "StyleDefinitions.h"
 
 namespace NodeEditorCore {
+    EditorStyle::EditorStyle() {
+        backgroundColor = Color(0.10f, 0.11f, 0.12f, 1.00f);
+        gridColor = Color(0.16f, 0.17f, 0.18f, 0.50f);
+        selectionColor = Color(0.00f, 0.44f, 0.80f, 0.30f);
 
-EditorStyle::EditorStyle() {
-    backgroundColor = Color(0.10f, 0.11f, 0.12f, 1.00f);
-    gridColor = Color(0.16f, 0.17f, 0.18f, 0.50f);
-    selectionColor = Color(0.00f, 0.44f, 0.80f, 0.30f);
-    
-    gridSpacing = 20.0f;
-    nodeRounding = 5.0f;
-    pinRadius = 4.0f;
-    connectionThickness = 2.5f;
-}
-
+        gridSpacing = 20.0f;
+        nodeRounding = 5.0f;
+        pinRadius = 4.0f;
+        connectionThickness = 2.5f;
+    }
 }
 
 namespace NodeEditorCore {
     NodeEditorStyle::NodeEditorStyle()
         : gridSpacing(16.0f)
-        , nodeRounding(4.0f)
-        , pinRadius(3.3f)
-        , connectionThickness(2.5f) {
+          , nodeRounding(4.0f)
+          , pinRadius(3.3f)
+          , connectionThickness(2.5f) {
         uiColors.background = Color(0.15f, 0.15f, 0.17f, 1.00f);
         uiColors.grid = Color(0.23f, 0.23f, 0.26f, 0.314f);
         uiColors.selection = Color(0.70f, 0.80f, 1.00f, 0.392f);

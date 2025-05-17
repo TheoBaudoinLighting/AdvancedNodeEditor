@@ -1,9 +1,8 @@
 #include "NodeEditor.h"
 
 namespace NodeEditorCore {
-
     std::vector<int> NodeEditor::getEvaluationOrder() const {
-        return NodeEvaluator::getEvaluationOrder(const_cast<NodeEditor&>(*this));
+        return NodeEvaluator::getEvaluationOrder(const_cast<NodeEditor &>(*this));
     }
 
 
@@ -408,8 +407,8 @@ namespace NodeEditorCore {
     void NodeEditor::enableMinimap(bool enable) {
         m_minimapManager.getConfig().interactable = enable;
         m_minimapManager.setNodePositionProvider([this]() {
-            std::vector<std::pair<Vec2, Vec2>> nodes;
-            for (const auto& node : m_state.nodes) {
+            std::vector<std::pair<Vec2, Vec2> > nodes;
+            for (const auto &node: m_state.nodes) {
                 if (isNodeInCurrentSubgraph(node)) {
                     nodes.push_back(std::make_pair(node.position, node.size));
                 }
@@ -417,7 +416,7 @@ namespace NodeEditorCore {
             return nodes;
         });
 
-        m_minimapManager.setViewportChangeCallback([this](const Vec2& newViewPos) {
+        m_minimapManager.setViewportChangeCallback([this](const Vec2 &newViewPos) {
             m_state.viewPosition = newViewPos;
             m_viewManager.setViewPosition(newViewPos);
         });
@@ -429,13 +428,13 @@ namespace NodeEditorCore {
         return m_minimapManager.getConfig().interactable;
     }
 
-    void NodeEditor::setMinimapPosition(const Vec2& position) {
+    void NodeEditor::setMinimapPosition(const Vec2 &position) {
         auto config = m_minimapManager.getConfig();
         config.position = position;
         m_minimapManager.setConfig(config);
     }
 
-    void NodeEditor::setMinimapSize(const Vec2& size) {
+    void NodeEditor::setMinimapSize(const Vec2 &size) {
         auto config = m_minimapManager.getConfig();
         config.size = size;
         m_minimapManager.setConfig(config);

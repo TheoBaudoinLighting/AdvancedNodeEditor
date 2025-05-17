@@ -276,7 +276,7 @@ namespace NodeEditorCore {
 
         bool hasNodes = false;
 
-        for (const auto& node : m_state.nodes) {
+        for (const auto &node: m_state.nodes) {
             if (!isNodeInCurrentSubgraph(node)) continue;
 
             min.x = std::min(min.x, node.position.x);

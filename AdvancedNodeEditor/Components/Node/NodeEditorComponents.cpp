@@ -2,7 +2,5 @@
 #include <algorithm>
 
 namespace NodeEditorCore {
-
-int Subgraph::nextId = 0;
-
+    int Subgraph::nextId = 0;
 }

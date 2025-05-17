@@ -78,7 +78,7 @@ namespace NodeEditorCore {
     inline ImU32 ImLerpColor(ImU32 col_a, ImU32 col_b, float t) {
         ImVec4 a = ImGui::ColorConvertU32ToFloat4(col_a);
         ImVec4 b = ImGui::ColorConvertU32ToFloat4(col_b);
-        
+
         return ImGui::ColorConvertFloat4ToU32(ImVec4(
             a.x + (b.x - a.x) * t,
             a.y + (b.y - a.y) * t,

@@ -2,7 +2,7 @@
 #include <algorithm>
 
 namespace NodeEditorCore {
-    void NodeEditor::drawConnections(ImDrawList* drawList, const ImVec2& canvasPos) {
+    void NodeEditor::drawConnections(ImDrawList *drawList, const ImVec2 &canvasPos) {
         std::vector<Connection> visibleConnections;
         int currentSubgraphId = m_state.currentSubgraphId;
 
@@ -10,32 +10,32 @@ namespace NodeEditorCore {
             std::vector<int> connectionIds = getConnectionsInSubgraph(currentSubgraphId);
             std::unordered_set<int> connectionIdSet(connectionIds.begin(), connectionIds.end());
 
-            for (const auto& connection : m_state.connections) {
+            for (const auto &connection: m_state.connections) {
                 if (connectionIdSet.find(connection.id) != connectionIdSet.end()) {
                     visibleConnections.push_back(connection);
                 }
             }
         } else {
-            for (const auto& connection : m_state.connections) {
+            for (const auto &connection: m_state.connections) {
                 if (connection.getSubgraphId() == -1) {
                     visibleConnections.push_back(connection);
                 }
             }
         }
 
-        for (const auto& connection : visibleConnections) {
-            const Node* startNode = getNode(connection.startNodeId);
-            const Node* endNode = getNode(connection.endNodeId);
+        for (const auto &connection: visibleConnections) {
+            const Node *startNode = getNode(connection.startNodeId);
+            const Node *endNode = getNode(connection.endNodeId);
 
             if (!startNode || !endNode) continue;
 
-            const Pin* apiStartPin = getPin(connection.startNodeId, connection.startPinId);
-            const Pin* apiEndPin = getPin(connection.endNodeId, connection.endPinId);
+            const Pin *apiStartPin = getPin(connection.startNodeId, connection.startPinId);
+            const Pin *apiEndPin = getPin(connection.endNodeId, connection.endPinId);
 
             if (!apiStartPin || !apiEndPin) continue;
 
-            const Pin* startPinInternal = startNode->findPin(connection.startPinId);
-            const Pin* endPinInternal = endNode->findPin(connection.endPinId);
+            const Pin *startPinInternal = startNode->findPin(connection.startPinId);
+            const Pin *endPinInternal = endNode->findPin(connection.endPinId);
 
             if (!startPinInternal || !endPinInternal) continue;
 
@@ -45,13 +45,13 @@ namespace NodeEditorCore {
             std::string startPinType = pinTypeToString(startPinInternal->type);
             std::string endPinType = pinTypeToString(endPinInternal->type);
 
-            const internal::PinColors& startPinColors = m_state.style.pinColors.count(startPinType) ?
-                                             m_state.style.pinColors.at(startPinType) :
-                                             m_state.style.pinColors.at("Default");
+            const internal::PinColors &startPinColors = m_state.style.pinColors.count(startPinType)
+                                                            ? m_state.style.pinColors.at(startPinType)
+                                                            : m_state.style.pinColors.at("Default");
 
-            const internal::PinColors& endPinColors = m_state.style.pinColors.count(endPinType) ?
-                                           m_state.style.pinColors.at(endPinType) :
-                                           m_state.style.pinColors.at("Default");
+            const internal::PinColors &endPinColors = m_state.style.pinColors.count(endPinType)
+                                                          ? m_state.style.pinColors.at(endPinType)
+                                                          : m_state.style.pinColors.at("Default");
 
             Color startCol(
                 startPinColors.connected.r,

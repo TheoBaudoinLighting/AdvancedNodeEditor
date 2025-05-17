@@ -2,7 +2,6 @@
 #define INTERACTIONMODE_H
 
 namespace NodeEditorCore {
-
     enum class InteractionMode {
         None,
         PanCanvas,
@@ -14,7 +13,6 @@ namespace NodeEditorCore {
         ResizeGroup,
         ContextMenu
     };
-
 }
 
 #endif //INTERACTIONMODE_H

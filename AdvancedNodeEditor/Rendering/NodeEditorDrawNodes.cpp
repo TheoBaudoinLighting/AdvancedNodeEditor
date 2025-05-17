@@ -151,9 +151,7 @@ namespace NodeEditorCore {
                     ImVec2(nodePos.x + nodeSize.x + glowSize, nodePos.y + nodeSize.y + glowSize),
                     enhancedGlowColor, cornerRadius + glowSize
                 );
-            }
-
-            {
+            } {
                 const float shadowOffset = 4.0f;
                 const float shadowFeather = 10.0f;
                 const ImU32 shadowColor = IM_COL32(0, 0, 0, 40);

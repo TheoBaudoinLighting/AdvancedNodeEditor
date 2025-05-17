@@ -18,8 +18,8 @@ namespace NodeEditorCore {
         int inputNodeId = addNode("Input", "Input", inputPos);
         int outputNodeId = addNode("Output", "Output", outputPos);
 
-        Node* inputNode = getNode(inputNodeId);
-        Node* outputNode = getNode(outputNodeId);
+        Node *inputNode = getNode(inputNodeId);
+        Node *outputNode = getNode(outputNodeId);
 
         if (inputNode) {
             inputNode->isProtected = true;
@@ -97,15 +97,15 @@ namespace NodeEditorCore {
         return -1;
     }
 
-    Node* NodeEditor::createSubgraphNode(int subgraphId, const std::string& name, const Vec2& position, const UUID& uuid) {
-        Subgraph* subgraph = getSubgraph(subgraphId);
+    Node *NodeEditor::createSubgraphNode(int subgraphId, const std::string &name, const Vec2 &position,
+                                         const UUID &uuid) {
+        Subgraph *subgraph = getSubgraph(subgraphId);
         if (!subgraph) {
             return nullptr;
         }
 
-        // Création du nœud représentant le subgraph
         int nodeId = addNode(name, "Subgraph", position, uuid);
-        Node* node = getNode(nodeId);
+        Node *node = getNode(nodeId);
 
         if (!node) {
             return nullptr;
@@ -115,31 +115,25 @@ namespace NodeEditorCore {
         node->subgraphId = subgraphId;
         node->subgraphUuid = subgraph->uuid;
 
-        // Récupérer les nœuds Input et Output du subgraph
         int inputNodeId = subgraph->metadata.getAttribute<int>("inputNodeId", -1);
         int outputNodeId = subgraph->metadata.getAttribute<int>("outputNodeId", -1);
 
-        Node* inputNode = getNode(inputNodeId);
-        Node* outputNode = getNode(outputNodeId);
+        Node *inputNode = getNode(inputNodeId);
+        Node *outputNode = getNode(outputNodeId);
 
-        // Si les nœuds input/output existent, créer les pins correspondants sur le nœud du subgraph
         if (inputNode) {
-            for (const auto& pin : inputNode->outputs) {
-                // Créer un pin d'entrée correspondant sur le nœud du subgraph
+            for (const auto &pin: inputNode->outputs) {
                 int newPinId = addPin(node->id, pin.name, true, static_cast<PinType>(pin.type));
 
-                // Stocker la relation entre le pin du subgraph et le pin du nœud input
                 int interfaceId = (inputNodeId << 16) | pin.id;
                 subgraph->interfaceInputs.push_back(interfaceId);
             }
         }
 
         if (outputNode) {
-            for (const auto& pin : outputNode->inputs) {
-                // Créer un pin de sortie correspondant sur le nœud du subgraph
+            for (const auto &pin: outputNode->inputs) {
                 int newPinId = addPin(node->id, pin.name, false, static_cast<PinType>(pin.type));
 
-                // Stocker la relation entre le pin du subgraph et le pin du nœud output
                 int interfaceId = (outputNodeId << 16) | pin.id;
                 subgraph->interfaceOutputs.push_back(interfaceId);
             }
@@ -196,6 +190,7 @@ namespace NodeEditorCore {
         if (it == m_subgraphs.end()) return;
 
         Subgraph *subgraph = it->second.get();
+
         Node *node = getNode(nodeId);
         if (!node) return;
 
@@ -408,27 +403,23 @@ namespace NodeEditorCore {
     void NodeEditor::debugSubgraph(int subgraphId) {
     }
 
-    // Nouvelle méthode pour ajouter un pin au nœud Input dans un subgraph
-    int NodeEditor::addInputPinToSubgraph(int subgraphId, const std::string& name, PinType type) {
-        Subgraph* subgraph = getSubgraph(subgraphId);
+    int NodeEditor::addInputPinToSubgraph(int subgraphId, const std::string &name, PinType type) {
+        Subgraph *subgraph = getSubgraph(subgraphId);
         if (!subgraph) return -1;
 
         int inputNodeId = subgraph->metadata.getAttribute<int>("inputNodeId", -1);
         if (inputNodeId == -1) return -1;
 
-        Node* inputNode = getNode(inputNodeId);
+        Node *inputNode = getNode(inputNodeId);
         if (!inputNode) return -1;
 
-        // Ajouter un pin de sortie au nœud Input
         int pinId = addPin(inputNodeId, name, false, type);
         if (pinId == -1) return -1;
 
-        // Mettre à jour les interfaces du subgraph
         int interfaceId = (inputNodeId << 16) | pinId;
         subgraph->interfaceInputs.push_back(interfaceId);
 
-        // Si un nœud de subgraph existe déjà dans le parent, mettre à jour ses pins
-        for (const auto& node : m_state.nodes) {
+        for (const auto &node: m_state.nodes) {
             if (node.isSubgraph && node.subgraphId == subgraphId) {
                 addPin(node.id, name, true, type);
             }
@@ -437,27 +428,23 @@ namespace NodeEditorCore {
         return pinId;
     }
 
-    // Nouvelle méthode pour ajouter un pin au nœud Output dans un subgraph
-    int NodeEditor::addOutputPinToSubgraph(int subgraphId, const std::string& name, PinType type) {
-        Subgraph* subgraph = getSubgraph(subgraphId);
+    int NodeEditor::addOutputPinToSubgraph(int subgraphId, const std::string &name, PinType type) {
+        Subgraph *subgraph = getSubgraph(subgraphId);
         if (!subgraph) return -1;
 
         int outputNodeId = subgraph->metadata.getAttribute<int>("outputNodeId", -1);
         if (outputNodeId == -1) return -1;
 
-        Node* outputNode = getNode(outputNodeId);
+        Node *outputNode = getNode(outputNodeId);
         if (!outputNode) return -1;
 
-        // Ajouter un pin d'entrée au nœud Output
         int pinId = addPin(outputNodeId, name, true, type);
         if (pinId == -1) return -1;
 
-        // Mettre à jour les interfaces du subgraph
         int interfaceId = (outputNodeId << 16) | pinId;
         subgraph->interfaceOutputs.push_back(interfaceId);
 
-        // Si un nœud de subgraph existe déjà dans le parent, mettre à jour ses pins
-        for (const auto& node : m_state.nodes) {
+        for (const auto &node: m_state.nodes) {
             if (node.isSubgraph && node.subgraphId == subgraphId) {
                 addPin(node.id, name, false, type);
             }
@@ -471,44 +458,35 @@ namespace NodeEditorCore {
         auto it = m_subgraphs.find(subgraphId);
         if (it == m_subgraphs.end()) return;
 
-        Subgraph* subgraph = it->second.get();
-        Node* subgraphNode = getNode(subgraphNodeId);
+        Subgraph *subgraph = it->second.get();
+        Node *subgraphNode = getNode(subgraphNodeId);
         if (!subgraphNode) return;
 
-        // Récupérer les nœuds Input et Output
         int inputNodeId = subgraph->metadata.getAttribute<int>("inputNodeId", -1);
         int outputNodeId = subgraph->metadata.getAttribute<int>("outputNodeId", -1);
 
-        Node* inputNode = getNode(inputNodeId);
-        Node* outputNode = getNode(outputNodeId);
+        Node *inputNode = getNode(inputNodeId);
+        Node *outputNode = getNode(outputNodeId);
 
         if (!inputNode || !outputNode) return;
 
-        // Parcourir toutes les connexions vers le nœud subgraph
-        for (const auto& conn : m_state.connections) {
-            // Si c'est une connexion vers une entrée du nœud subgraph
+        for (const auto &conn: m_state.connections) {
             if (conn.endNodeId == subgraphNodeId) {
-                Pin* subgraphPin = subgraphNode->findPin(conn.endPinId);
+                Pin *subgraphPin = subgraphNode->findPin(conn.endPinId);
                 if (!subgraphPin) continue;
 
-                // Trouver le pin correspondant sur le nœud Input
-                for (auto& pin : inputNode->outputs) {
+                for (auto &pin: inputNode->outputs) {
                     if (pin.name == subgraphPin->name) {
-                        // Créer une connexion vers le pin de sortie du nœud Input
                         addConnection(conn.startNodeId, conn.startPinId, inputNodeId, pin.id);
                         break;
                     }
                 }
-            }
-            // Si c'est une connexion depuis une sortie du nœud subgraph
-            else if (conn.startNodeId == subgraphNodeId) {
-                Pin* subgraphPin = subgraphNode->findPin(conn.startPinId);
+            } else if (conn.startNodeId == subgraphNodeId) {
+                Pin *subgraphPin = subgraphNode->findPin(conn.startPinId);
                 if (!subgraphPin) continue;
 
-                // Trouver le pin correspondant sur le nœud Output
-                for (auto& pin : outputNode->inputs) {
+                for (auto &pin: outputNode->inputs) {
                     if (pin.name == subgraphPin->name) {
-                        // Créer une connexion depuis le pin d'entrée du nœud Output
                         addConnection(outputNodeId, pin.id, conn.endNodeId, conn.endPinId);
                         break;
                     }
@@ -518,26 +496,26 @@ namespace NodeEditorCore {
     }
 
     void NodeEditor::handleSubgraphConnections(int connectionId) {
-        Connection* connection = getConnection(connectionId);
+        Connection *connection = getConnection(connectionId);
         if (!connection) return;
 
-        Node* startNode = getNode(connection->startNodeId);
-        Node* endNode = getNode(connection->endNodeId);
+        Node *startNode = getNode(connection->startNodeId);
+        Node *endNode = getNode(connection->endNodeId);
 
         if (!startNode || !endNode) return;
 
         if (endNode->isSubgraph) {
-            Pin* endPin = endNode->findPin(connection->endPinId);
+            Pin *endPin = endNode->findPin(connection->endPinId);
             if (!endPin) return;
 
-            Subgraph* subgraph = getSubgraph(endNode->subgraphId);
+            Subgraph *subgraph = getSubgraph(endNode->subgraphId);
             if (!subgraph) return;
 
             int inputNodeId = subgraph->metadata.getAttribute<int>("inputNodeId", -1);
-            Node* inputNode = getNode(inputNodeId);
+            Node *inputNode = getNode(inputNodeId);
             if (!inputNode) return;
 
-            for (auto& pin : inputNode->outputs) {
+            for (auto &pin: inputNode->outputs) {
                 if (pin.name == endPin->name) {
                     addConnectionToSubgraph(
                         addConnection(connection->startNodeId, connection->startPinId, inputNodeId, pin.id),
@@ -546,19 +524,18 @@ namespace NodeEditorCore {
                     break;
                 }
             }
-        }
-        else if (startNode->isSubgraph) {
-            Pin* startPin = startNode->findPin(connection->startPinId);
+        } else if (startNode->isSubgraph) {
+            Pin *startPin = startNode->findPin(connection->startPinId);
             if (!startPin) return;
 
-            Subgraph* subgraph = getSubgraph(startNode->subgraphId);
+            Subgraph *subgraph = getSubgraph(startNode->subgraphId);
             if (!subgraph) return;
 
             int outputNodeId = subgraph->metadata.getAttribute<int>("outputNodeId", -1);
-            Node* outputNode = getNode(outputNodeId);
+            Node *outputNode = getNode(outputNodeId);
             if (!outputNode) return;
 
-            for (auto& pin : outputNode->inputs) {
+            for (auto &pin: outputNode->inputs) {
                 if (pin.name == startPin->name) {
                     addConnectionToSubgraph(
                         addConnection(outputNodeId, pin.id, connection->endNodeId, connection->endPinId),

@@ -37,17 +37,22 @@ namespace NodeEditorCore {
             int endPinId;
         };
 
-        NodeEvaluator(NodeEditorCore::NodeEditor& editor) : m_editor(editor) {}
+        NodeEvaluator(NodeEditorCore::NodeEditor &editor) : m_editor(editor) {
+        }
 
         std::vector<int> getEvaluationOrder();
 
-        static std::vector<int> getEvaluationOrder(NodeEditor& editor);
-        static std::vector<UUID> getEvaluationOrderUUIDs(NodeEditor& editor);
+        static std::vector<int> getEvaluationOrder(NodeEditor &editor);
+
+        static std::vector<UUID> getEvaluationOrderUUIDs(NodeEditor &editor);
 
     private:
-        NodeEditorCore::NodeEditor& m_editor;
-        Connection* getConnection(int connectionId);
+        NodeEditorCore::NodeEditor &m_editor;
+
+        Connection *getConnection(int connectionId);
+
         int getCurrentSubgraphId() const;
+
         bool isConnectionInSubgraph(int connectionId, int subgraphId) const;
     };
 }

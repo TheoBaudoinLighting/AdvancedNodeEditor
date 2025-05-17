@@ -2,18 +2,18 @@
 #include <algorithm>
 
 namespace NodeEditorCore {
-    void NodeEditor::drawGroups(ImDrawList* drawList, const ImVec2& canvasPos) {
+    void NodeEditor::drawGroups(ImDrawList *drawList, const ImVec2 &canvasPos) {
         std::vector<Group> visibleGroups;
         int currentSubgraphId = m_state.currentSubgraphId;
 
-        for (const auto& group : m_state.groups) {
+        for (const auto &group: m_state.groups) {
             if ((currentSubgraphId == -1 && group.getSubgraphId() == -1) ||
                 (currentSubgraphId >= 0 && group.getSubgraphId() == currentSubgraphId)) {
                 visibleGroups.push_back(group);
-                }
+            }
         }
 
-        for (const auto& group : visibleGroups) {
+        for (const auto &group: visibleGroups) {
             ImVec2 groupPos = canvasToScreen(group.position).toImVec2();
             ImVec2 groupSize = Vec2(group.size.x * m_state.viewScale, group.size.y * m_state.viewScale).toImVec2();
 
