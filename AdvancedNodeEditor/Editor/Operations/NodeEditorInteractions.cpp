@@ -5,109 +5,95 @@
 
 namespace NodeEditorCore {
     void NodeEditor::processInteraction() {
-        ImVec2 mousePos = ImGui::GetMousePos();
-        ImVec2 canvasPos = ImGui::GetCursorScreenPos();
+    ImVec2 mousePos = ImGui::GetMousePos();
+    ImVec2 canvasPos = ImGui::GetCursorScreenPos();
 
-        // Gestion des événements de souris
-        bool isMouseDoubleClicked = ImGui::IsMouseDoubleClicked(0);
-        bool isMouseClicked = ImGui::IsMouseClicked(0);
-        bool isMouseReleased = ImGui::IsMouseReleased(0);
-        bool isMouseDragging = ImGui::IsMouseDragging(0);
-        bool isMiddleMousePressed = ImGui::IsMouseDown(2);
+    bool isMouseDoubleClicked = ImGui::IsMouseDoubleClicked(0);
+    bool isMouseClicked = ImGui::IsMouseClicked(0);
+    bool isMouseReleased = ImGui::IsMouseReleased(0);
+    bool isMouseDragging = ImGui::IsMouseDragging(0);
+    bool isMiddleMousePressed = ImGui::IsMouseDown(2);
 
-        // Mise à jour des éléments survolés avant toute interaction
-        updateHoveredElements(mousePos);
+    updateHoveredElements(mousePos);
 
-        // Gestion du double-clic sur les nœuds pour entrer/sortir des subgraphs
-        if (isMouseDoubleClicked && m_state.hoveredNodeId >= 0) {
-            Node* node = getNode(m_state.hoveredNodeId);
-            if (node && node->isSubgraph) {
-                // Double-clic sur un nœud subgraph: entrer dans le subgraph
-                enterSubgraph(node->subgraphId);
-                return;
-            } else if (node && m_state.currentSubgraphId >= 0) {
-                // Dans un subgraph, vérifier si on a cliqué sur les nœuds Input/Output
-                Subgraph* subgraph = getSubgraph(m_state.currentSubgraphId);
-                if (subgraph) {
-                    int inputNodeId = subgraph->metadata.getAttribute<int>("inputNodeId", -1);
-                    int outputNodeId = subgraph->metadata.getAttribute<int>("outputNodeId", -1);
-                    if (node->id == inputNodeId || node->id == outputNodeId) {
-                        // Double-clic sur le nœud d'entrée ou de sortie: sortir du subgraph
-                        exitSubgraph();
-                        return;
-                    }
-                }
-            }
-        }
-
-        // Gestion du déplacement de la vue avec le bouton du milieu
-        if (isMiddleMousePressed) {
-            if (!m_state.dragging) {
-                m_state.dragging = true;
-                m_state.dragOffset = Vec2(mousePos.x, mousePos.y);
-                ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeAll);
-            } else {
-                float dx = mousePos.x - m_state.dragOffset.x;
-                float dy = mousePos.y - m_state.dragOffset.y;
-                m_state.viewPosition.x += dx;
-                m_state.viewPosition.y += dy;
-                m_state.dragOffset = Vec2(mousePos.x, mousePos.y);
-            }
+    if (isMouseDoubleClicked && m_state.hoveredNodeId >= 0) {
+        Node* node = getNode(m_state.hoveredNodeId);
+        if (node && node->isSubgraph) {
+            enterSubgraph(node->subgraphId);
             return;
-        } else if (m_state.dragging && !isMiddleMousePressed) {
-            m_state.dragging = false;
-            ImGui::SetMouseCursor(ImGuiMouseCursor_Arrow);
-        }
-
-        // Traitement des clics et sélections
-        if (isMouseClicked) {
-            // Priorité aux pins et aux nœuds
-            if (m_state.hoveredPinId >= 0 && m_state.hoveredNodeId >= 0) {
-                // Commencer une connexion à partir d'un pin
-                startConnectionDrag(m_state.hoveredNodeId, m_state.hoveredPinId);
-            } else if (m_state.hoveredNodeId >= 0) {
-                // Sélectionner ou déplacer un nœud
-                Node* node = getNode(m_state.hoveredNodeId);
-                if (node) {
-                    selectNode(m_state.hoveredNodeId, ImGui::GetIO().KeyCtrl);
-                    startNodeDrag(m_state.hoveredNodeId, mousePos);
-                }
-            } else if (m_state.hoveredConnectionId >= 0) {
-                // Sélectionner une connexion
-                selectConnection(m_state.hoveredConnectionId, ImGui::GetIO().KeyCtrl);
-            } else if (m_state.hoveredGroupId >= 0) {
-                // Interagir avec un groupe
-                startGroupInteraction(mousePos);
-            } else {
-                // Clic sur le canevas vide - sélection en boîte ou désélection
-                startBoxSelect(mousePos);
-                if (!ImGui::GetIO().KeyCtrl) {
-                    deselectAllNodes();
-                    deselectAllConnections();
+        } else if (node && m_state.currentSubgraphId >= 0) {
+            Subgraph* subgraph = getSubgraph(m_state.currentSubgraphId);
+            if (subgraph) {
+                int inputNodeId = subgraph->metadata.getAttribute<int>("inputNodeId", -1);
+                int outputNodeId = subgraph->metadata.getAttribute<int>("outputNodeId", -1);
+                if (node->id == inputNodeId || node->id == outputNodeId) {
+                    exitSubgraph();
+                    return;
                 }
             }
         }
+    }
 
-        // Mise à jour de l'interaction en cours
-        if (m_state.interactionMode != InteractionMode::None) {
-            if (isMouseDragging) {
-                updateCurrentInteraction(mousePos);
+    if (isMiddleMousePressed) {
+        if (!m_state.dragging) {
+            m_state.dragging = true;
+            m_state.dragOffset = Vec2(mousePos.x, mousePos.y);
+            ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeAll);
+        } else {
+            float dx = mousePos.x - m_state.dragOffset.x;
+            float dy = mousePos.y - m_state.dragOffset.y;
+            m_state.viewPosition.x += dx;
+            m_state.viewPosition.y += dy;
+            m_state.dragOffset = Vec2(mousePos.x, mousePos.y);
+        }
+        return;
+    } else if (m_state.dragging && !isMiddleMousePressed) {
+        m_state.dragging = false;
+        ImGui::SetMouseCursor(ImGuiMouseCursor_Arrow);
+    }
+
+    if (isMouseClicked) {
+        if (m_state.hoveredPinId >= 0 && m_state.hoveredNodeId >= 0) {
+            startConnectionDrag(m_state.hoveredNodeId, m_state.hoveredPinId);
+        } else if (m_state.hoveredNodeId >= 0) {
+            Node* node = getNode(m_state.hoveredNodeId);
+            if (node) {
+                selectNode(m_state.hoveredNodeId, ImGui::GetIO().KeyCtrl);
+                startNodeDrag(m_state.hoveredNodeId, mousePos);
             }
-
-            if (isMouseReleased) {
-                endCurrentInteraction();
+        } else if (m_state.hoveredConnectionId >= 0) {
+            selectConnection(m_state.hoveredConnectionId, ImGui::GetIO().KeyCtrl);
+        } else if (m_state.hoveredGroupId >= 0) {
+            startGroupInteraction(mousePos);
+        } else {
+            startBoxSelect(mousePos);
+            if (!ImGui::GetIO().KeyCtrl) {
+                deselectAllNodes();
+                deselectAllConnections();
             }
         }
+    }
 
-        // Gestion du zoom, de la suppression, etc.
-        processZoom(mousePos);
-        processDeleteKeyPress();
+    if (m_state.interactionMode != InteractionMode::None) {
+        if (isMouseDragging) {
+            updateCurrentInteraction(mousePos);
+        }
 
-        if (ImGui::IsKeyPressed(ImGuiKey_Escape)) {
-            // Annuler l'interaction en cours
+        if (isMouseReleased) {
             endCurrentInteraction();
         }
     }
+
+    processZoom(mousePos);
+
+    if (ImGui::IsKeyPressed(ImGuiKey_Delete) || ImGui::IsKeyPressed(ImGuiKey_Backspace)) {
+        processDeleteKeyPress();
+    }
+
+    if (ImGui::IsKeyPressed(ImGuiKey_Escape)) {
+        endCurrentInteraction();
+    }
+}
 
     void NodeEditor::updateCurrentInteraction(const ImVec2 &mousePos) {
         switch (m_state.interactionMode) {
@@ -142,10 +128,8 @@ namespace NodeEditorCore {
         ImVec2 mousePos = ImGui::GetMousePos();
         Vec2 mouseDelta = Vec2(mousePos.x - m_state.dragStart.x, mousePos.y - m_state.dragStart.y);
 
-        // Convertir le delta de l'espace écran à l'espace canevas
         Vec2 scaledDelta = Vec2(mouseDelta.x / m_state.viewScale, mouseDelta.y / m_state.viewScale);
 
-        // Mettre à jour la position de tous les nœuds sélectionnés
         for (auto& node : m_state.nodes) {
             if (node.selected) {
                 auto it = m_state.draggedNodePositions.find(node.id);
@@ -273,7 +257,6 @@ namespace NodeEditorCore {
     }
 
     void NodeEditor::updateHoveredElements(const ImVec2& mousePos) {
-        // Réinitialisation des éléments survolés
         m_state.hoveredNodeId = -1;
         m_state.hoveredNodeUuid = "";
         m_state.hoveredPinId = -1;
@@ -285,7 +268,6 @@ namespace NodeEditorCore {
 
         ImVec2 canvasPos = ImGui::GetCursorScreenPos();
 
-        // Recherche des connexions survolées
         for (const auto& connection : m_state.connections) {
             if (!isNodeInCurrentSubgraph(*getNode(connection.startNodeId)) ||
                 !isNodeInCurrentSubgraph(*getNode(connection.endNodeId))) {
@@ -299,14 +281,12 @@ namespace NodeEditorCore {
             }
         }
 
-        // Recherche des nœuds et pins survolés
         for (const auto& node : m_state.nodes) {
             if (!isNodeInCurrentSubgraph(node)) continue;
 
             ImVec2 nodePos = canvasToScreen(node.position).toImVec2();
             ImVec2 nodeSize = Vec2(node.size.x * m_state.viewScale, node.size.y * m_state.viewScale).toImVec2();
 
-            // Vérifier si la souris est sur un pin
             for (const auto& pin : node.inputs) {
                 Pin apiPin;
                 apiPin.id = pin.id;
@@ -341,7 +321,6 @@ namespace NodeEditorCore {
                 }
             }
 
-            // Vérifier si la souris est sur le nœud
             if (isPointInRect(mousePos, nodePos, ImVec2(nodePos.x + nodeSize.x, nodePos.y + nodeSize.y))) {
                 m_state.hoveredNodeId = node.id;
                 m_state.hoveredNodeUuid = node.uuid;
@@ -349,7 +328,6 @@ namespace NodeEditorCore {
             }
         }
 
-        // Recherche des groupes survolés
         for (const auto& group : m_state.groups) {
             if ((m_state.currentSubgraphId == -1 && group.getSubgraphId() == -1) ||
                 (m_state.currentSubgraphId >= 0 && group.getSubgraphId() == m_state.currentSubgraphId)) {
@@ -550,81 +528,83 @@ namespace NodeEditorCore {
     }
 
     void NodeEditor::processConnectionCreation() {
-        if (!m_state.connecting || m_state.connectingNodeId == -1 || m_state.connectingPinId == -1) return;
+    if (!m_state.connecting || m_state.connectingNodeId == -1 || m_state.connectingPinId == -1) return;
 
-        ImVec2 mousePos = ImGui::GetMousePos();
+    ImVec2 mousePos = ImGui::GetMousePos();
 
-        const Node *sourceNode = getNode(m_state.connectingNodeId);
-        if (!sourceNode) return;
+    const Node *sourceNode = getNode(m_state.connectingNodeId);
+    if (!sourceNode) return;
 
-        const Pin *sourcePinInternal = sourceNode->findPin(m_state.connectingPinId);
-        if (!sourcePinInternal) return;
+    const Pin *sourcePinInternal = sourceNode->findPin(m_state.connectingPinId);
+    if (!sourcePinInternal) return;
 
-        bool isSourceInput = sourcePinInternal->isInput;
+    bool isSourceInput = sourcePinInternal->isInput;
 
-        m_state.magnetPinNodeId = -1;
-        m_state.magnetPinId = -1;
-        m_state.magnetPinNodeUuid = "";
-        m_state.magnetPinUuid = "";
-        m_state.canConnectToMagnetPin = true;
+    m_state.magnetPinNodeId = -1;
+    m_state.magnetPinId = -1;
+    m_state.magnetPinNodeUuid = "";
+    m_state.magnetPinUuid = "";
+    m_state.canConnectToMagnetPin = true;
 
-        float closestDist = m_state.magnetThreshold * m_state.magnetThreshold;
+    float closestDist = m_state.magnetThreshold * m_state.magnetThreshold;
 
-        for (const auto &node: m_state.nodes) {
-            if (node.id == m_state.connectingNodeId) continue;
+    for (const auto &node: m_state.nodes) {
+        if (node.id == m_state.connectingNodeId) continue;
 
-            const auto &pins = isSourceInput ? node.outputs : node.inputs;
+        if (!isNodeInCurrentSubgraph(node)) continue;
 
-            for (const auto &pinInternal: pins) {
-                Pin apiPin;
-                apiPin.id = pinInternal.id;
-                apiPin.name = pinInternal.name;
-                apiPin.isInput = pinInternal.isInput;
-                apiPin.type = static_cast<PinType>(pinInternal.type);
-                apiPin.shape = static_cast<PinShape>(pinInternal.shape);
+        const auto &pins = isSourceInput ? node.outputs : node.inputs;
 
-                ImVec2 pinPos = getPinPos(node, apiPin, ImGui::GetWindowPos());
-                float dx = mousePos.x - pinPos.x;
-                float dy = mousePos.y - pinPos.y;
-                float dist = dx * dx + dy * dy;
+        for (const auto &pinInternal: pins) {
+            Pin apiPin;
+            apiPin.id = pinInternal.id;
+            apiPin.name = pinInternal.name;
+            apiPin.isInput = pinInternal.isInput;
+            apiPin.type = static_cast<PinType>(pinInternal.type);
+            apiPin.shape = static_cast<PinShape>(pinInternal.shape);
 
-                if (dist < closestDist) {
-                    Pin sourceApiPin;
-                    sourceApiPin.id = sourcePinInternal->id;
-                    sourceApiPin.name = sourcePinInternal->name;
-                    sourceApiPin.isInput = sourcePinInternal->isInput;
-                    sourceApiPin.type = static_cast<PinType>(sourcePinInternal->type);
-                    sourceApiPin.shape = static_cast<PinShape>(sourcePinInternal->shape);
+            ImVec2 pinPos = getPinPos(node, apiPin, ImGui::GetWindowPos());
+            float dx = mousePos.x - pinPos.x;
+            float dy = mousePos.y - pinPos.y;
+            float dist = dx * dx + dy * dy;
 
-                    bool canConnect = canCreateConnection(isSourceInput ? apiPin : sourceApiPin,
-                                                          isSourceInput ? sourceApiPin : apiPin);
+            if (dist < closestDist) {
+                Pin sourceApiPin;
+                sourceApiPin.id = sourcePinInternal->id;
+                sourceApiPin.name = sourcePinInternal->name;
+                sourceApiPin.isInput = sourcePinInternal->isInput;
+                sourceApiPin.type = static_cast<PinType>(sourcePinInternal->type);
+                sourceApiPin.shape = static_cast<PinShape>(sourcePinInternal->shape);
 
-                    m_state.magnetPinNodeId = node.id;
-                    m_state.magnetPinId = pinInternal.id;
-                    m_state.magnetPinNodeUuid = node.uuid;
-                    m_state.magnetPinUuid = pinInternal.uuid;
-                    m_state.canConnectToMagnetPin = canConnect;
-                    closestDist = dist;
-                }
+                bool canConnect = canCreateConnection(isSourceInput ? apiPin : sourceApiPin,
+                                                      isSourceInput ? sourceApiPin : apiPin);
+
+                m_state.magnetPinNodeId = node.id;
+                m_state.magnetPinId = pinInternal.id;
+                m_state.magnetPinNodeUuid = node.uuid;
+                m_state.magnetPinUuid = pinInternal.uuid;
+                m_state.canConnectToMagnetPin = canConnect;
+                closestDist = dist;
             }
-        }
-
-        if (ImGui::IsMouseReleased(ImGuiMouseButton_Left)) {
-            if (m_state.magnetPinNodeId != -1 && m_state.canConnectToMagnetPin) {
-                if (isSourceInput) {
-                    createConnection(m_state.magnetPinNodeId, m_state.magnetPinId,
-                                     m_state.connectingNodeId, m_state.connectingPinId);
-                } else {
-                    createConnection(m_state.connectingNodeId, m_state.connectingPinId,
-                                     m_state.magnetPinNodeId, m_state.magnetPinId);
-                }
-            }
-
-            m_state.connecting = false;
-            m_state.connectingNodeId = -1;
-            m_state.connectingPinId = -1;
         }
     }
+
+    if (ImGui::IsMouseReleased(ImGuiMouseButton_Left)) {
+        if (m_state.magnetPinNodeId != -1 && m_state.canConnectToMagnetPin) {
+            if (isSourceInput) {
+                addConnection(m_state.magnetPinNodeId, m_state.magnetPinId,
+                             m_state.connectingNodeId, m_state.connectingPinId);
+            } else {
+                addConnection(m_state.connectingNodeId, m_state.connectingPinId,
+                             m_state.magnetPinNodeId, m_state.magnetPinId);
+            }
+        }
+
+        m_state.connecting = false;
+        m_state.connectingNodeId = -1;
+        m_state.connectingPinId = -1;
+    }
+}
 
     ImVec2 NodeEditor::getPinPos(const Node &node, const Pin &pin, const ImVec2 &canvasPos) const {
         ImVec2 nodePos = canvasToScreen(node.position).toImVec2();
@@ -635,7 +615,6 @@ namespace NodeEditorCore {
 
         if (pin.isInput) {
             int pinIndex = -1;
-
             for (size_t i = 0; i < node.inputs.size(); ++i) {
                 if (node.inputs[i].id == pin.id) {
                     pinIndex = static_cast<int>(i);
@@ -651,7 +630,6 @@ namespace NodeEditorCore {
             return ImVec2(pinX, pinY);
         } else {
             int pinIndex = -1;
-
             for (size_t i = 0; i < node.outputs.size(); ++i) {
                 if (node.outputs[i].id == pin.id) {
                     pinIndex = static_cast<int>(i);
@@ -773,39 +751,30 @@ namespace NodeEditorCore {
     void NodeEditor::processZoom(const ImVec2& mousePos) {
         float zoom = ImGui::GetIO().MouseWheel;
 
-        // Ne rien faire si pas de zoom détecté
         if (std::abs(zoom) < 0.01f) return;
 
-        // Calculer le point de zoom dans l'espace du canevas
         Vec2 canvasPos = screenToCanvas(Vec2(mousePos.x, mousePos.y));
 
-        // Facteur de zoom - plus petit pour un contrôle plus fin
         float zoomFactor = 1.1f;
         float newScale = m_state.viewScale;
 
         if (zoom > 0) {
-            // Zoom in
             newScale *= zoomFactor;
         } else {
-            // Zoom out
             newScale /= zoomFactor;
         }
 
-        // Limiter l'échelle de zoom
         newScale = std::max(0.1f, std::min(newScale, 3.0f));
 
-        // Ajuster la position de la vue pour maintenir le point de zoom fixe
         float scaleRatio = newScale / m_state.viewScale;
         Vec2 newViewPos = Vec2(
             mousePos.x - (mousePos.x - m_state.viewPosition.x) * scaleRatio,
             mousePos.y - (mousePos.y - m_state.viewPosition.y) * scaleRatio
         );
 
-        // Mettre à jour l'état
         m_state.viewScale = newScale;
         m_state.viewPosition = newViewPos;
 
-        // Mettre à jour le gestionnaire de vue pour qu'il soit synchronisé
         m_viewManager.setViewScale(newScale);
         m_viewManager.setViewPosition(newViewPos);
     }

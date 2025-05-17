@@ -132,15 +132,16 @@ namespace NodeEditorCore {
             return false;
         }
 
+        const Pin &outputPin = startPin.isInput ? endPin : startPin;
+        const Pin &inputPin = startPin.isInput ? startPin : endPin;
+
         if (m_state.canConnectCallback) {
-            const Pin &outputPin = startPin.isInput ? endPin : startPin;
-            const Pin &inputPin = startPin.isInput ? startPin : endPin;
             return m_state.canConnectCallback(outputPin, inputPin);
         }
 
-        return static_cast<PinType>(startPin.type) == static_cast<PinType>(endPin.type) ||
-               static_cast<PinType>(startPin.type) == PinType::Blue ||
-               static_cast<PinType>(endPin.type) == PinType::Blue;
+        return static_cast<PinType>(outputPin.type) == static_cast<PinType>(inputPin.type) ||
+               static_cast<PinType>(outputPin.type) == PinType::Blue ||
+               static_cast<PinType>(inputPin.type) == PinType::Blue;
     }
 
     int NodeEditor::addConnection(int startNodeId, int startPinId, int endNodeId, int endPinId, const UUID &uuid) {
@@ -172,6 +173,10 @@ namespace NodeEditorCore {
             return -1;
         }
 
+        if (!canCreateConnection(*startPinInternal, *endPinInternal)) {
+            return -1;
+        }
+
         int connectionId = m_state.nextConnectionId++;
         Connection connection(connectionId, startNodeId, startPinId, endNodeId, endPinId);
         connection.uuid = uuid.empty() ? generateUUID() : uuid;
@@ -180,7 +185,6 @@ namespace NodeEditorCore {
         connection.endNodeUuid = endNode->uuid;
         connection.endPinUuid = endPinInternal->uuid;
 
-        // Assigner automatiquement la connexion au subgraph si les deux nœuds font partie du même subgraph
         if (startNode->getSubgraphId() == endNode->getSubgraphId() && startNode->getSubgraphId() >= 0) {
             connection.subgraphId = startNode->getSubgraphId();
         } else {
@@ -196,6 +200,13 @@ namespace NodeEditorCore {
 
         if (m_state.connectionCreatedCallback) {
             m_state.connectionCreatedCallback(connectionId, connection.uuid);
+        }
+
+        if (m_state.currentSubgraphId >= 0) {
+            if (startNode->getSubgraphId() == m_state.currentSubgraphId &&
+                endNode->getSubgraphId() == m_state.currentSubgraphId) {
+                addConnectionToSubgraph(connectionId, m_state.currentSubgraphId);
+            }
         }
 
         return connectionId;
