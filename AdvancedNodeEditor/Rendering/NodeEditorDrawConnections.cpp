@@ -6,9 +6,6 @@ namespace NodeEditorCore {
         std::vector<Connection> visibleConnections;
         int currentSubgraphId = m_state.currentSubgraphId;
 
-        drawList->AddText(ImVec2(10, 290), IM_COL32(255, 0, 0, 255),
-                          ("Connexions totales: " + std::to_string(m_state.connections.size())).c_str());
-
         for (const auto &connection: m_state.connections) {
             const Node *startNode = getNode(connection.startNodeId);
             const Node *endNode = getNode(connection.endNodeId);
@@ -25,9 +22,6 @@ namespace NodeEditorCore {
                 visibleConnections.push_back(connection);
             }
         }
-
-        drawList->AddText(ImVec2(10, 310), IM_COL32(255, 0, 0, 255),
-                          ("Connexions visibles: " + std::to_string(visibleConnections.size())).c_str());
 
         for (const auto &connection: visibleConnections) {
             const Node *startNode = getNode(connection.startNodeId);
@@ -47,9 +41,6 @@ namespace NodeEditorCore {
 
             ImVec2 p1 = getPinPos(*startNode, *apiStartPin, canvasPos);
             ImVec2 p2 = getPinPos(*endNode, *apiEndPin, canvasPos);
-
-            drawList->AddText(p1, IM_COL32(255, 0, 0, 255), "S");
-            drawList->AddText(p2, IM_COL32(255, 0, 0, 255), "E");
 
             std::string startPinType = pinTypeToString(startPinInternal->type);
             std::string endPinType = pinTypeToString(endPinInternal->type);
@@ -76,7 +67,7 @@ namespace NodeEditorCore {
                 endPinColors.connected.a * 0.8f
             );
 
-            drawList->AddLine(p1, p2, IM_COL32(255, 0, 0, 100), 1.0f);
+            auto& connAnimState = m_animationManager.getConnectionAnimationState(connection.id);
 
             m_connectionStyleManager.drawConnection(
                 drawList, p1, p2,
@@ -84,6 +75,56 @@ namespace NodeEditorCore {
                 connection.selected, m_state.hoveredConnectionId == connection.id,
                 startCol, endCol, m_state.viewScale
             );
+
+            if (connAnimState.flowAnimation > 0.0f) {
+                float distance = std::sqrt(std::pow(p2.x - p1.x, 2) + std::pow(p2.y - p1.y, 2));
+                float cpOffset = std::max(50.0f, distance * 0.5f);
+
+                ImVec2 cp1, cp2;
+                if (apiStartPin->isInput) {
+                    cp1 = ImVec2(p1.x - cpOffset, p1.y);
+                } else {
+                    cp1 = ImVec2(p1.x + cpOffset, p1.y);
+                }
+
+                if (apiEndPin->isInput) {
+                    cp2 = ImVec2(p2.x - cpOffset, p2.y);
+                } else {
+                    cp2 = ImVec2(p2.x + cpOffset, p2.y);
+                }
+
+                const int particleCount = 4;
+                for (int i = 0; i < particleCount; i++) {
+                    float t = (connAnimState.flowAnimation + (float)i / particleCount) -
+                             std::floor(connAnimState.flowAnimation + (float)i / particleCount);
+
+                    ImVec2 particlePos = ImBezierCubicCalc(p1, cp1, cp2, p2, t);
+
+                    ImVec4 startColVec4 = ImGui::ColorConvertU32ToFloat4(startCol.toImU32());
+                    ImVec4 endColVec4 = ImGui::ColorConvertU32ToFloat4(endCol.toImU32());
+                    ImVec4 particleColor = ImVec4(
+                        startColVec4.x * (1.0f - t) + endColVec4.x * t,
+                        startColVec4.y * (1.0f - t) + endColVec4.y * t,
+                        startColVec4.z * (1.0f - t) + endColVec4.z * t,
+                        (startColVec4.w * (1.0f - t) + endColVec4.w * t) * 1.5f
+                    );
+
+                    float pulseScale = std::sin(t * 3.14159f * 2.0f) * 0.3f + 1.0f;
+                    float particleSize = 3.5f * m_state.viewScale * pulseScale;
+
+                    drawList->AddCircleFilled(
+                        particlePos,
+                        particleSize,
+                        ImGui::ColorConvertFloat4ToU32(particleColor)
+                    );
+
+                    drawList->AddCircle(
+                        particlePos,
+                        particleSize * 1.5f,
+                        ImGui::ColorConvertFloat4ToU32(ImVec4(particleColor.x, particleColor.y, particleColor.z, particleColor.w * 0.5f))
+                    );
+                }
+            }
         }
 
         if (m_state.connecting && m_state.connectingNodeId != -1 && m_state.connectingPinId != -1) {

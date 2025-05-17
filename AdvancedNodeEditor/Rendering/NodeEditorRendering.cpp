@@ -13,8 +13,15 @@ namespace NodeEditorCore {
         ImVec2 canvasSize = ImGui::GetContentRegionAvail();
         ImDrawList *drawList = ImGui::GetWindowDrawList();
 
+        float deltaTime = ImGui::GetIO().DeltaTime;
+        m_animationManager.update(deltaTime);
+
+        m_animationManager.updateNodePositions(m_state.nodes, deltaTime);
+
+        m_animationManager.updateConnectionFlows(m_state.connections, deltaTime);
+
         if (m_viewManager.isViewTransitioning()) {
-            m_viewManager.updateViewTransition(ImGui::GetIO().DeltaTime);
+            m_viewManager.updateViewTransition(deltaTime);
             m_state.viewPosition = m_viewManager.getViewPosition();
             m_state.viewScale = m_viewManager.getViewScale();
         }
@@ -110,106 +117,231 @@ namespace NodeEditorCore {
         ImGui::EndChild();
     }
 
+    void NodeEditor::arrangeNodesWithAnimation(const std::vector<int>& nodeIds, const ArrangementType type) {
+        std::vector<Vec2> targetPositions;
+
+        switch (type) {
+            case ArrangementType::Grid: {
+                float spacing = 150.0f;
+                int nodesPerRow = std::max(1, static_cast<int>(std::sqrt(nodeIds.size())));
+
+                for (size_t i = 0; i < nodeIds.size(); ++i) {
+                    int row = i / nodesPerRow;
+                    int col = i % nodesPerRow;
+
+                    Vec2 targetPos(
+                        col * spacing,
+                        row * spacing
+                    );
+
+                    targetPositions.push_back(targetPos);
+                }
+                break;
+            }
+
+            case ArrangementType::Horizontal: {
+                float spacing = 180.0f;
+                for (size_t i = 0; i < nodeIds.size(); ++i) {
+                    targetPositions.push_back(Vec2(i * spacing, 0.0f));
+                }
+                break;
+            }
+
+            case ArrangementType::Vertical: {
+                float spacing = 120.0f;
+                for (size_t i = 0; i < nodeIds.size(); ++i) {
+                    targetPositions.push_back(Vec2(0.0f, i * spacing));
+                }
+                break;
+            }
+
+            case ArrangementType::Circle: {
+                float radius = std::max(200.0f, nodeIds.size() * 40.0f);
+                float angleStep = 2.0f * 3.14159f / nodeIds.size();
+
+                for (size_t i = 0; i < nodeIds.size(); ++i) {
+                    float angle = i * angleStep;
+                    Vec2 targetPos(
+                        std::cos(angle) * radius,
+                        std::sin(angle) * radius
+                    );
+
+                    targetPositions.push_back(targetPos);
+                }
+                break;
+            }
+
+            default:
+                return;
+        }
+
+        Vec2 center(0.0f, 0.0f);
+        for (const auto& pos : targetPositions) {
+            center = center + pos;
+        }
+        if (!targetPositions.empty()) {
+            center = center / static_cast<float>(targetPositions.size());
+        }
+
+        Vec2 currentCenter(0.0f, 0.0f);
+        for (int nodeId : nodeIds) {
+            Node* node = getNode(nodeId);
+            if (node) {
+                currentCenter = currentCenter + node->position;
+            }
+        }
+        if (!nodeIds.empty()) {
+            currentCenter = currentCenter / static_cast<float>(nodeIds.size());
+        }
+
+        Vec2 offset = currentCenter - center;
+        for (size_t i = 0; i < nodeIds.size(); ++i) {
+            Node* node = getNode(nodeIds[i]);
+            if (node) {
+                Vec2 targetPos = targetPositions[i] + offset;
+                m_animationManager.setNodeTargetPosition(node->id, targetPos);
+            }
+        }
+    }
+
 
     void NodeEditor::drawGrid(ImDrawList *drawList, const ImVec2 &canvasPos) {
-        const float GRID_STEP_MAJOR = 64.0f * m_state.viewScale;
-        const float GRID_STEP_MINOR = 16.0f * m_state.viewScale;
+    const float GRID_STEP_MAJOR = 64.0f * m_state.viewScale;
+    const float GRID_STEP_MINOR = 16.0f * m_state.viewScale;
 
-        float intensityMultiplier = 1.0f;
-        if (m_state.currentSubgraphId >= 0) {
-            int depth = getSubgraphDepth(m_state.currentSubgraphId);
-            intensityMultiplier = std::max(0.5f, 1.0f - depth * 0.1f);
-        }
+    drawList->AddRectFilled(
+        canvasPos,
+        ImVec2(canvasPos.x + ImGui::GetWindowWidth(), canvasPos.y + ImGui::GetWindowHeight()),
+        IM_COL32(15, 18, 25, 255)
+    );
 
-        ImU32 gridMinorColor = IM_COL32(
-            m_state.style.uiColors.grid.r * 255 * 0.7f * intensityMultiplier,
-            m_state.style.uiColors.grid.g * 255 * 0.7f * intensityMultiplier,
-            m_state.style.uiColors.grid.b * 255 * 0.7f * intensityMultiplier,
-            m_state.style.uiColors.grid.a * 255 * 0.2f
-        );
+    float intensityMultiplier = 1.0f;
+    if (m_state.currentSubgraphId >= 0) {
+        int depth = getSubgraphDepth(m_state.currentSubgraphId);
+        intensityMultiplier = std::max(0.5f, 1.0f - depth * 0.1f);
+    }
 
-        ImU32 gridMajorColor = IM_COL32(
-            m_state.style.uiColors.grid.r * 255 * intensityMultiplier,
-            m_state.style.uiColors.grid.g * 255 * intensityMultiplier,
-            m_state.style.uiColors.grid.b * 255 * intensityMultiplier,
-            m_state.style.uiColors.grid.a * 255 * 0.4f
-        );
+    ImU32 gridMinorColor = IM_COL32(
+        60 * intensityMultiplier,
+        60 * intensityMultiplier,
+        70 * intensityMultiplier,
+        50
+    );
 
-        ImVec2 windowSize = ImGui::GetWindowSize();
+    ImU32 gridMajorColor = IM_COL32(
+        100 * intensityMultiplier,
+        100 * intensityMultiplier,
+        120 * intensityMultiplier,
+        80
+    );
 
-        for (float x = fmodf(m_state.viewPosition.x, GRID_STEP_MINOR); x < windowSize.x; x += GRID_STEP_MINOR) {
-            if (fmodf(x - fmodf(m_state.viewPosition.x, GRID_STEP_MAJOR), GRID_STEP_MAJOR) != 0.0f) {
-                drawList->AddLine(
-                    ImVec2(canvasPos.x + x, canvasPos.y),
-                    ImVec2(canvasPos.x + x, canvasPos.y + windowSize.y),
-                    gridMinorColor, 0.5f
-                );
-            }
-        }
+    ImVec2 windowSize = ImGui::GetWindowSize();
 
-        for (float y = fmodf(m_state.viewPosition.y, GRID_STEP_MINOR); y < windowSize.y; y += GRID_STEP_MINOR) {
-            if (fmodf(y - fmodf(m_state.viewPosition.y, GRID_STEP_MAJOR), GRID_STEP_MAJOR) != 0.0f) {
-                drawList->AddLine(
-                    ImVec2(canvasPos.x, canvasPos.y + y),
-                    ImVec2(canvasPos.x + windowSize.x, canvasPos.y + y),
-                    gridMinorColor, 0.5f
-                );
-            }
-        }
-
-        for (float x = fmodf(m_state.viewPosition.x, GRID_STEP_MAJOR); x < windowSize.x; x += GRID_STEP_MAJOR) {
+    for (float x = fmodf(m_state.viewPosition.x, GRID_STEP_MINOR); x < windowSize.x; x += GRID_STEP_MINOR) {
+        if (fmodf(x - fmodf(m_state.viewPosition.x, GRID_STEP_MAJOR), GRID_STEP_MAJOR) != 0.0f) {
             drawList->AddLine(
                 ImVec2(canvasPos.x + x, canvasPos.y),
                 ImVec2(canvasPos.x + x, canvasPos.y + windowSize.y),
-                gridMajorColor, 1.0f
-            );
-        }
-
-        for (float y = fmodf(m_state.viewPosition.y, GRID_STEP_MAJOR); y < windowSize.y; y += GRID_STEP_MAJOR) {
-            drawList->AddLine(
-                ImVec2(canvasPos.x, canvasPos.y + y),
-                ImVec2(canvasPos.x + windowSize.x, canvasPos.y + y),
-                gridMajorColor, 1.0f
-            );
-        }
-
-        const float fadeWidth = 50.0f;
-        ImU32 fadeColor = IM_COL32(0, 0, 0, 30);
-
-        for (float i = 0; i < fadeWidth; i++) {
-            float alpha = 30.0f * (1.0f - i / fadeWidth);
-            ImU32 currentFadeColor = IM_COL32(0, 0, 0, static_cast<int>(alpha));
-
-            drawList->AddLine(
-                ImVec2(canvasPos.x + i, canvasPos.y),
-                ImVec2(canvasPos.x + i, canvasPos.y + windowSize.y),
-                currentFadeColor, 1.0f
-            );
-
-            drawList->AddLine(
-                ImVec2(canvasPos.x + windowSize.x - i, canvasPos.y),
-                ImVec2(canvasPos.x + windowSize.x - i, canvasPos.y + windowSize.y),
-                currentFadeColor, 1.0f
-            );
-        }
-
-        for (float i = 0; i < fadeWidth; i++) {
-            float alpha = 30.0f * (1.0f - i / fadeWidth);
-            ImU32 currentFadeColor = IM_COL32(0, 0, 0, static_cast<int>(alpha));
-
-            drawList->AddLine(
-                ImVec2(canvasPos.x, canvasPos.y + i),
-                ImVec2(canvasPos.x + windowSize.x, canvasPos.y + i),
-                currentFadeColor, 1.0f
-            );
-
-            drawList->AddLine(
-                ImVec2(canvasPos.x, canvasPos.y + windowSize.y - i),
-                ImVec2(canvasPos.x + windowSize.x, canvasPos.y + windowSize.y - i),
-                currentFadeColor, 1.0f
+                gridMinorColor, 1.0f
             );
         }
     }
+
+    for (float y = fmodf(m_state.viewPosition.y, GRID_STEP_MINOR); y < windowSize.y; y += GRID_STEP_MINOR) {
+        if (fmodf(y - fmodf(m_state.viewPosition.y, GRID_STEP_MAJOR), GRID_STEP_MAJOR) != 0.0f) {
+            drawList->AddLine(
+                ImVec2(canvasPos.x, canvasPos.y + y),
+                ImVec2(canvasPos.x + windowSize.x, canvasPos.y + y),
+                gridMinorColor, 1.0f
+            );
+        }
+    }
+
+    for (float x = fmodf(m_state.viewPosition.x, GRID_STEP_MAJOR); x < windowSize.x; x += GRID_STEP_MAJOR) {
+        drawList->AddLine(
+            ImVec2(canvasPos.x + x, canvasPos.y),
+            ImVec2(canvasPos.x + x, canvasPos.y + windowSize.y),
+            gridMajorColor, 1.5f
+        );
+    }
+
+    for (float y = fmodf(m_state.viewPosition.y, GRID_STEP_MAJOR); y < windowSize.y; y += GRID_STEP_MAJOR) {
+        drawList->AddLine(
+            ImVec2(canvasPos.x, canvasPos.y + y),
+            ImVec2(canvasPos.x + windowSize.x, canvasPos.y + y),
+            gridMajorColor, 1.5f
+        );
+    }
+
+    const float fadeWidth = 40.0f;
+    const int fadeSteps = 20;
+    const float stepSize = fadeWidth / fadeSteps;
+
+    for (int i = 0; i < fadeSteps; i++) {
+        float x = i * stepSize;
+        float alpha = 40.0f * (1.0f - static_cast<float>(i) / fadeSteps);
+        ImU32 fadeColor = IM_COL32(0, 0, 0, static_cast<int>(alpha));
+
+        drawList->AddLine(
+            ImVec2(canvasPos.x + x, canvasPos.y),
+            ImVec2(canvasPos.x + x, canvasPos.y + windowSize.y),
+            fadeColor, 1.0f
+        );
+
+        drawList->AddLine(
+            ImVec2(canvasPos.x + windowSize.x - x, canvasPos.y),
+            ImVec2(canvasPos.x + windowSize.x - x, canvasPos.y + windowSize.y),
+            fadeColor, 1.0f
+        );
+    }
+
+    for (int i = 0; i < fadeSteps; i++) {
+        float y = i * stepSize;
+        float alpha = 40.0f * (1.0f - static_cast<float>(i) / fadeSteps);
+        ImU32 fadeColor = IM_COL32(0, 0, 0, static_cast<int>(alpha));
+
+        drawList->AddLine(
+            ImVec2(canvasPos.x, canvasPos.y + y),
+            ImVec2(canvasPos.x + windowSize.x, canvasPos.y + y),
+            fadeColor, 1.0f
+        );
+
+        drawList->AddLine(
+            ImVec2(canvasPos.x, canvasPos.y + windowSize.y - y),
+            ImVec2(canvasPos.x + windowSize.x, canvasPos.y + windowSize.y - y),
+            fadeColor, 1.0f
+        );
+    }
+
+    const float cornerFadeRadius = 100.0f;
+    const int cornerFadeSteps = 15;
+
+    for (int i = 0; i < cornerFadeSteps; i++) {
+        float radius = cornerFadeRadius * (1.0f - static_cast<float>(i) / cornerFadeSteps);
+        float alpha = 12.0f * (1.0f - static_cast<float>(i) / cornerFadeSteps);
+        ImU32 cornerFadeColor = IM_COL32(0, 0, 0, static_cast<int>(alpha));
+
+        drawList->AddCircle(
+            ImVec2(canvasPos.x, canvasPos.y),
+            radius, cornerFadeColor, 0, 2.0f
+        );
+
+        drawList->AddCircle(
+            ImVec2(canvasPos.x + windowSize.x, canvasPos.y),
+            radius, cornerFadeColor, 0, 2.0f
+        );
+
+        drawList->AddCircle(
+            ImVec2(canvasPos.x, canvasPos.y + windowSize.y),
+            radius, cornerFadeColor, 0, 2.0f
+        );
+
+        drawList->AddCircle(
+            ImVec2(canvasPos.x + windowSize.x, canvasPos.y + windowSize.y),
+            radius, cornerFadeColor, 0, 2.0f
+        );
+    }
+}
 
     void NodeEditor::drawBoxSelection(ImDrawList *drawList) {
         ImVec2 mousePos = ImGui::GetMousePos();

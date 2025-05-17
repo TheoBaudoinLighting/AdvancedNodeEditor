@@ -473,6 +473,7 @@ namespace NodeEditorCore {
         UUID endPinUuid;
         bool selected;
         Metadata metadata;
+        bool isActive = false;
         int subgraphId = -1;
 
         Connection() : id(-1), uuid(generateUUID()), startNodeId(-1), startPinId(-1),

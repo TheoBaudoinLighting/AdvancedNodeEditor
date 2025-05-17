@@ -54,6 +54,8 @@ add_executable(AdvancedNodeEditor
         AdvancedNodeEditor/Editor/View/MinimapManager.cpp
         AdvancedNodeEditor/Editor/View/MinimapManager.h
         AdvancedNodeEditor/Components/UUID/NodeEditorUuidOperations.cpp
+        AdvancedNodeEditor/Rendering/NodeEditorAnimationManager.cpp
+        AdvancedNodeEditor/Rendering/NodeEditorAnimationManager.h
 )
 
 # === FetchContent for ImGui and SDL2 ===

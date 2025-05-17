@@ -123,6 +123,24 @@ namespace NodeEditorCore {
             );
         }
 
+        static float executionPulseIntensity = 0.0f;
+
+        if (executionPulseIntensity > 0.0f) {
+            ImVec4 baseColorVec4 = ImGui::ColorConvertU32ToFloat4(baseColor);
+            ImVec4 accentColorVec4 = ImGui::ColorConvertU32ToFloat4(accentColor);
+
+            baseColorVec4.x = std::min(baseColorVec4.x + executionPulseIntensity * 0.2f, 1.0f);
+            baseColorVec4.y = std::min(baseColorVec4.y + executionPulseIntensity * 0.2f, 1.0f);
+            baseColorVec4.z = std::min(baseColorVec4.z + executionPulseIntensity * 0.2f, 1.0f);
+
+            accentColorVec4.x = std::min(accentColorVec4.x + executionPulseIntensity * 0.3f, 1.0f);
+            accentColorVec4.y = std::min(accentColorVec4.y + executionPulseIntensity * 0.3f, 1.0f);
+            accentColorVec4.z = std::min(accentColorVec4.z + executionPulseIntensity * 0.3f, 1.0f);
+
+            baseColor = ImGui::ColorConvertFloat4ToU32(baseColorVec4);
+            accentColor = ImGui::ColorConvertFloat4ToU32(accentColorVec4);
+        }
+
         if (node.disabled) {
             baseColor = IM_COL32(40, 40, 40, 180);
             headerColor = IM_COL32(30, 30, 35, 180);
@@ -134,6 +152,26 @@ namespace NodeEditorCore {
         ImU32 actualSelectedColor = isSelectable ? selectedColor : IM_COL32(100, 100, 100, 150);
 
         bool isHovered = m_state.hoveredNodeId == node.id;
+
+        auto& nodeAnimState = m_animationManager.getNodeAnimationState(node.id);
+        m_animationManager.setNodeHovered(node.id, isHovered);
+
+        float scaleFactor = nodeAnimState.hoverScaleFactor;
+        ImVec2 nodeSizeOriginal = nodeSize;
+        ImVec2 nodePosOriginal = nodePos;
+
+        if (scaleFactor != 1.0f) {
+            float scaleOffsetX = (nodeSize.x * scaleFactor - nodeSize.x) * 0.5f;
+            float scaleOffsetY = (nodeSize.y * scaleFactor - nodeSize.y) * 0.5f;
+            nodeSize.x *= scaleFactor;
+            nodeSize.y *= scaleFactor;
+            nodePos.x -= scaleOffsetX;
+            nodePos.y -= scaleOffsetY;
+        }
+
+        if (nodeAnimState.executionPulse > 0.0f) {
+            executionPulseIntensity = std::sin(nodeAnimState.executionPulse * 3.14159f * 2.0f) * 0.5f + 0.5f;
+        }
         if (node.selected || isHovered) {
             float glowSize = node.selected ? 8.0f : 6.0f;
 

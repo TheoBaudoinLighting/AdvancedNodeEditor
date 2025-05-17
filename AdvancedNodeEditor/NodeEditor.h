@@ -17,6 +17,7 @@
 #include "Editor/View/MinimapManager.h"
 #include "Editor/View/ViewManager.h"
 #include "Evaluation/NodeEditorEvaluation.h"
+#include "Rendering/NodeEditorAnimationManager.h"
 
 namespace NodeEditorCore {
     enum class InteractionMode;
@@ -65,6 +66,14 @@ namespace NodeEditorCore {
 
     class NodeEditor {
     public:
+
+        enum class ArrangementType {
+            Grid,
+            Horizontal,
+            Vertical,
+            Circle
+        };
+
         NodeEditor();
         ~NodeEditor();
 
@@ -336,6 +345,13 @@ namespace NodeEditorCore {
         GraphTitleManager& getTitleManager() { return m_titleManager; }
         ConnectionStyleManager& getConnectionStyleManager() { return m_connectionStyleManager; }
 
+        void setNodeExecuting(int nodeId, bool executing) {
+            m_animationManager.setNodeExecuting(nodeId, executing);
+        }
+
+        void arrangeNodesWithAnimation(const std::vector<int>& nodeIds, const ArrangementType type);
+
+
         void setGraphTitle(const std::string& title);
         std::string getGraphTitle() const;
 
@@ -530,9 +546,8 @@ namespace NodeEditorCore {
         ConnectionStyleManager m_connectionStyleManager;
         std::unordered_map<int, Color> m_depthColors;
         std::shared_ptr<NodeBoundingBoxManager> m_nodeBoundingBoxManager;
+        AnimationManager m_animationManager;
         bool m_nodeAvoidanceEnabled;
-
-
 
         void processInteraction();
         void processBoxSelection(const ImVec2& canvasPos);
