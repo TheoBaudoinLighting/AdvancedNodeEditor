@@ -11,6 +11,18 @@ namespace NodeEditorCore {
         subgraph->uuid = uuid.empty() ? generateUUID() : uuid;
 
         m_subgraphs[subgraphId] = subgraph;
+        
+        Vec2 inputPos(100.0f, 200.0f);
+        Vec2 outputPos(500.0f, 200.0f);
+        
+        int inputNodeId = addNode("Input", "Input", inputPos);
+        int outputNodeId = addNode("Output", "Output", outputPos);
+        
+        addNodeToSubgraph(inputNodeId, subgraphId);
+        addNodeToSubgraph(outputNodeId, subgraphId);
+        
+        subgraph->metadata.setAttribute("inputNodeId", inputNodeId);
+        subgraph->metadata.setAttribute("outputNodeId", outputNodeId);
 
         return subgraphId;
     }
@@ -77,22 +89,7 @@ namespace NodeEditorCore {
         if (!subgraph) {
             return nullptr;
         }
-        if (!subgraph->interfaceInputs.empty()) {
-            for (int interfaceId : subgraph->interfaceInputs) {
-                int nodeId = interfaceId >> 16;
-                int pinId = interfaceId & 0xFFFF;
-                if (nodeId >= 0 && pinId >= 0) {
-                }
-            }
-        } 
         
-        if (!subgraph->interfaceOutputs.empty()) {
-            for (int interfaceId : subgraph->interfaceOutputs) {
-                int nodeId = interfaceId >> 16;
-                int pinId = interfaceId & 0xFFFF;
-            }
-        }
-
         int nodeId = addNode(name, "Subgraph", position, uuid);
         Node* node = getNode(nodeId);
 
@@ -104,85 +101,27 @@ namespace NodeEditorCore {
         node->subgraphId = subgraphId;
         node->subgraphUuid = subgraph->uuid;
 
-        int inputPinsAdded = 0;
-        int outputPinsAdded = 0;
-
-        if (!subgraph->interfaceInputs.empty()) {
-            for (int interfaceId : subgraph->interfaceInputs) {
-                int nodeId = interfaceId >> 16;
-                int pinId = interfaceId & 0xFFFF;
+        int inputNodeId = subgraph->metadata.getAttribute<int>("inputNodeId", -1);
+        int outputNodeId = subgraph->metadata.getAttribute<int>("outputNodeId", -1);
+        
+        Node* inputNode = getNode(inputNodeId);
+        Node* outputNode = getNode(outputNodeId);
+        
+        if (inputNode) {
+            for (const auto& pin : inputNode->outputs) {
+                int newPinId = addPin(node->id, pin.name, true, static_cast<PinType>(pin.type));
                 
-                if (nodeId < 0 || pinId < 0) {
-                    continue;
-                }
-
-                const Node* interfaceNode = getNode(nodeId);
-                if (interfaceNode) {
-                    const Pin* interfacePin = nullptr;
-                    
-                    for (const auto& pin : interfaceNode->inputs) {
-                        if (pin.id == pinId) {
-                            interfacePin = &pin;
-                            break;
-                        }
-                    }
-
-                    if (!interfacePin) {
-                        for (const auto& pin : interfaceNode->outputs) {
-                            if (pin.id == pinId) {
-                                interfacePin = &pin;
-                                break;
-                            }
-                        }
-                    }
-
-                    if (interfacePin) {
-                        int newPinId = addPin(node->id, interfacePin->name, true, static_cast<PinType>(interfacePin->type));
-                        if (newPinId >= 0) {
-                            inputPinsAdded++;
-                        } else {
-                        }
-                    } 
-                } 
+                int interfaceId = (inputNodeId << 16) | pin.id;
+                subgraph->interfaceInputs.push_back(interfaceId);
             }
         }
-
-        if (!subgraph->interfaceOutputs.empty()) {
-            for (int interfaceId : subgraph->interfaceOutputs) {
-                int nodeId = interfaceId >> 16;
-                int pinId = interfaceId & 0xFFFF;
+        
+        if (outputNode) {
+            for (const auto& pin : outputNode->inputs) {
+                int newPinId = addPin(node->id, pin.name, false, static_cast<PinType>(pin.type));
                 
-                if (nodeId < 0 || pinId < 0) {
-                    continue;
-                }
-
-                const Node* interfaceNode = getNode(nodeId);
-                if (interfaceNode) {
-                    const Pin* interfacePin = nullptr;
-                    
-                    for (const auto& pin : interfaceNode->inputs) {
-                        if (pin.id == pinId) {
-                            interfacePin = &pin;
-                            break;
-                        }
-                    }
-
-                    if (!interfacePin) {
-                        for (const auto& pin : interfaceNode->outputs) {
-                            if (pin.id == pinId) {
-                                interfacePin = &pin;
-                                break;
-                            }
-                        }
-                    }
-
-                    if (interfacePin) {
-                        int newPinId = addPin(node->id, interfacePin->name, false, static_cast<PinType>(interfacePin->type));
-                        if (newPinId >= 0) {
-                            outputPinsAdded++;
-                        } 
-                    } 
-                } 
+                int interfaceId = (outputNodeId << 16) | pin.id;
+                subgraph->interfaceOutputs.push_back(interfaceId);
             }
         }
 
@@ -447,5 +386,109 @@ namespace NodeEditorCore {
     }
 
     void NodeEditor::debugSubgraph(int subgraphId) {
+    }
+    
+    int NodeEditor::addInputPinToSubgraph(int subgraphId, const std::string& name, PinType type) {
+        Subgraph* subgraph = getSubgraph(subgraphId);
+        if (!subgraph) return -1;
+        
+        int inputNodeId = subgraph->metadata.getAttribute<int>("inputNodeId", -1);
+        if (inputNodeId == -1) return -1;
+        
+        Node* inputNode = getNode(inputNodeId);
+        if (!inputNode) return -1;
+        
+        int pinId = addPin(inputNodeId, name, false, type);
+        if (pinId == -1) return -1;
+        
+        int interfaceId = (inputNodeId << 16) | pinId;
+        subgraph->interfaceInputs.push_back(interfaceId);
+        
+        for (const auto& node : m_state.nodes) {
+            if (node.isSubgraph && node.subgraphId == subgraphId) {
+                addPin(node.id, name, true, type);
+            }
+        }
+        
+        return pinId;
+    }
+    
+    int NodeEditor::addOutputPinToSubgraph(int subgraphId, const std::string& name, PinType type) {
+        Subgraph* subgraph = getSubgraph(subgraphId);
+        if (!subgraph) return -1;
+        
+        int outputNodeId = subgraph->metadata.getAttribute<int>("outputNodeId", -1);
+        if (outputNodeId == -1) return -1;
+        
+        Node* outputNode = getNode(outputNodeId);
+        if (!outputNode) return -1;
+        
+        int pinId = addPin(outputNodeId, name, true, type);
+        if (pinId == -1) return -1;
+        
+        int interfaceId = (outputNodeId << 16) | pinId;
+        subgraph->interfaceOutputs.push_back(interfaceId);
+        
+        for (const auto& node : m_state.nodes) {
+            if (node.isSubgraph && node.subgraphId == subgraphId) {
+                addPin(node.id, name, false, type);
+            }
+        }
+        
+        return pinId;
+    }
+
+    int NodeEditor::addInputPinToSubgraphByUUID(const UUID& subgraphUuid, const std::string& name, PinType type) {
+        int subgraphId = getSubgraphId(subgraphUuid);
+        if (subgraphId == -1) return -1;
+        return addInputPinToSubgraph(subgraphId, name, type);
+    }
+
+    int NodeEditor::addOutputPinToSubgraphByUUID(const UUID& subgraphUuid, const std::string& name, PinType type) {
+        int subgraphId = getSubgraphId(subgraphUuid);
+        if (subgraphId == -1) return -1;
+        return addOutputPinToSubgraph(subgraphId, name, type);
+    }
+
+    int NodeEditor::getSubgraphInputNodeId(int subgraphId) const {
+        auto it = m_subgraphs.find(subgraphId);
+        if (it == m_subgraphs.end()) return -1;
+
+        return it->second->metadata.getAttribute<int>("inputNodeId", -1);
+    }
+
+    int NodeEditor::getSubgraphOutputNodeId(int subgraphId) const {
+        auto it = m_subgraphs.find(subgraphId);
+        if (it == m_subgraphs.end()) return -1;
+
+        return it->second->metadata.getAttribute<int>("outputNodeId", -1);
+    }
+
+    UUID NodeEditor::getSubgraphInputNodeUUID(int subgraphId) const {
+        int inputNodeId = getSubgraphInputNodeId(subgraphId);
+        if (inputNodeId == -1) return "";
+
+        return getNodeUUID(inputNodeId);
+    }
+
+    UUID NodeEditor::getSubgraphOutputNodeUUID(int subgraphId) const {
+        int outputNodeId = getSubgraphOutputNodeId(subgraphId);
+        if (outputNodeId == -1) return "";
+
+        return getNodeUUID(outputNodeId);
+    }
+
+    Node* NodeEditor::getSubgraphInputNode(int subgraphId) {
+        int inputNodeId = getSubgraphInputNodeId(subgraphId);
+        if (inputNodeId == -1) return nullptr;
+
+        return getNode(inputNodeId);
+    }
+
+    Node* NodeEditor::getSubgraphOutputNode(int subgraphId) {
+        int outputNodeId = getSubgraphOutputNodeId(subgraphId);
+        if (outputNodeId == -1) return nullptr;
+
+        return getNode(outputNodeId);
     }
 }

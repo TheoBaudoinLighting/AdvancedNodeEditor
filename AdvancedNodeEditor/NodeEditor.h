@@ -235,6 +235,26 @@ namespace NodeEditorCore {
 
         void debugSubgraph(int subgraphId);
 
+        int addInputPinToSubgraph(int subgraphId, const std::string &name, PinType type);
+
+        int addOutputPinToSubgraph(int subgraphId, const std::string &name, PinType type);
+
+        int addInputPinToSubgraphByUUID(const UUID &subgraphUuid, const std::string &name, PinType type);
+
+        int addOutputPinToSubgraphByUUID(const UUID &subgraphUuid, const std::string &name, PinType type);
+
+        int getSubgraphInputNodeId(int subgraphId) const;
+
+        int getSubgraphOutputNodeId(int subgraphId) const;
+
+        UUID getSubgraphInputNodeUUID(int subgraphId) const;
+
+        UUID getSubgraphOutputNodeUUID(int subgraphId) const;
+
+        Node *getSubgraphInputNode(int subgraphId);
+
+        Node *getSubgraphOutputNode(int subgraphId);
+
         void removeSubgraphByUUID(const UUID& uuid);
 
         UUID getSubgraphUUID(int subgraphId) const;
