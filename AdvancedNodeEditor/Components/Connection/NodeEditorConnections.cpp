@@ -1,6 +1,5 @@
 #include "../../NodeEditor.h"
 #include <algorithm>
-#include <iostream>
 
 namespace NodeEditorCore {
     void NodeEditor::removeConnection(int connectionId) {
@@ -129,40 +128,18 @@ namespace NodeEditorCore {
     }
 
     bool NodeEditor::canCreateConnection(const Pin &startPin, const Pin &endPin) const {
-        std::cout << "=== DÉBUT VÉRIFICATION DE CONNEXION ===" << std::endl;
-        std::cout << "Pin départ: id=" << startPin.id << ", nom='" << startPin.name 
-                  << "', isInput=" << (startPin.isInput ? "true" : "false") 
-                  << ", type=" << static_cast<int>(startPin.type)
-                  << ", shape=" << static_cast<int>(startPin.shape) << std::endl;
-        
-        std::cout << "Pin arrivée: id=" << endPin.id << ", nom='" << endPin.name 
-                  << "', isInput=" << (endPin.isInput ? "true" : "false") 
-                  << ", type=" << static_cast<int>(endPin.type)
-                  << ", shape=" << static_cast<int>(endPin.shape) << std::endl;
-        
         if (startPin.isInput == endPin.isInput) {
-            std::cout << "ERREUR: Impossible de connecter deux pins du même type (entrée-entrée ou sortie-sortie)" << std::endl;
-            std::cout << "=== FIN VÉRIFICATION: ÉCHEC (pins de même direction) ===" << std::endl;
             return false;
         }
 
         const Pin &outputPin = startPin.isInput ? endPin : startPin;
         const Pin &inputPin = startPin.isInput ? startPin : endPin;
-        
-        std::cout << "Après réorganisation: outputPin=" << (startPin.isInput ? "endPin" : "startPin")
-                  << ", inputPin=" << (startPin.isInput ? "startPin" : "endPin") << std::endl;
 
         if (m_state.canConnectCallback) {
-            std::cout << "Exécution du callback canConnect..." << std::endl;
             bool result = m_state.canConnectCallback(outputPin, inputPin);
             if (!result) {
-                std::cout << "ERREUR: Le callback canConnect a refusé la connexion" << std::endl;
-                std::cout << "=== FIN VÉRIFICATION: ÉCHEC (callback) ===" << std::endl;
                 return false;
             }
-            std::cout << "Callback: connexion autorisée" << std::endl;
-        } else {
-            std::cout << "Aucun callback canConnect enregistré" << std::endl;
         }
 
         bool typeCompatible =
@@ -170,31 +147,12 @@ namespace NodeEditorCore {
             static_cast<PinType>(outputPin.type) == PinType::Blue ||
             static_cast<PinType>(inputPin.type) == PinType::Blue;
 
-        std::cout << "Vérification de compatibilité des types:" << std::endl;
-        std::cout << "  - output type=" << static_cast<int>(outputPin.type) << std::endl;
-        std::cout << "  - input type=" << static_cast<int>(inputPin.type) << std::endl;
-        std::cout << "  - PinType::Blue=" << static_cast<int>(PinType::Blue) << std::endl;
-        std::cout << "  - Résultat: " << (typeCompatible ? "COMPATIBLE" : "INCOMPATIBLE") << std::endl;
-
-        if (!typeCompatible) {
-            std::cout << "ERREUR: Types incompatibles - output type=" << static_cast<int>(outputPin.type) 
-                      << ", input type=" << static_cast<int>(inputPin.type) << std::endl;
-            std::cout << "=== FIN VÉRIFICATION: ÉCHEC (types incompatibles) ===" << std::endl;
-        } else {
-            std::cout << "=== FIN VÉRIFICATION: SUCCÈS ===" << std::endl;
-        }
-
         return typeCompatible;
     }
 
     int NodeEditor::addConnection(int startNodeId, int startPinId, int endNodeId, int endPinId, const UUID &uuid) {
-        std::cout << "=== DÉBUT CRÉATION DE CONNEXION ===" << std::endl;
-        std::cout << "Tentative de connexion: startNode=" << startNodeId << ", startPin=" << startPinId
-                  << ", endNode=" << endNodeId << ", endPin=" << endPinId << std::endl;
-     
+
         if (doesConnectionExist(startNodeId, startPinId, endNodeId, endPinId)) {
-            std::cout << "ERREUR: La connexion existe déjà" << std::endl;
-            std::cout << "=== FIN CRÉATION: ÉCHEC (connexion existante) ===" << std::endl;
             return -1;
         }
 
@@ -202,60 +160,23 @@ namespace NodeEditorCore {
         Node *endNode = getNode(endNodeId);
 
         if (!startNode) {
-            std::cout << "ERREUR: Nœud de départ (ID " << startNodeId << ") introuvable" << std::endl;
-            std::cout << "=== FIN CRÉATION: ÉCHEC (nœud départ introuvable) ===" << std::endl;
             return -1;
         }
         if (!endNode) {
-            std::cout << "ERREUR: Nœud d'arrivée (ID " << endNodeId << ") introuvable" << std::endl;
-            std::cout << "=== FIN CRÉATION: ÉCHEC (nœud arrivée introuvable) ===" << std::endl;
             return -1;
-        }
-
-        // Afficher les pins du nœud de départ
-        std::cout << "Pins du nœud de départ (ID " << startNodeId << "):" << std::endl;
-        std::cout << "  Inputs:" << std::endl;
-        for (const auto& pin : startNode->inputs) {
-            std::cout << "    ID=" << pin.id << ", Nom='" << pin.name << "'" << std::endl;
-        }
-        std::cout << "  Outputs:" << std::endl;
-        for (const auto& pin : startNode->outputs) {
-            std::cout << "    ID=" << pin.id << ", Nom='" << pin.name << "'" << std::endl;
-        }
-
-        // Afficher les pins du nœud d'arrivée
-        std::cout << "Pins du nœud d'arrivée (ID " << endNodeId << "):" << std::endl;
-        std::cout << "  Inputs:" << std::endl;
-        for (const auto& pin : endNode->inputs) {
-            std::cout << "    ID=" << pin.id << ", Nom='" << pin.name << "'" << std::endl;
-        }
-        std::cout << "  Outputs:" << std::endl;
-        for (const auto& pin : endNode->outputs) {
-            std::cout << "    ID=" << pin.id << ", Nom='" << pin.name << "'" << std::endl;
         }
 
         Pin *startPinInternal = startNode->findPin(startPinId);
         Pin *endPinInternal = endNode->findPin(endPinId);
 
         if (!startPinInternal) {
-            std::cout << "ERREUR: Pin de départ (ID " << startPinId << ") introuvable dans le nœud " << startNodeId << std::endl;
-            std::cout << "=== FIN CRÉATION: ÉCHEC (pin départ introuvable) ===" << std::endl;
             return -1;
         }
         if (!endPinInternal) {
-            std::cout << "ERREUR: Pin d'arrivée (ID " << endPinId << ") introuvable dans le nœud " << endNodeId << std::endl;
-            std::cout << "=== FIN CRÉATION: ÉCHEC (pin arrivée introuvable) ===" << std::endl;
             return -1;
         }
 
-        std::cout << "Pins trouvés:" << std::endl;
-
         if (startPinInternal->isInput || !endPinInternal->isInput) {
-            std::cout << "ERREUR: Direction des pins invalide - Pin départ (isInput=" 
-                      << (startPinInternal->isInput ? "true" : "false") 
-                      << "), Pin arrivée (isInput=" 
-                      << (endPinInternal->isInput ? "true" : "false") << ")" << std::endl;
-            std::cout << "=== FIN CRÉATION: ÉCHEC (direction pins invalide) ===" << std::endl;
             return -1;
         }
 
@@ -275,19 +196,14 @@ namespace NodeEditorCore {
         endPin.type = static_cast<PinType>(endPinInternal->type);
         endPin.shape = static_cast<PinShape>(endPinInternal->shape);
 
-        std::cout << "Vérification de compatibilité via canCreateConnection..." << std::endl;
         if (!canCreateConnection(startPin, endPin)) {
-            std::cout << "ERREUR: La vérification canCreateConnection a échoué" << std::endl;
-            std::cout << "=== FIN CRÉATION: ÉCHEC (canCreateConnection) ===" << std::endl;
             return -1;
         }
-        std::cout << "canCreateConnection: OK" << std::endl;
 
         int connectionId = m_state.nextConnectionId++;
         Connection connection(connectionId, startNodeId, startPinId, endNodeId, endPinId);
 
         connection.uuid = uuid.empty() ? generateUUID() : uuid;
-        std::cout << "ID de connexion attribué: " << connectionId << ", UUID: " << connection.uuid << std::endl;
 
         connection.startNodeUuid = startNode->uuid;
         connection.startPinUuid = startPinInternal->uuid;
@@ -296,83 +212,38 @@ namespace NodeEditorCore {
 
         if (startNode->getSubgraphId() == endNode->getSubgraphId() && startNode->getSubgraphId() >= 0) {
             connection.subgraphId = startNode->getSubgraphId();
-            std::cout << "Les nœuds sont dans le même sous-graphe (ID: " << connection.subgraphId << ")" << std::endl;
         } else {
             connection.subgraphId = -1;
-            std::cout << "Les nœuds sont dans des sous-graphes différents ou dans le graphe principal" << std::endl;
         }
 
         startPinInternal->connected = true;
         endPinInternal->connected = true;
 
         m_state.connections.push_back(connection);
-        std::cout << "Connexion ajoutée à la liste des connexions" << std::endl;
 
         updateConnectionUuidMap();
 
         if (m_state.connectionCreatedCallback) {
-            std::cout << "Appel du callback de création de connexion" << std::endl;
             m_state.connectionCreatedCallback(connectionId, connection.uuid);
         }
 
         if (m_state.currentSubgraphId >= 0) {
             if (startNode->getSubgraphId() == m_state.currentSubgraphId &&
                 endNode->getSubgraphId() == m_state.currentSubgraphId) {
-                std::cout << "Ajout de la connexion au sous-graphe courant (ID: " << m_state.currentSubgraphId << ")" << std::endl;
                 addConnectionToSubgraph(connectionId, m_state.currentSubgraphId);
             }
         }
 
-        std::cout << "=== FIN CRÉATION: SUCCÈS (ID: " << connectionId << ") ===" << std::endl;
         return connectionId;
     }
 
     void NodeEditor::createConnection(int startNodeId, int startPinId, int endNodeId, int endPinId) {
-        std::cout << "=== ENTRÉE DANS createConnection ===" << std::endl;
-        
+
         const Pin *apiStartPin = getPin(startNodeId, startPinId);
         const Pin *apiEndPin = getPin(endNodeId, endPinId);
 
         if (!apiStartPin || !apiEndPin) {
-            std::cout << "ERREUR createConnection: Un ou plusieurs pins introuvables" << std::endl;
-            std::cout << "  apiStartPin: " << (apiStartPin ? "trouvé" : "introuvable") << std::endl;
-            std::cout << "  apiEndPin: " << (apiEndPin ? "trouvé" : "introuvable") << std::endl;
-            std::cout << "=== SORTIE DE createConnection: ÉCHEC (pins introuvables) ===" << std::endl;
             return;
-        }
-
-        std::cout << "Tentative de connexion entre:" << std::endl;
-        std::cout << "  Départ: Nœud " << startNodeId << ", Pin " << startPinId 
-                  << " ('" << apiStartPin->name << "', isInput=" << (apiStartPin->isInput ? "true" : "false") 
-                  << ", type=" << static_cast<int>(apiStartPin->type) << ")" << std::endl;
-        std::cout << "  Arrivée: Nœud " << endNodeId << ", Pin " << endPinId 
-                  << " ('" << apiEndPin->name << "', isInput=" << (apiEndPin->isInput ? "true" : "false") 
-                  << ", type=" << static_cast<int>(apiEndPin->type) << ")" << std::endl;
-
-        // Garantir que nous connectons toujours une sortie vers une entrée
-        if (apiStartPin->isInput && !apiEndPin->isInput) {
-            std::cout << "Échange des pins pour assurer sortie → entrée" << std::endl;
-            std::swap(startNodeId, endNodeId);
-            std::swap(startPinId, endPinId);
-            std::cout << "Après échange: startNode=" << startNodeId << ", startPin=" << startPinId 
-                      << ", endNode=" << endNodeId << ", endPin=" << endPinId << std::endl;
-        } else if (apiStartPin->isInput && apiEndPin->isInput) {
-            std::cout << "ERREUR: Tentative de connecter deux entrées" << std::endl;
-            std::cout << "=== SORTIE DE createConnection: ÉCHEC (deux entrées) ===" << std::endl;
-            return;
-        } else if (!apiStartPin->isInput && !apiEndPin->isInput) {
-            std::cout << "ERREUR: Tentative de connecter deux sorties" << std::endl;
-            std::cout << "=== SORTIE DE createConnection: ÉCHEC (deux sorties) ===" << std::endl;
-            return;
-        }
-
-        int connectionId = addConnection(startNodeId, startPinId, endNodeId, endPinId, "");
-        if (connectionId != -1) {
-            std::cout << "Connexion créée avec succès, ID: " << connectionId << std::endl;
-            std::cout << "=== SORTIE DE createConnection: SUCCÈS ===" << std::endl;
-        } else {
-            std::cout << "Échec de la création de connexion" << std::endl;
-            std::cout << "=== SORTIE DE createConnection: ÉCHEC (addConnection a échoué) ===" << std::endl;
         }
     }
 
