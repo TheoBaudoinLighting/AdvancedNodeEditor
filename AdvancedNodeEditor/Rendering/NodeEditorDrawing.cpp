@@ -3,112 +3,154 @@
 
 namespace NodeEditorCore {
     void NodeEditor::drawDragConnection(ImDrawList *drawList, const ImVec2 &canvasPos) {
-        const Node *node = getNode(m_state.connectingNodeId);
-        if (!node) return;
+    if (!m_state.connecting || m_state.connectingNodeId == -1 || m_state.connectingPinId == -1)
+        return;
 
-        const Pin *pinInternal = node->findPin(m_state.connectingPinId);
-        if (!pinInternal) return;
+    const Node *sourceNode = getNode(m_state.connectingNodeId);
+    if (!sourceNode) return;
 
-        const Pin *apiPin = getPin(m_state.connectingNodeId, m_state.connectingPinId);
-        if (!apiPin) return;
+    const Pin *sourcePinInternal = sourceNode->findPin(m_state.connectingPinId);
+    if (!sourcePinInternal) return;
 
-        ImVec2 p1 = getPinPos(*node, *apiPin, canvasPos);
-        ImVec2 p2;
+    Pin apiPin;
+    apiPin.id = sourcePinInternal->id;
+    apiPin.name = sourcePinInternal->name;
+    apiPin.isInput = sourcePinInternal->isInput;
+    apiPin.type = static_cast<PinType>(sourcePinInternal->type);
+    apiPin.shape = static_cast<PinShape>(sourcePinInternal->shape);
 
-        bool isEndInput = false;
+    ImVec2 p1 = getPinPos(*sourceNode, apiPin, canvasPos);
+    ImVec2 p2;
 
-        if (m_state.magnetPinNodeId != -1) {
-            const Node *magnetNode = getNode(m_state.magnetPinNodeId);
-            const Pin *magnetPin = getPin(m_state.magnetPinNodeId, m_state.magnetPinId);
-            if (magnetNode && magnetPin) {
-                p2 = getPinPos(*magnetNode, *magnetPin, canvasPos);
-                isEndInput = magnetPin->isInput;
-            } else {
+    bool isEndInput = false;
+
+    if (m_state.magnetPinNodeId != -1) {
+        const Node *magnetNode = getNode(m_state.magnetPinNodeId);
+        if (!magnetNode) {
+        } else {
+            const Pin *magnetPinInternal = magnetNode->findPin(m_state.magnetPinId);
+            if (!magnetPinInternal) {
                 p2 = ImGui::GetMousePos();
+            } else {
+                // Convertir en Pin API
+                Pin magnetPin;
+                magnetPin.id = magnetPinInternal->id;
+                magnetPin.name = magnetPinInternal->name;
+                magnetPin.isInput = magnetPinInternal->isInput;
+                magnetPin.type = static_cast<PinType>(magnetPinInternal->type);
+                magnetPin.shape = static_cast<PinShape>(magnetPinInternal->shape);
+
+                p2 = getPinPos(*magnetNode, magnetPin, canvasPos);
+                isEndInput = magnetPinInternal->isInput;
+
+                Pin sourceApiPin;
+                sourceApiPin.id = sourcePinInternal->id;
+                sourceApiPin.name = sourcePinInternal->name;
+                sourceApiPin.isInput = sourcePinInternal->isInput;
+                sourceApiPin.type = static_cast<PinType>(sourcePinInternal->type);
+
+                Pin magnetApiPin;
+                magnetApiPin.id = magnetPinInternal->id;
+                magnetApiPin.name = magnetPinInternal->name;
+                magnetApiPin.isInput = magnetPinInternal->isInput;
+                magnetApiPin.type = static_cast<PinType>(magnetPinInternal->type);
+
+                if (sourcePinInternal->isInput != magnetPinInternal->isInput) {
+                    bool canConnect;
+                    if (sourcePinInternal->isInput) {
+                        canConnect = canCreateConnection(magnetApiPin, sourceApiPin);
+                    } else {
+                        canConnect = canCreateConnection(sourceApiPin, magnetApiPin);
+                    }
+
+                    m_state.canConnectToMagnetPin = canConnect;
+                } else {
+                    m_state.canConnectToMagnetPin = false;
+                }
             }
-        } else {
-            p2 = ImGui::GetMousePos();
         }
+    } else {
+        p2 = ImGui::GetMousePos();
+    }
 
-        std::string pinTypeName = pinTypeToString(pinInternal->type);
-        const internal::PinColors &pinColors = m_state.style.pinColors.count(pinTypeName)
-                                                   ? m_state.style.pinColors.at(pinTypeName)
-                                                   : m_state.style.pinColors.at("Default");
+    std::string pinTypeName = pinTypeToString(sourcePinInternal->type);
+    const internal::PinColors &pinColors = m_state.style.pinColors.count(pinTypeName)
+                                               ? m_state.style.pinColors.at(pinTypeName)
+                                               : m_state.style.pinColors.at("Default");
 
-        ImU32 dragColor;
-        if (m_state.magnetPinNodeId != -1 && !m_state.canConnectToMagnetPin) {
-            dragColor = IM_COL32(255, 50, 50, 200);
-        } else {
-            dragColor = IM_COL32(
-                pinColors.base.r * 255,
-                pinColors.base.g * 255,
-                pinColors.base.b * 255,
-                pinColors.base.a * 255 * 0.8f
-            );
-        }
+    ImU32 dragColor;
+    if (m_state.magnetPinNodeId != -1 && !m_state.canConnectToMagnetPin) {
+        dragColor = IM_COL32(255, 50, 50, 200);
+    } else {
+        dragColor = IM_COL32(
+            pinColors.base.r * 255,
+            pinColors.base.g * 255,
+            pinColors.base.b * 255,
+            pinColors.base.a * 255 * 0.8f
+        );
+    }
 
-        ImU32 outerColor = IM_COL32(40, 44, 52, 100);
-        float thickness = m_state.style.connectionThickness * m_state.viewScale;
+    ImU32 outerColor = IM_COL32(40, 44, 52, 100);
+    float thickness = m_state.style.connectionThickness * m_state.viewScale;
 
-        float distance = std::sqrt(std::pow(p2.x - p1.x, 2) + std::pow(p2.y - p1.y, 2));
-        float cpOffset = std::max(50.0f, distance * 0.5f);
+    float distance = std::sqrt(std::pow(p2.x - p1.x, 2) + std::pow(p2.y - p1.y, 2));
+    float cpOffset = std::max(50.0f, distance * 0.5f);
 
-        ImVec2 cp1, cp2;
+    ImVec2 cp1, cp2;
 
-        if (pinInternal->isInput) {
-            cp1 = ImVec2(p1.x, p1.y - cpOffset);
-        } else {
-            cp1 = ImVec2(p1.x, p1.y + cpOffset);
-        }
+    if (sourcePinInternal->isInput) {
+        cp1 = ImVec2(p1.x, p1.y - cpOffset);
+    } else {
+        cp1 = ImVec2(p1.x, p1.y + cpOffset);
+    }
 
-        if (isEndInput) {
-            cp2 = ImVec2(p2.x, p2.y - cpOffset);
-        } else {
-            cp2 = ImVec2(p2.x, p2.y + cpOffset);
-        }
+    if (isEndInput) {
+        cp2 = ImVec2(p2.x, p2.y - cpOffset);
+    } else {
+        cp2 = ImVec2(p2.x, p2.y + cpOffset);
+    }
 
-        drawList->AddBezierCubic(p1, cp1, cp2, p2, outerColor, thickness + 1.5f);
-        drawList->AddBezierCubic(p1, cp1, cp2, p2, dragColor, thickness);
+    drawList->AddBezierCubic(p1, cp1, cp2, p2, outerColor, thickness + 1.5f);
+    drawList->AddBezierCubic(p1, cp1, cp2, p2, dragColor, thickness);
 
-        ImVec4 brightColor = ImGui::ColorConvertU32ToFloat4(dragColor);
-        brightColor.x = std::min(brightColor.x + 0.3f, 1.0f);
-        brightColor.y = std::min(brightColor.y + 0.3f, 1.0f);
-        brightColor.z = std::min(brightColor.z + 0.3f, 1.0f);
-        brightColor.w = 0.7f;
+    ImVec4 brightColor = ImGui::ColorConvertU32ToFloat4(dragColor);
+    brightColor.x = std::min(brightColor.x + 0.3f, 1.0f);
+    brightColor.y = std::min(brightColor.y + 0.3f, 1.0f);
+    brightColor.z = std::min(brightColor.z + 0.3f, 1.0f);
+    brightColor.w = 0.7f;
 
-        ImU32 brightDragColor = ImGui::ColorConvertFloat4ToU32(brightColor);
-        drawList->AddBezierCubic(p1, cp1, cp2, p2, brightDragColor, thickness * 0.4f);
+    ImU32 brightDragColor = ImGui::ColorConvertFloat4ToU32(brightColor);
+    drawList->AddBezierCubic(p1, cp1, cp2, p2, brightDragColor, thickness * 0.4f);
 
-        const float glowRadius = 2.5f * m_state.viewScale;
-        ImU32 glowColor = IM_COL32(
-            std::min(static_cast<int>(pinColors.base.r * 255 + 50), 255),
-            std::min(static_cast<int>(pinColors.base.g * 255 + 50), 255),
-            std::min(static_cast<int>(pinColors.base.b * 255 + 50), 255),
-            180
+    const float glowRadius = 2.5f * m_state.viewScale;
+    ImU32 glowColor = IM_COL32(
+        std::min(static_cast<int>(pinColors.base.r * 255 + 50), 255),
+        std::min(static_cast<int>(pinColors.base.g * 255 + 50), 255),
+        std::min(static_cast<int>(pinColors.base.b * 255 + 50), 255),
+        180
+    );
+    drawList->AddCircleFilled(p1, glowRadius, glowColor);
+
+    if (m_state.magnetPinNodeId != -1 && !m_state.canConnectToMagnetPin) {
+        ImVec2 midPoint = ImBezierCubicCalc(p1, cp1, cp2, p2, 0.5f);
+
+        float crossSize = 8.0f * m_state.viewScale;
+        float crossThickness = 2.0f * m_state.viewScale;
+        ImU32 crossColor = IM_COL32(255, 50, 50, 230);
+
+        drawList->AddLine(
+            ImVec2(midPoint.x - crossSize, midPoint.y - crossSize),
+            ImVec2(midPoint.x + crossSize, midPoint.y + crossSize),
+            crossColor, crossThickness
         );
 
-        drawList->AddCircleFilled(p1, glowRadius, glowColor);
-
-        if (m_state.magnetPinNodeId != -1 && !m_state.canConnectToMagnetPin) {
-            ImVec2 midPoint = ImBezierCubicCalc(p1, cp1, cp2, p2, 0.5f);
-
-            float crossSize = 8.0f * m_state.viewScale;
-            float crossThickness = 2.0f * m_state.viewScale;
-            ImU32 crossColor = IM_COL32(255, 50, 50, 230);
-
-            drawList->AddLine(
-                ImVec2(midPoint.x - crossSize, midPoint.y - crossSize),
-                ImVec2(midPoint.x + crossSize, midPoint.y + crossSize),
-                crossColor, crossThickness
-            );
-
-            drawList->AddLine(
-                ImVec2(midPoint.x - crossSize, midPoint.y + crossSize),
-                ImVec2(midPoint.x + crossSize, midPoint.y - crossSize),
-                crossColor, crossThickness
-            );
-        }
+        drawList->AddLine(
+            ImVec2(midPoint.x - crossSize, midPoint.y + crossSize),
+            ImVec2(midPoint.x + crossSize, midPoint.y - crossSize),
+            crossColor, crossThickness
+        );
     }
+}
 
     void NodeEditor::drawNodePins(ImDrawList *drawList, const Node &node, const ImVec2 &nodePos, const ImVec2 &nodeSize,
                                   const ImVec2 &canvasPos) {

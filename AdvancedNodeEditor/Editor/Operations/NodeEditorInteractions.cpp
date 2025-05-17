@@ -5,95 +5,174 @@
 
 namespace NodeEditorCore {
     void NodeEditor::processInteraction() {
-    ImVec2 mousePos = ImGui::GetMousePos();
-    ImVec2 canvasPos = ImGui::GetCursorScreenPos();
+        ImVec2 mousePos = ImGui::GetMousePos();
+        ImVec2 canvasPos = ImGui::GetCursorScreenPos();
 
-    bool isMouseDoubleClicked = ImGui::IsMouseDoubleClicked(0);
-    bool isMouseClicked = ImGui::IsMouseClicked(0);
-    bool isMouseReleased = ImGui::IsMouseReleased(0);
-    bool isMouseDragging = ImGui::IsMouseDragging(0);
-    bool isMiddleMousePressed = ImGui::IsMouseDown(2);
+        // IMPORTANT: Ajout d'un log de débogage visuel
+        ImDrawList *drawList = ImGui::GetWindowDrawList();
+        drawList->AddText(ImVec2(10, 10), IM_COL32(255, 0, 0, 255),
+                          ("Interaction Mode: " + std::to_string(static_cast<int>(m_state.interactionMode))).c_str());
+        drawList->AddText(ImVec2(10, 30), IM_COL32(255, 0, 0, 255),
+                          ("Mouse Pos: " + std::to_string(static_cast<int>(mousePos.x)) + ", " +
+                           std::to_string(static_cast<int>(mousePos.y))).c_str());
+        drawList->AddText(ImVec2(10, 50), IM_COL32(255, 0, 0, 255),
+                          ("Hovered Pin: " + std::to_string(m_state.hoveredPinId)).c_str());
+        drawList->AddText(ImVec2(10, 70), IM_COL32(255, 0, 0, 255),
+                          ("Connecting: " + std::string(m_state.connecting ? "true" : "false")).c_str());
+        drawList->AddText(ImVec2(10, 90), IM_COL32(255, 0, 0, 255),
+                          ("Magnet Pin: " + std::to_string(m_state.magnetPinId)).c_str());
 
-    updateHoveredElements(mousePos);
+        bool isMouseDoubleClicked = ImGui::IsMouseDoubleClicked(0);
+        bool isMouseClicked = ImGui::IsMouseClicked(0);
+        bool isMouseReleased = ImGui::IsMouseReleased(0);
+        bool isMouseDragging = ImGui::IsMouseDragging(0);
+        bool isMiddleMousePressed = ImGui::IsMouseDown(2);
 
-    if (isMouseDoubleClicked && m_state.hoveredNodeId >= 0) {
-        Node* node = getNode(m_state.hoveredNodeId);
-        if (node && node->isSubgraph) {
-            enterSubgraph(node->subgraphId);
-            return;
-        } else if (node && m_state.currentSubgraphId >= 0) {
-            Subgraph* subgraph = getSubgraph(m_state.currentSubgraphId);
-            if (subgraph) {
-                int inputNodeId = subgraph->metadata.getAttribute<int>("inputNodeId", -1);
-                int outputNodeId = subgraph->metadata.getAttribute<int>("outputNodeId", -1);
-                if (node->id == inputNodeId || node->id == outputNodeId) {
-                    exitSubgraph();
-                    return;
+        // IMPORTANT: Affichage de l'état des boutons de la souris
+        drawList->AddText(ImVec2(10, 110), IM_COL32(255, 0, 0, 255),
+                          ("Mouse Clicked: " + std::string(isMouseClicked ? "true" : "false")).c_str());
+        drawList->AddText(ImVec2(10, 130), IM_COL32(255, 0, 0, 255),
+                          ("Mouse Released: " + std::string(isMouseReleased ? "true" : "false")).c_str());
+        drawList->AddText(ImVec2(10, 150), IM_COL32(255, 0, 0, 255),
+                          ("Mouse Dragging: " + std::string(isMouseDragging ? "true" : "false")).c_str());
+
+        // Mise à jour des éléments survolés AVANT de traiter les événements
+        updateHoveredElements(mousePos);
+
+        // NOUVEAU: Afficher les IDs des nœuds et pins survolés
+        drawList->AddText(ImVec2(10, 170), IM_COL32(255, 0, 0, 255),
+                          ("Hovered Node: " + std::to_string(m_state.hoveredNodeId)).c_str());
+        drawList->AddText(ImVec2(10, 190), IM_COL32(255, 0, 0, 255),
+                          ("Hovered Pin: " + std::to_string(m_state.hoveredPinId)).c_str());
+
+        if (isMouseDoubleClicked && m_state.hoveredNodeId >= 0) {
+            Node *node = getNode(m_state.hoveredNodeId);
+            if (node && node->isSubgraph) {
+                enterSubgraph(node->subgraphId);
+                return;
+            } else if (node && m_state.currentSubgraphId >= 0) {
+                Subgraph *subgraph = getSubgraph(m_state.currentSubgraphId);
+                if (subgraph) {
+                    int inputNodeId = subgraph->metadata.getAttribute<int>("inputNodeId", -1);
+                    int outputNodeId = subgraph->metadata.getAttribute<int>("outputNodeId", -1);
+                    if (node->id == inputNodeId || node->id == outputNodeId) {
+                        exitSubgraph();
+                        return;
+                    }
                 }
             }
         }
-    }
 
-    if (isMiddleMousePressed) {
-        if (!m_state.dragging) {
-            m_state.dragging = true;
-            m_state.dragOffset = Vec2(mousePos.x, mousePos.y);
-            ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeAll);
-        } else {
-            float dx = mousePos.x - m_state.dragOffset.x;
-            float dy = mousePos.y - m_state.dragOffset.y;
-            m_state.viewPosition.x += dx;
-            m_state.viewPosition.y += dy;
-            m_state.dragOffset = Vec2(mousePos.x, mousePos.y);
-        }
-        return;
-    } else if (m_state.dragging && !isMiddleMousePressed) {
-        m_state.dragging = false;
-        ImGui::SetMouseCursor(ImGuiMouseCursor_Arrow);
-    }
-
-    if (isMouseClicked) {
-        if (m_state.hoveredPinId >= 0 && m_state.hoveredNodeId >= 0) {
-            startConnectionDrag(m_state.hoveredNodeId, m_state.hoveredPinId);
-        } else if (m_state.hoveredNodeId >= 0) {
-            Node* node = getNode(m_state.hoveredNodeId);
-            if (node) {
-                selectNode(m_state.hoveredNodeId, ImGui::GetIO().KeyCtrl);
-                startNodeDrag(m_state.hoveredNodeId, mousePos);
+        if (isMiddleMousePressed) {
+            if (!m_state.dragging) {
+                m_state.dragging = true;
+                m_state.dragOffset = Vec2(mousePos.x, mousePos.y);
+                ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeAll);
+            } else {
+                float dx = mousePos.x - m_state.dragOffset.x;
+                float dy = mousePos.y - m_state.dragOffset.y;
+                m_state.viewPosition.x += dx;
+                m_state.viewPosition.y += dy;
+                m_state.dragOffset = Vec2(mousePos.x, mousePos.y);
             }
-        } else if (m_state.hoveredConnectionId >= 0) {
-            selectConnection(m_state.hoveredConnectionId, ImGui::GetIO().KeyCtrl);
-        } else if (m_state.hoveredGroupId >= 0) {
-            startGroupInteraction(mousePos);
-        } else {
-            startBoxSelect(mousePos);
-            if (!ImGui::GetIO().KeyCtrl) {
-                deselectAllNodes();
-                deselectAllConnections();
+            return;
+        } else if (m_state.dragging && !isMiddleMousePressed) {
+            m_state.dragging = false;
+            ImGui::SetMouseCursor(ImGuiMouseCursor_Arrow);
+        }
+
+        // Traitement des clics souris
+        if (isMouseClicked) {
+            // NOUVEAU: Log pour le débogage
+            drawList->AddText(ImVec2(10, 210), IM_COL32(255, 0, 0, 255), "MOUSE CLICKED!");
+
+            if (m_state.hoveredPinId >= 0 && m_state.hoveredNodeId >= 0) {
+                // NOUVEAU: Log pour le débogage
+                drawList->AddText(ImVec2(10, 230), IM_COL32(255, 0, 0, 255),
+                                  ("Starting Connection on Pin " + std::to_string(m_state.hoveredPinId)).c_str());
+
+                startConnectionDrag(m_state.hoveredNodeId, m_state.hoveredPinId);
+            } else if (m_state.hoveredNodeId >= 0) {
+                Node *node = getNode(m_state.hoveredNodeId);
+                if (node) {
+                    selectNode(m_state.hoveredNodeId, ImGui::GetIO().KeyCtrl);
+                    startNodeDrag(m_state.hoveredNodeId, mousePos);
+                }
+            } else if (m_state.hoveredConnectionId >= 0) {
+                selectConnection(m_state.hoveredConnectionId, ImGui::GetIO().KeyCtrl);
+            } else if (m_state.hoveredGroupId >= 0) {
+                startGroupInteraction(mousePos);
+            } else {
+                startBoxSelect(mousePos);
+                if (!ImGui::GetIO().KeyCtrl) {
+                    deselectAllNodes();
+                    deselectAllConnections();
+                }
             }
         }
-    }
 
-    if (m_state.interactionMode != InteractionMode::None) {
-        if (isMouseDragging) {
-            updateCurrentInteraction(mousePos);
+        // Si nous sommes en train d'interagir
+        if (m_state.interactionMode != InteractionMode::None) {
+            // Pendant le glissement
+            if (isMouseDragging) {
+                // NOUVEAU: Ajout du mode d'interaction lors du glissement
+                drawList->AddText(ImVec2(10, 250), IM_COL32(255, 0, 0, 255),
+                                  ("Dragging with Mode: " + std::to_string(static_cast<int>(m_state.interactionMode))).
+                                  c_str());
+                updateCurrentInteraction(mousePos);
+            }
+
+            // Au relâchement
+            if (isMouseReleased) {
+                // NOUVEAU: Log pour le débogage
+
+                // IMPORTANT: SI nous sommes en mode de création de connexion
+                if (m_state.interactionMode == InteractionMode::DragConnection) {
+                    // IMPORTANT: Vérification directe pour le débogage
+                    drawList->AddText(ImVec2(10, 290), IM_COL32(255, 0, 0, 255),
+                                      ("Creating connection: " + std::to_string(m_state.connectingNodeId) +
+                                       " to " + std::to_string(m_state.magnetPinNodeId)).c_str());
+
+                    // Essayer de créer une connexion directement ici
+                    if (m_state.magnetPinNodeId != -1 && m_state.magnetPinId != -1) {
+                        const Node *sourceNode = getNode(m_state.connectingNodeId);
+                        if (sourceNode) {
+                            const Pin *sourcePinInternal = sourceNode->findPin(m_state.connectingPinId);
+                            if (sourcePinInternal) {
+                                bool isSourceInput = sourcePinInternal->isInput;
+                                int connectionId = -1;
+
+                                if (isSourceInput) {
+                                    // Source est entrée, cible est sortie
+                                    connectionId = addConnection(m_state.magnetPinNodeId, m_state.magnetPinId,
+                                                                 m_state.connectingNodeId, m_state.connectingPinId);
+                                } else {
+                                    // Source est sortie, cible est entrée
+                                    connectionId = addConnection(m_state.connectingNodeId, m_state.connectingPinId,
+                                                                 m_state.magnetPinNodeId, m_state.magnetPinId);
+                                }
+
+                                drawList->AddText(ImVec2(10, 310), IM_COL32(255, 0, 0, 255),
+                                                  ("Connection result: " + std::to_string(connectionId)).c_str());
+                            }
+                        }
+                    }
+                }
+
+                endCurrentInteraction();
+            }
         }
 
-        if (isMouseReleased) {
+        processZoom(mousePos);
+
+        if (ImGui::IsKeyPressed(ImGuiKey_Delete) || ImGui::IsKeyPressed(ImGuiKey_Backspace)) {
+            processDeleteKeyPress();
+        }
+
+        if (ImGui::IsKeyPressed(ImGuiKey_Escape)) {
             endCurrentInteraction();
         }
     }
-
-    processZoom(mousePos);
-
-    if (ImGui::IsKeyPressed(ImGuiKey_Delete) || ImGui::IsKeyPressed(ImGuiKey_Backspace)) {
-        processDeleteKeyPress();
-    }
-
-    if (ImGui::IsKeyPressed(ImGuiKey_Escape)) {
-        endCurrentInteraction();
-    }
-}
 
     void NodeEditor::updateCurrentInteraction(const ImVec2 &mousePos) {
         switch (m_state.interactionMode) {
@@ -130,7 +209,7 @@ namespace NodeEditorCore {
 
         Vec2 scaledDelta = Vec2(mouseDelta.x / m_state.viewScale, mouseDelta.y / m_state.viewScale);
 
-        for (auto& node : m_state.nodes) {
+        for (auto &node: m_state.nodes) {
             if (node.selected) {
                 auto it = m_state.draggedNodePositions.find(node.id);
                 if (it != m_state.draggedNodePositions.end()) {
@@ -149,8 +228,8 @@ namespace NodeEditorCore {
         ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
     }
 
-    void NodeEditor::startNodeDrag(int nodeId, const ImVec2& mousePos) {
-        Node* node = getNode(nodeId);
+    void NodeEditor::startNodeDrag(int nodeId, const ImVec2 &mousePos) {
+        Node *node = getNode(nodeId);
         if (!node) return;
 
         m_state.interactionMode = InteractionMode::DragNode;
@@ -163,7 +242,7 @@ namespace NodeEditorCore {
         }
 
         m_state.draggedNodePositions.clear();
-        for (const auto& node : m_state.nodes) {
+        for (const auto &node: m_state.nodes) {
             if (node.selected) {
                 m_state.draggedNodePositions[node.id] = node.position;
             }
@@ -219,12 +298,37 @@ namespace NodeEditorCore {
     }
 
     void NodeEditor::endCurrentInteraction() {
+        if (m_state.interactionMode == InteractionMode::DragConnection &&
+            m_state.magnetPinNodeId != -1 && m_state.magnetPinId != -1) {
+            const Node *sourceNode = getNode(m_state.connectingNodeId);
+            if (sourceNode) {
+                const Pin *sourcePinInternal = sourceNode->findPin(m_state.connectingPinId);
+                if (sourcePinInternal) {
+                    bool isSourceInput = sourcePinInternal->isInput;
+                    int connectionId = -1;
+
+                    if (isSourceInput) {
+                        connectionId = addConnection(m_state.magnetPinNodeId, m_state.magnetPinId,
+                                                     m_state.connectingNodeId, m_state.connectingPinId);
+                    } else {
+                        connectionId = addConnection(m_state.connectingNodeId, m_state.connectingPinId,
+                                                     m_state.magnetPinNodeId, m_state.magnetPinId);
+                    }
+                }
+            }
+        }
+
         m_state.interactionMode = InteractionMode::None;
         m_state.activeNodeId = -1;
+        m_state.activeNodeUuid = "";
         m_state.activeConnectionId = -1;
+        m_state.activeConnectionUuid = "";
         m_state.activeGroupId = -1;
+        m_state.activeGroupUuid = "";
         m_state.connectingNodeId = -1;
+        m_state.connectingNodeUuid = "";
         m_state.connectingPinId = -1;
+        m_state.connectingPinUuid = "";
         m_state.dragging = false;
         m_state.connecting = false;
         m_state.boxSelecting = false;
@@ -256,7 +360,7 @@ namespace NodeEditorCore {
         }
     }
 
-    void NodeEditor::updateHoveredElements(const ImVec2& mousePos) {
+    void NodeEditor::updateHoveredElements(const ImVec2 &mousePos) {
         m_state.hoveredNodeId = -1;
         m_state.hoveredNodeUuid = "";
         m_state.hoveredPinId = -1;
@@ -268,7 +372,7 @@ namespace NodeEditorCore {
 
         ImVec2 canvasPos = ImGui::GetCursorScreenPos();
 
-        for (const auto& connection : m_state.connections) {
+        for (const auto &connection: m_state.connections) {
             if (!isNodeInCurrentSubgraph(*getNode(connection.startNodeId)) ||
                 !isNodeInCurrentSubgraph(*getNode(connection.endNodeId))) {
                 continue;
@@ -277,17 +381,19 @@ namespace NodeEditorCore {
             if (isConnectionHovered(connection, canvasPos)) {
                 m_state.hoveredConnectionId = connection.id;
                 m_state.hoveredConnectionUuid = connection.uuid;
-                return;
+                break;
             }
         }
 
-        for (const auto& node : m_state.nodes) {
+        for (const auto &node: m_state.nodes) {
             if (!isNodeInCurrentSubgraph(node)) continue;
 
             ImVec2 nodePos = canvasToScreen(node.position).toImVec2();
             ImVec2 nodeSize = Vec2(node.size.x * m_state.viewScale, node.size.y * m_state.viewScale).toImVec2();
 
-            for (const auto& pin : node.inputs) {
+            bool pinHovered = false;
+
+            for (const auto &pin: node.inputs) {
                 Pin apiPin;
                 apiPin.id = pin.id;
                 apiPin.name = pin.name;
@@ -300,11 +406,14 @@ namespace NodeEditorCore {
                     m_state.hoveredNodeUuid = node.uuid;
                     m_state.hoveredPinId = pin.id;
                     m_state.hoveredPinUuid = pin.uuid;
-                    return;
+                    pinHovered = true;
+                    break;
                 }
             }
 
-            for (const auto& pin : node.outputs) {
+            if (pinHovered) break;
+
+            for (const auto &pin: node.outputs) {
                 Pin apiPin;
                 apiPin.id = pin.id;
                 apiPin.name = pin.name;
@@ -317,28 +426,33 @@ namespace NodeEditorCore {
                     m_state.hoveredNodeUuid = node.uuid;
                     m_state.hoveredPinId = pin.id;
                     m_state.hoveredPinUuid = pin.uuid;
-                    return;
+                    pinHovered = true;
+                    break;
                 }
             }
+
+            if (pinHovered) break;
 
             if (isPointInRect(mousePos, nodePos, ImVec2(nodePos.x + nodeSize.x, nodePos.y + nodeSize.y))) {
                 m_state.hoveredNodeId = node.id;
                 m_state.hoveredNodeUuid = node.uuid;
-                return;
+                break;
             }
         }
 
-        for (const auto& group : m_state.groups) {
-            if ((m_state.currentSubgraphId == -1 && group.getSubgraphId() == -1) ||
-                (m_state.currentSubgraphId >= 0 && group.getSubgraphId() == m_state.currentSubgraphId)) {
+        if (m_state.hoveredNodeId == -1 && m_state.hoveredPinId == -1) {
+            for (const auto &group: m_state.groups) {
+                if ((m_state.currentSubgraphId == -1 && group.getSubgraphId() == -1) ||
+                    (m_state.currentSubgraphId >= 0 && group.getSubgraphId() == m_state.currentSubgraphId)) {
+                    ImVec2 groupPos = canvasToScreen(group.position).toImVec2();
+                    ImVec2 groupSize = Vec2(group.size.x * m_state.viewScale, group.size.y * m_state.viewScale).
+                            toImVec2();
 
-                ImVec2 groupPos = canvasToScreen(group.position).toImVec2();
-                ImVec2 groupSize = Vec2(group.size.x * m_state.viewScale, group.size.y * m_state.viewScale).toImVec2();
-
-                if (isPointInRect(mousePos, groupPos, ImVec2(groupPos.x + groupSize.x, groupPos.y + groupSize.y))) {
-                    m_state.hoveredGroupId = group.id;
-                    m_state.hoveredGroupUuid = group.uuid;
-                    return;
+                    if (isPointInRect(mousePos, groupPos, ImVec2(groupPos.x + groupSize.x, groupPos.y + groupSize.y))) {
+                        m_state.hoveredGroupId = group.id;
+                        m_state.hoveredGroupUuid = group.uuid;
+                        break;
+                    }
                 }
             }
         }
@@ -517,101 +631,124 @@ namespace NodeEditorCore {
 
     bool NodeEditor::isPinHovered(const Node &node, const Pin &pin, const ImVec2 &canvasPos) {
         ImVec2 pinPos = getPinPos(node, pin, canvasPos);
+
         ImVec2 mousePos = ImGui::GetMousePos();
+
         float pinRadius = m_state.style.pinRadius * m_state.viewScale;
 
         float clickableRadius = pinRadius * 3.0f;
 
         float dx = mousePos.x - pinPos.x;
         float dy = mousePos.y - pinPos.y;
+
         return (dx * dx + dy * dy) <= (clickableRadius * clickableRadius);
     }
 
     void NodeEditor::processConnectionCreation() {
-    if (!m_state.connecting || m_state.connectingNodeId == -1 || m_state.connectingPinId == -1) return;
+        if (!m_state.connecting || m_state.connectingNodeId == -1 || m_state.connectingPinId == -1)
+            return;
 
-    ImVec2 mousePos = ImGui::GetMousePos();
+        ImVec2 mousePos = ImGui::GetMousePos();
 
-    const Node *sourceNode = getNode(m_state.connectingNodeId);
-    if (!sourceNode) return;
+        const Node *sourceNode = getNode(m_state.connectingNodeId);
+        if (!sourceNode) return;
 
-    const Pin *sourcePinInternal = sourceNode->findPin(m_state.connectingPinId);
-    if (!sourcePinInternal) return;
+        const Pin *sourcePinInternal = sourceNode->findPin(m_state.connectingPinId);
+        if (!sourcePinInternal) return;
 
-    bool isSourceInput = sourcePinInternal->isInput;
+        bool isSourceInput = sourcePinInternal->isInput;
 
-    m_state.magnetPinNodeId = -1;
-    m_state.magnetPinId = -1;
-    m_state.magnetPinNodeUuid = "";
-    m_state.magnetPinUuid = "";
-    m_state.canConnectToMagnetPin = true;
+        m_state.magnetPinNodeId = -1;
+        m_state.magnetPinId = -1;
+        m_state.magnetPinNodeUuid = "";
+        m_state.magnetPinUuid = "";
+        m_state.canConnectToMagnetPin = false;
 
-    float closestDist = m_state.magnetThreshold * m_state.magnetThreshold;
+        float closestDist = m_state.magnetThreshold * m_state.magnetThreshold;
 
-    for (const auto &node: m_state.nodes) {
-        if (node.id == m_state.connectingNodeId) continue;
+        for (const auto &node: m_state.nodes) {
+            if (node.id == m_state.connectingNodeId || !isNodeInCurrentSubgraph(node))
+                continue;
 
-        if (!isNodeInCurrentSubgraph(node)) continue;
+            const auto &pins = isSourceInput ? node.outputs : node.inputs;
 
-        const auto &pins = isSourceInput ? node.outputs : node.inputs;
+            for (const auto &pinInternal: pins) {
+                Pin apiPin;
+                apiPin.id = pinInternal.id;
+                apiPin.name = pinInternal.name;
+                apiPin.isInput = pinInternal.isInput;
+                apiPin.type = static_cast<PinType>(pinInternal.type);
+                apiPin.shape = static_cast<PinShape>(pinInternal.shape);
 
-        for (const auto &pinInternal: pins) {
-            Pin apiPin;
-            apiPin.id = pinInternal.id;
-            apiPin.name = pinInternal.name;
-            apiPin.isInput = pinInternal.isInput;
-            apiPin.type = static_cast<PinType>(pinInternal.type);
-            apiPin.shape = static_cast<PinShape>(pinInternal.shape);
+                ImVec2 pinPos = getPinPos(node, apiPin, ImGui::GetWindowPos());
 
-            ImVec2 pinPos = getPinPos(node, apiPin, ImGui::GetWindowPos());
-            float dx = mousePos.x - pinPos.x;
-            float dy = mousePos.y - pinPos.y;
-            float dist = dx * dx + dy * dy;
+                float dx = mousePos.x - pinPos.x;
+                float dy = mousePos.y - pinPos.y;
+                float dist = dx * dx + dy * dy;
 
-            if (dist < closestDist) {
-                Pin sourceApiPin;
-                sourceApiPin.id = sourcePinInternal->id;
-                sourceApiPin.name = sourcePinInternal->name;
-                sourceApiPin.isInput = sourcePinInternal->isInput;
-                sourceApiPin.type = static_cast<PinType>(sourcePinInternal->type);
-                sourceApiPin.shape = static_cast<PinShape>(sourcePinInternal->shape);
+                if (dist < closestDist) {
+                    Pin sourceApiPin;
+                    sourceApiPin.id = sourcePinInternal->id;
+                    sourceApiPin.name = sourcePinInternal->name;
+                    sourceApiPin.isInput = sourcePinInternal->isInput;
+                    sourceApiPin.type = static_cast<PinType>(sourcePinInternal->type);
+                    sourceApiPin.shape = static_cast<PinShape>(sourcePinInternal->shape);
 
-                bool canConnect = canCreateConnection(isSourceInput ? apiPin : sourceApiPin,
-                                                      isSourceInput ? sourceApiPin : apiPin);
+                    bool canConnect = false;
 
-                m_state.magnetPinNodeId = node.id;
-                m_state.magnetPinId = pinInternal.id;
-                m_state.magnetPinNodeUuid = node.uuid;
-                m_state.magnetPinUuid = pinInternal.uuid;
-                m_state.canConnectToMagnetPin = canConnect;
-                closestDist = dist;
-            }
-        }
-    }
+                    if (isSourceInput && !pinInternal.isInput) {
+                        canConnect = canCreateConnection(apiPin, sourceApiPin);
+                    } else if (!isSourceInput && pinInternal.isInput) {
+                        canConnect = canCreateConnection(sourceApiPin, apiPin);
+                    }
 
-    if (ImGui::IsMouseReleased(ImGuiMouseButton_Left)) {
-        if (m_state.magnetPinNodeId != -1 && m_state.canConnectToMagnetPin) {
-            if (isSourceInput) {
-                addConnection(m_state.magnetPinNodeId, m_state.magnetPinId,
-                             m_state.connectingNodeId, m_state.connectingPinId);
-            } else {
-                addConnection(m_state.connectingNodeId, m_state.connectingPinId,
-                             m_state.magnetPinNodeId, m_state.magnetPinId);
+                    if (canConnect) {
+                        m_state.magnetPinNodeId = node.id;
+                        m_state.magnetPinId = pinInternal.id;
+                        m_state.magnetPinNodeUuid = node.uuid;
+                        m_state.magnetPinUuid = pinInternal.uuid;
+                        m_state.canConnectToMagnetPin = true;
+                        closestDist = dist;
+                    }
+                }
             }
         }
 
-        m_state.connecting = false;
-        m_state.connectingNodeId = -1;
-        m_state.connectingPinId = -1;
+        if (ImGui::IsMouseReleased(ImGuiMouseButton_Left)) {
+            if (m_state.magnetPinNodeId != -1 && m_state.canConnectToMagnetPin) {
+                int connectionId = -1;
+
+                if (isSourceInput) {
+                    connectionId = addConnection(m_state.magnetPinNodeId, m_state.magnetPinId,
+                                                 m_state.connectingNodeId, m_state.connectingPinId);
+                } else {
+                    connectionId = addConnection(m_state.connectingNodeId, m_state.connectingPinId,
+                                                 m_state.magnetPinNodeId, m_state.magnetPinId);
+                }
+
+                if (connectionId != -1) {
+                    // Connexion créée avec succès
+                } else {
+                    // La connexion a échoué
+                }
+            }
+
+            m_state.connecting = false;
+            m_state.connectingNodeId = -1;
+            m_state.connectingPinId = -1;
+            m_state.interactionMode = InteractionMode::None;
+        }
     }
-}
 
     ImVec2 NodeEditor::getPinPos(const Node &node, const Pin &pin, const ImVec2 &canvasPos) const {
         ImVec2 nodePos = canvasToScreen(node.position).toImVec2();
+
         ImVec2 nodeSize = Vec2(node.size.x * m_state.viewScale, node.size.y * m_state.viewScale).toImVec2();
 
         float pinSpacing = 25.0f * m_state.viewScale;
         float leftMargin = 20.0f * m_state.viewScale;
+
+        ImVec2 result;
 
         if (pin.isInput) {
             int pinIndex = -1;
@@ -625,9 +762,8 @@ namespace NodeEditorCore {
             if (pinIndex < 0) return ImVec2(0, 0);
 
             float pinX = nodePos.x + leftMargin + pinIndex * pinSpacing;
-            float pinY = nodePos.y;
 
-            return ImVec2(pinX, pinY);
+            return ImVec2(pinX, nodePos.y);
         } else {
             int pinIndex = -1;
             for (size_t i = 0; i < node.outputs.size(); ++i) {
@@ -640,9 +776,8 @@ namespace NodeEditorCore {
             if (pinIndex < 0) return ImVec2(0, 0);
 
             float pinX = nodePos.x + leftMargin + pinIndex * pinSpacing;
-            float pinY = nodePos.y + nodeSize.y;
 
-            return ImVec2(pinX, pinY);
+            return ImVec2(pinX, nodePos.y + nodeSize.y);
         }
     }
 
@@ -748,7 +883,7 @@ namespace NodeEditorCore {
         }
     }
 
-    void NodeEditor::processZoom(const ImVec2& mousePos) {
+    void NodeEditor::processZoom(const ImVec2 &mousePos) {
         float zoom = ImGui::GetIO().MouseWheel;
 
         if (std::abs(zoom) < 0.01f) return;

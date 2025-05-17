@@ -263,7 +263,6 @@ TEST_F(SubgraphTests, CreateSubgraphNode) {
     EXPECT_EQ(subgraphNode->subgraphId, subgraphId);
     EXPECT_EQ(subgraphNode->subgraphUuid, uuid);
 
-    // Vérifier que les pins ont été créés
     EXPECT_EQ(subgraphNode->inputs.size(), 1);
     EXPECT_EQ(subgraphNode->outputs.size(), 1);
 
@@ -292,7 +291,6 @@ TEST_F(SubgraphTests, SubgraphNavigation) {
     editor.exitSubgraph();
     EXPECT_EQ(editor.getCurrentSubgraphId(), -1);
 
-    // Test de navigation directe
     editor.enterSubgraphByUUID(level3);
     EXPECT_EQ(editor.getCurrentSubgraphId(), editor.getSubgraphId(level3));
 
