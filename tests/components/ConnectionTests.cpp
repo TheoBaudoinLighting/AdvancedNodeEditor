@@ -162,7 +162,7 @@ protected:
         connectionId = editor.addConnection(1, outputPinId, 2, inputPinId);
         ASSERT_NE(connectionId, -1);
 
-        subgraphId = editor.createSubgraph("TestSubgraph");
+        subgraphId = editor.createSubgraph("TestSubgraph", "", true);
         ASSERT_NE(subgraphId, -1);
     }
 };
@@ -236,7 +236,7 @@ TEST(ConnectionSubgraphFix, TestSpecificIssue) {
     std::cout << "Connection créée avec ID: " << connectionId << std::endl;
     ASSERT_NE(connectionId, -1);
 
-    int subgraphId = editor.createSubgraph("TestSubgraph");
+    int subgraphId = editor.createSubgraph("TestSubgraph", "", true);
 
     editor.addNodeToSubgraph(1, subgraphId);
     editor.addNodeToSubgraph(2, subgraphId);
@@ -304,7 +304,7 @@ TEST(ConnectionDebugging, DiagnoseSubgraphConnections) {
     Connection *conn = editor.getConnection(connId);
     ASSERT_NE(conn, nullptr) << "La connexion n'a pas été créée correctement";
 
-    int subgraphId = editor.createSubgraph("TestSubgraph");
+    int subgraphId = editor.createSubgraph("TestSubgraph", "", true);
     std::cout << "Subgraph créé avec ID: " << subgraphId << std::endl;
 
     Subgraph *subgraph = editor.getSubgraph(subgraphId);
@@ -404,7 +404,7 @@ TEST(ConnectionDiagnostic, VerifyPinsAndConnections) {
 
     ASSERT_GT(connectionId, 0) << "La connexion devrait avoir un ID positif";
 
-    int subgraphId = editor.createSubgraph("TestSubgraph");
+    int subgraphId = editor.createSubgraph("TestSubgraph", "", true);
     std::cout << "Subgraph créé: " << subgraphId << std::endl;
 
     editor.addNodeToSubgraph(node1Id, subgraphId);

@@ -68,7 +68,7 @@ protected:
 };
 
 TEST_F(SubgraphTests, CreateSubgraph) {
-    int subgraphId = editor.createSubgraph("TestSubgraph");
+    int subgraphId = editor.createSubgraph("TestSubgraph", "", false);
     EXPECT_GT(subgraphId, 0);
     
     Subgraph* subgraph = editor.getSubgraph(subgraphId);
@@ -85,7 +85,7 @@ TEST_F(SubgraphTests, CreateSubgraphWithUUID) {
 }
 
 TEST_F(SubgraphTests, AddNodeToSubgraph) {
-    int subgraphId = editor.createSubgraph("TestSubgraph");
+    int subgraphId = editor.createSubgraph("TestSubgraph", "", false);
 
     editor.addNodeToSubgraph(1, subgraphId);
     editor.addNodeToSubgraph(2, subgraphId);
@@ -104,7 +104,7 @@ TEST_F(SubgraphTests, AddNodeToSubgraph) {
 }
 
 TEST_F(SubgraphTests, AddConnectionToSubgraph) {
-    int subgraphId = editor.createSubgraph("TestSubgraph");
+    int subgraphId = editor.createSubgraph("TestSubgraph", "", false);
 
     editor.addNodeToSubgraph(1, subgraphId);
     editor.addNodeToSubgraph(2, subgraphId);
@@ -124,7 +124,7 @@ TEST_F(SubgraphTests, AddConnectionToSubgraph) {
 }
 
 TEST_F(SubgraphTests, RemoveNodeFromSubgraph) {
-    int subgraphId = editor.createSubgraph("TestSubgraph");
+    int subgraphId = editor.createSubgraph("TestSubgraph", "", false);
 
     editor.addNodeToSubgraph(1, subgraphId);
     editor.addNodeToSubgraph(2, subgraphId);
@@ -141,7 +141,7 @@ TEST_F(SubgraphTests, RemoveNodeFromSubgraph) {
 }
 
 TEST_F(SubgraphTests, RemoveConnectionFromSubgraph) {
-    int subgraphId = editor.createSubgraph("TestSubgraph");
+    int subgraphId = editor.createSubgraph("TestSubgraph", "", false);
 
     editor.addConnectionToSubgraph(1, subgraphId);
     editor.removeConnectionFromSubgraph(1, subgraphId);
@@ -155,7 +155,7 @@ TEST_F(SubgraphTests, RemoveConnectionFromSubgraph) {
 }
 
 TEST_F(SubgraphTests, CurrentSubgraph) {
-    int subgraphId = editor.createSubgraph("TestSubgraph");
+    int subgraphId = editor.createSubgraph("TestSubgraph", "", false);
 
     editor.setCurrentSubgraphId(subgraphId);
     EXPECT_EQ(editor.getCurrentSubgraphId(), subgraphId);
@@ -166,7 +166,7 @@ TEST_F(SubgraphTests, CurrentSubgraph) {
 }
 
 TEST_F(SubgraphTests, SubgraphProperties) {
-    int subgraphId = editor.createSubgraph("TestSubgraph");
+    int subgraphId = editor.createSubgraph("TestSubgraph", "", false);
     Subgraph* subgraph = editor.getSubgraph(subgraphId);
     ASSERT_NE(subgraph, nullptr);
 

@@ -224,6 +224,7 @@ namespace NodeEditorCore {
         Node* createNodeOfTypeWithUUID(const std::string& type, const Vec2& position, UUID& outUuid);
 
         int createSubgraph(const std::string& name, const UUID& uuid = "");
+        int createSubgraph(const std::string &name, const UUID &uuid = "", bool createDefaultNodes = true);
         UUID createSubgraphWithUUID(const std::string& name);
 
         Subgraph *getSubgraph(int subgraphId);

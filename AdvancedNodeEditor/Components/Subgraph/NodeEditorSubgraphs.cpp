@@ -2,7 +2,7 @@
 #include <algorithm>
 
 namespace NodeEditorCore {
-    int NodeEditor::createSubgraph(const std::string &name, const UUID &uuid) {
+    int NodeEditor::createSubgraph(const std::string &name, const UUID &uuid, bool createDefaultNodes) {
         int subgraphId = m_state.nextGroupId++;
 
         auto subgraph = std::make_shared<Subgraph>();
@@ -12,32 +12,38 @@ namespace NodeEditorCore {
 
         m_subgraphs[subgraphId] = subgraph;
 
-        Vec2 inputPos(100.0f, 200.0f);
-        Vec2 outputPos(500.0f, 200.0f);
+        if (createDefaultNodes) {
+            Vec2 inputPos(100.0f, 200.0f);
+            Vec2 outputPos(500.0f, 200.0f);
 
-        int inputNodeId = addNode("Input", "Input", inputPos);
-        int outputNodeId = addNode("Output", "Output", outputPos);
+            int inputNodeId = addNode("Input", "Input", inputPos);
+            int outputNodeId = addNode("Output", "Output", outputPos);
 
-        Node *inputNode = getNode(inputNodeId);
-        Node *outputNode = getNode(outputNodeId);
+            Node *inputNode = getNode(inputNodeId);
+            Node *outputNode = getNode(outputNodeId);
 
-        if (inputNode) {
-            inputNode->isProtected = true;
-            addPin(inputNodeId, "flow", false, PinType::Blue);
+            if (inputNode) {
+                inputNode->isProtected = true;
+                addPin(inputNodeId, "flow", false, PinType::Blue);
+            }
+
+            if (outputNode) {
+                outputNode->isProtected = true;
+                addPin(outputNodeId, "flow", true, PinType::Blue);
+            }
+
+            addNodeToSubgraph(inputNodeId, subgraphId);
+            addNodeToSubgraph(outputNodeId, subgraphId);
+
+            subgraph->metadata.setAttribute("inputNodeId", inputNodeId);
+            subgraph->metadata.setAttribute("outputNodeId", outputNodeId);
         }
-
-        if (outputNode) {
-            outputNode->isProtected = true;
-            addPin(outputNodeId, "flow", true, PinType::Blue);
-        }
-
-        addNodeToSubgraph(inputNodeId, subgraphId);
-        addNodeToSubgraph(outputNodeId, subgraphId);
-
-        subgraph->metadata.setAttribute("inputNodeId", inputNodeId);
-        subgraph->metadata.setAttribute("outputNodeId", outputNodeId);
 
         return subgraphId;
+    }
+
+    int NodeEditor::createSubgraph(const std::string &name, const UUID &uuid) {
+        return createSubgraph(name, uuid, true);
     }
 
     bool NodeEditor::enterSubgraphByUUID(const UUID &uuid) {
@@ -159,7 +165,7 @@ namespace NodeEditorCore {
 
     UUID NodeEditor::createSubgraphWithUUID(const std::string &name) {
         UUID uuid = generateUUID();
-        int subgraphId = createSubgraph(name, uuid);
+        int subgraphId = createSubgraph(name, uuid, true);
 
         auto it = m_subgraphs.find(subgraphId);
         if (it != m_subgraphs.end()) {

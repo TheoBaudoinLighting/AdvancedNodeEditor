@@ -86,7 +86,7 @@ TEST_F(EvaluationTests, OperationsWithUUIDs) {
 }
 
 TEST_F(EvaluationTests, SubgraphEvaluation) {
-    int subgraphId = editor.createSubgraph("Subgraph");
+    int subgraphId = editor.createSubgraph("Subgraph", "", true);
 
     editor.addNodeToSubgraph(node1Id, subgraphId);
     editor.addNodeToSubgraph(node2Id, subgraphId);
