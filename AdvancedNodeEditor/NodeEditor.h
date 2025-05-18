@@ -622,6 +622,8 @@ namespace NodeEditorCore {
         void updateConnectionUuidMap();
         void updateGroupUuidMap();
         void updateSubgraphUuidMap();
+        void updateStateSubgraphs(int subgraphId);
+        void updateAllStateSubgraphs();
 
         NodeEditorStyle convertToInternalStyle(const EditorStyle& style) const;
         EditorStyle convertToAPIStyle(const NodeEditorStyle& style) const;

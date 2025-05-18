@@ -207,16 +207,32 @@ namespace NodeEditorCore {
         return m_nodeAvoidanceEnabled;
     }
 
+    int NodeEditor::getHoveredNodeId() const {
+        return m_state.hoveredNodeId;
+    }
+
     UUID NodeEditor::getHoveredNodeUUID() const {
         return m_state.hoveredNodeUuid;
+    }
+
+    int NodeEditor::getHoveredPinId() const {
+        return m_state.hoveredPinId;
     }
 
     UUID NodeEditor::getHoveredPinUUID() const {
         return m_state.hoveredPinUuid;
     }
 
+    int NodeEditor::getHoveredConnectionId() const {
+        return m_state.hoveredConnectionId;
+    }
+
     UUID NodeEditor::getHoveredConnectionUUID() const {
         return m_state.hoveredConnectionUuid;
+    }
+
+    int NodeEditor::getHoveredGroupId() const {
+        return m_state.hoveredGroupId;
     }
 
     UUID NodeEditor::getHoveredGroupUUID() const {

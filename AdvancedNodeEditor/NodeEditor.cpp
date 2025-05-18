@@ -490,4 +490,36 @@ namespace NodeEditorCore {
             m_animationManager.deactivateConnectionFlow(connectionId);
         }
     }
+
+    std::vector<UUID> NodeEditor::getAllNodeUUIDs() const {
+        std::vector<UUID> uuids;
+        for (const auto &node: m_state.nodes) {
+            uuids.push_back(node.uuid);
+        }
+        return uuids;
+    }
+
+    std::vector<UUID> NodeEditor::getAllConnectionUUIDs() const {
+        std::vector<UUID> uuids;
+        for (const auto &connection: m_state.connections) {
+            uuids.push_back(connection.uuid);
+        }
+        return uuids;
+    }
+
+    std::vector<UUID> NodeEditor::getAllGroupUUIDs() const {
+        std::vector<UUID> uuids;
+        for (const auto &group: m_state.groups) {
+            uuids.push_back(group.uuid);
+        }
+        return uuids;
+    }
+
+    std::vector<UUID> NodeEditor::getAllSubgraphUUIDs() const {
+        std::vector<UUID> uuids;
+        for (const auto &subgraph: m_state.subgraphs) {
+            uuids.push_back(subgraph.uuid);
+        }
+        return uuids;
+    }
 }

@@ -204,151 +204,183 @@ namespace NodeEditorCore {
         }
     }
 
+    void NodeEditor::drawGrid(ImDrawList *drawList, const ImVec2 &canvasPos) {
+        const float GRID_STEP_MAJOR = 64.0f * m_state.viewScale;
+        const float GRID_STEP_MINOR = 16.0f * m_state.viewScale;
 
-    void NodeEditor::drawGrid(ImDrawList* drawList, const ImVec2& canvasPos) {
-    const float GRID_STEP_MAJOR = 64.0f * m_state.viewScale;
-    const float GRID_STEP_MINOR = 16.0f * m_state.viewScale;
+        ImVec2 windowSize = ImGui::GetWindowSize();
 
-    ImVec2 windowSize = ImGui::GetWindowSize();
+        ImColor colorTopLeft(18, 23, 30, 255);
+        ImColor colorTopRight(16, 21, 28, 255);
+        ImColor colorBottomRight(10, 14, 20, 255);
+        ImColor colorBottomLeft(12, 16, 22, 255);
 
-    ImColor colorTopLeft(22, 27, 34, 255);
-    ImColor colorBottomRight(11, 15, 22, 255);
+        drawList->AddRectFilledMultiColor(
+            canvasPos,
+            ImVec2(canvasPos.x + windowSize.x, canvasPos.y + windowSize.y),
+            colorTopLeft, colorTopRight, colorBottomRight, colorBottomLeft
+        );
 
-    drawList->AddRectFilledMultiColor(
-        canvasPos,
-        ImVec2(canvasPos.x + windowSize.x, canvasPos.y + windowSize.y),
-        colorTopLeft,                                      // Coin supérieur gauche
-        ImColor(16, 22, 30, 255),                          // Coin supérieur droit
-        colorBottomRight,                                  // Coin inférieur droit
-        ImColor(14, 18, 26, 255)                           // Coin inférieur gauche
-    );
+        float intensityMultiplier = 1.0f;
+        if (m_state.currentSubgraphId >= 0) {
+            int depth = getSubgraphDepth(m_state.currentSubgraphId);
+            intensityMultiplier = std::max(0.4f, 1.0f - depth * 0.12f);
+        }
 
-    float intensityMultiplier = 1.0f;
-    if (m_state.currentSubgraphId >= 0) {
-        int depth = getSubgraphDepth(m_state.currentSubgraphId);
-        intensityMultiplier = std::max(0.5f, 1.0f - depth * 0.1f);
-    }
+        ImU32 gridMinorColor = IM_COL32(
+            50 * intensityMultiplier,
+            55 * intensityMultiplier,
+            70 * intensityMultiplier,
+            40
+        );
 
+        ImU32 gridMajorColor = IM_COL32(
+            80 * intensityMultiplier,
+            85 * intensityMultiplier,
+            115 * intensityMultiplier,
+            70
+        );
 
-    ImU32 gridMinorColor = IM_COL32(
-        60 * intensityMultiplier,
-        60 * intensityMultiplier,
-        70 * intensityMultiplier,
-        50
-    );
+        ImU32 gridMajorGlowColor = IM_COL32(
+            70 * intensityMultiplier,
+            75 * intensityMultiplier,
+            105 * intensityMultiplier,
+            20
+        );
 
-    ImU32 gridMajorColor = IM_COL32(
-        100 * intensityMultiplier,
-        100 * intensityMultiplier,
-        120 * intensityMultiplier,
-        80
-    );
+        for (float x = fmodf(m_state.viewPosition.x, GRID_STEP_MINOR); x < windowSize.x; x += GRID_STEP_MINOR) {
+            if (fmodf(x - fmodf(m_state.viewPosition.x, GRID_STEP_MAJOR), GRID_STEP_MAJOR) != 0.0f) {
+                drawList->AddLine(
+                    ImVec2(canvasPos.x + x, canvasPos.y),
+                    ImVec2(canvasPos.x + x, canvasPos.y + windowSize.y),
+                    gridMinorColor, 1.0f
+                );
+            }
+        }
 
-    for (float x = fmodf(m_state.viewPosition.x, GRID_STEP_MINOR); x < windowSize.x; x += GRID_STEP_MINOR) {
-        if (fmodf(x - fmodf(m_state.viewPosition.x, GRID_STEP_MAJOR), GRID_STEP_MAJOR) != 0.0f) {
+        for (float y = fmodf(m_state.viewPosition.y, GRID_STEP_MINOR); y < windowSize.y; y += GRID_STEP_MINOR) {
+            if (fmodf(y - fmodf(m_state.viewPosition.y, GRID_STEP_MAJOR), GRID_STEP_MAJOR) != 0.0f) {
+                drawList->AddLine(
+                    ImVec2(canvasPos.x, canvasPos.y + y),
+                    ImVec2(canvasPos.x + windowSize.x, canvasPos.y + y),
+                    gridMinorColor, 1.0f
+                );
+            }
+        }
+
+        for (float x = fmodf(m_state.viewPosition.x, GRID_STEP_MAJOR); x < windowSize.x; x += GRID_STEP_MAJOR) {
             drawList->AddLine(
                 ImVec2(canvasPos.x + x, canvasPos.y),
                 ImVec2(canvasPos.x + x, canvasPos.y + windowSize.y),
-                gridMinorColor, 1.0f
+                gridMajorGlowColor, 3.0f
+            );
+
+            drawList->AddLine(
+                ImVec2(canvasPos.x + x, canvasPos.y),
+                ImVec2(canvasPos.x + x, canvasPos.y + windowSize.y),
+                gridMajorColor, 1.5f
             );
         }
-    }
 
-    for (float y = fmodf(m_state.viewPosition.y, GRID_STEP_MINOR); y < windowSize.y; y += GRID_STEP_MINOR) {
-        if (fmodf(y - fmodf(m_state.viewPosition.y, GRID_STEP_MAJOR), GRID_STEP_MAJOR) != 0.0f) {
+        for (float y = fmodf(m_state.viewPosition.y, GRID_STEP_MAJOR); y < windowSize.y; y += GRID_STEP_MAJOR) {
             drawList->AddLine(
                 ImVec2(canvasPos.x, canvasPos.y + y),
                 ImVec2(canvasPos.x + windowSize.x, canvasPos.y + y),
-                gridMinorColor, 1.0f
+                gridMajorGlowColor, 3.0f
+            );
+
+            drawList->AddLine(
+                ImVec2(canvasPos.x, canvasPos.y + y),
+                ImVec2(canvasPos.x + windowSize.x, canvasPos.y + y),
+                gridMajorColor, 1.5f
             );
         }
+
+        const float fadeWidth = 60.0f;
+        const int fadeSteps = 25;
+        const float stepSize = fadeWidth / fadeSteps;
+
+        for (int i = 0; i < fadeSteps; i++) {
+            float x = i * stepSize;
+            float alpha = 35.0f * powf(1.0f - static_cast<float>(i) / fadeSteps, 1.5f);
+            ImU32 fadeColor = IM_COL32(0, 0, 0, static_cast<int>(alpha));
+
+            drawList->AddLine(
+                ImVec2(canvasPos.x + x, canvasPos.y),
+                ImVec2(canvasPos.x + x, canvasPos.y + windowSize.y),
+                fadeColor, 1.0f
+            );
+
+            drawList->AddLine(
+                ImVec2(canvasPos.x + windowSize.x - x, canvasPos.y),
+                ImVec2(canvasPos.x + windowSize.x - x, canvasPos.y + windowSize.y),
+                fadeColor, 1.0f
+            );
+        }
+
+        for (int i = 0; i < fadeSteps; i++) {
+            float y = i * stepSize;
+            float alpha = 35.0f * powf(1.0f - static_cast<float>(i) / fadeSteps, 1.5f);
+            ImU32 fadeColor = IM_COL32(0, 0, 0, static_cast<int>(alpha));
+
+            drawList->AddLine(
+                ImVec2(canvasPos.x, canvasPos.y + y),
+                ImVec2(canvasPos.x + windowSize.x, canvasPos.y + y),
+                fadeColor, 1.0f
+            );
+
+            drawList->AddLine(
+                ImVec2(canvasPos.x, canvasPos.y + windowSize.y - y),
+                ImVec2(canvasPos.x + windowSize.x, canvasPos.y + windowSize.y - y),
+                fadeColor, 1.0f
+            );
+        }
+
+        const float cornerFadeRadius = 120.0f;
+        const int cornerFadeSteps = 20;
+
+        for (int i = 0; i < cornerFadeSteps; i++) {
+            float progress = static_cast<float>(i) / cornerFadeSteps;
+            float radius = cornerFadeRadius * (1.0f - progress);
+            float alpha = 15.0f * powf(1.0f - progress, 1.8f);
+            ImU32 cornerFadeColor = IM_COL32(0, 0, 0, static_cast<int>(alpha));
+
+            drawList->AddCircle(
+                ImVec2(canvasPos.x, canvasPos.y),
+                radius, cornerFadeColor, 0, 2.0f
+            );
+
+            drawList->AddCircle(
+                ImVec2(canvasPos.x + windowSize.x, canvasPos.y),
+                radius, cornerFadeColor, 0, 2.0f
+            );
+
+            drawList->AddCircle(
+                ImVec2(canvasPos.x, canvasPos.y + windowSize.y),
+                radius, cornerFadeColor, 0, 2.0f
+            );
+
+            drawList->AddCircle(
+                ImVec2(canvasPos.x + windowSize.x, canvasPos.y + windowSize.y),
+                radius, cornerFadeColor, 0, 2.0f
+            );
+        }
+
+        if (m_state.viewScale > 0.3f) {
+            const float originSize = 3.0f + 2.0f * m_state.viewScale;
+            const ImVec2 originPos = ImVec2(
+                canvasPos.x - m_state.viewPosition.x * m_state.viewScale,
+                canvasPos.y - m_state.viewPosition.y * m_state.viewScale
+            );
+
+            if (originPos.x >= canvasPos.x - 50 && originPos.x <= canvasPos.x + windowSize.x + 50 &&
+                originPos.y >= canvasPos.y - 50 && originPos.y <= canvasPos.y + windowSize.y + 50) {
+                drawList->AddCircleFilled(originPos, originSize + 4.0f, IM_COL32(0, 0, 0, 40), 16);
+                drawList->AddCircleFilled(originPos, originSize + 2.0f, IM_COL32(30, 35, 45, 120), 16);
+                drawList->AddCircleFilled(originPos, originSize, IM_COL32(70, 140, 200, 180), 12);
+            }
+        }
     }
-
-    for (float x = fmodf(m_state.viewPosition.x, GRID_STEP_MAJOR); x < windowSize.x; x += GRID_STEP_MAJOR) {
-        drawList->AddLine(
-            ImVec2(canvasPos.x + x, canvasPos.y),
-            ImVec2(canvasPos.x + x, canvasPos.y + windowSize.y),
-            gridMajorColor, 1.5f
-        );
-    }
-
-    for (float y = fmodf(m_state.viewPosition.y, GRID_STEP_MAJOR); y < windowSize.y; y += GRID_STEP_MAJOR) {
-        drawList->AddLine(
-            ImVec2(canvasPos.x, canvasPos.y + y),
-            ImVec2(canvasPos.x + windowSize.x, canvasPos.y + y),
-            gridMajorColor, 1.5f
-        );
-    }
-
-    const float fadeWidth = 40.0f;
-    const int fadeSteps = 20;
-    const float stepSize = fadeWidth / fadeSteps;
-
-    for (int i = 0; i < fadeSteps; i++) {
-        float x = i * stepSize;
-        float alpha = 40.0f * (1.0f - static_cast<float>(i) / fadeSteps);
-        ImU32 fadeColor = IM_COL32(0, 0, 0, static_cast<int>(alpha));
-
-        drawList->AddLine(
-            ImVec2(canvasPos.x + x, canvasPos.y),
-            ImVec2(canvasPos.x + x, canvasPos.y + windowSize.y),
-            fadeColor, 1.0f
-        );
-
-        drawList->AddLine(
-            ImVec2(canvasPos.x + windowSize.x - x, canvasPos.y),
-            ImVec2(canvasPos.x + windowSize.x - x, canvasPos.y + windowSize.y),
-            fadeColor, 1.0f
-        );
-    }
-
-    for (int i = 0; i < fadeSteps; i++) {
-        float y = i * stepSize;
-        float alpha = 40.0f * (1.0f - static_cast<float>(i) / fadeSteps);
-        ImU32 fadeColor = IM_COL32(0, 0, 0, static_cast<int>(alpha));
-
-        drawList->AddLine(
-            ImVec2(canvasPos.x, canvasPos.y + y),
-            ImVec2(canvasPos.x + windowSize.x, canvasPos.y + y),
-            fadeColor, 1.0f
-        );
-
-        drawList->AddLine(
-            ImVec2(canvasPos.x, canvasPos.y + windowSize.y - y),
-            ImVec2(canvasPos.x + windowSize.x, canvasPos.y + windowSize.y - y),
-            fadeColor, 1.0f
-        );
-    }
-
-    const float cornerFadeRadius = 100.0f;
-    const int cornerFadeSteps = 15;
-
-    for (int i = 0; i < cornerFadeSteps; i++) {
-        float radius = cornerFadeRadius * (1.0f - static_cast<float>(i) / cornerFadeSteps);
-        float alpha = 12.0f * (1.0f - static_cast<float>(i) / cornerFadeSteps);
-        ImU32 cornerFadeColor = IM_COL32(0, 0, 0, static_cast<int>(alpha));
-
-        drawList->AddCircle(
-            ImVec2(canvasPos.x, canvasPos.y),
-            radius, cornerFadeColor, 0, 2.0f
-        );
-
-        drawList->AddCircle(
-            ImVec2(canvasPos.x + windowSize.x, canvasPos.y),
-            radius, cornerFadeColor, 0, 2.0f
-        );
-
-        drawList->AddCircle(
-            ImVec2(canvasPos.x, canvasPos.y + windowSize.y),
-            radius, cornerFadeColor, 0, 2.0f
-        );
-
-        drawList->AddCircle(
-            ImVec2(canvasPos.x + windowSize.x, canvasPos.y + windowSize.y),
-            radius, cornerFadeColor, 0, 2.0f
-        );
-    }
-}
 
     void NodeEditor::drawBoxSelection(ImDrawList *drawList) {
         ImVec2 mousePos = ImGui::GetMousePos();
@@ -439,4 +471,6 @@ namespace NodeEditorCore {
 
         m_minimapManager.setViewBounds(min, max);
     }
+
+    
 }

@@ -195,6 +195,8 @@ if (BUILD_TESTS)
             AdvancedNodeEditor/Evaluation/NodeEditorEvaluation.cpp
             AdvancedNodeEditor/Evaluation/NodeEditorEvaluation.h
 
+            AdvancedNodeEditor/Rendering/NodeEditorAnimationManager.cpp
+            AdvancedNodeEditor/Rendering/NodeEditorAnimationManager.h
             AdvancedNodeEditor/Rendering/NodeEditorRendering.cpp
             AdvancedNodeEditor/Rendering/NodeEditorDrawing.cpp
             AdvancedNodeEditor/Rendering/NodeEditorDrawNodes.cpp

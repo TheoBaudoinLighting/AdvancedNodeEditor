@@ -62,31 +62,24 @@ static NodeDefinition GetNodeDefByType(const std::string& type) {
     };
 
     if (nodeDefs.find(type) == nodeDefs.end()) {
-        std::cerr << "[ERREUR] GetNodeDefByType: type inconnu: " << type << std::endl;
         throw std::runtime_error("Type de noeud inconnu: " + type);
     }
-    std::cout << "[LOG] GetNodeDefByType: " << type << std::endl;
     return nodeDefs[type];
 }
 
 Node* CreateNodeOfType(const std::string& type, const Vec2& pos) {
     static int nextId = 1;
-    std::cout << "[LOG] CreateNodeOfType: type=" << type << ", pos=(" << pos.x << "," << pos.y << ")" << std::endl;
     NodeDefinition def = GetNodeDefByType(type);
 
     Node* node = nullptr;
     try {
         node = new Node(nextId++, def.name, type, pos);
     } catch (const std::exception& e) {
-        std::cerr << "[ERREUR] Exception lors de la création du Node: " << e.what() << std::endl;
         throw;
     }
     node->iconSymbol = def.iconSymbol;
 
-
-    std::cout << "[LOG] Node créé: " << node->name << " (id=" << node->id << ")" << std::endl;
-    
-    static int globalPinId = 1;  // doit être au niveau global ou static dans le bon contexte
+    static int globalPinId = 1;
 
     for (const auto& input : def.inputs) {
         node->inputs.push_back(Pin(globalPinId++, input.first, true, input.second));
@@ -96,15 +89,12 @@ Node* CreateNodeOfType(const std::string& type, const Vec2& pos) {
         node->outputs.push_back(Pin(globalPinId++, output.first, false, output.second));
     }
 
-    
     return node;
 }
 
 int main(int argc, char* argv[]) {
     try {
-        std::cout << "[LOG] Initialisation de SDL..." << std::endl;
         if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER) != 0) {
-            std::cerr << "[ERREUR] SDL_Init a échoué ! SDL_Error: " << SDL_GetError() << std::endl;
             return -1;
         }
 
@@ -115,20 +105,17 @@ int main(int argc, char* argv[]) {
                                              1280, 720,
                                              window_flags);
         if (!window) {
-            std::cerr << "[ERREUR] SDL_CreateWindow a échoué ! SDL_Error: " << SDL_GetError() << std::endl;
             SDL_Quit();
             return -2;
         }
 
         SDL_Renderer* renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_PRESENTVSYNC | SDL_RENDERER_ACCELERATED);
         if (!renderer) {
-            std::cerr << "[ERREUR] SDL_CreateRenderer a échoué ! SDL_Error: " << SDL_GetError() << std::endl;
             SDL_DestroyWindow(window);
             SDL_Quit();
             return -3;
         }
 
-        std::cout << "[LOG] Initialisation de ImGui..." << std::endl;
         IMGUI_CHECKVERSION();
         ImGui::CreateContext();
         ImGuiIO& io = ImGui::GetIO();
@@ -139,7 +126,6 @@ int main(int argc, char* argv[]) {
         ImGui_ImplSDLRenderer2_Init(renderer);
 
         NodeEditor editor;
-        std::cout << "[LOG] Enregistrement des types de noeuds..." << std::endl;
 
         editor.registerNodeType("Math.Add", "Math", "Addition node",
                                [](const Vec2& pos) { return CreateNodeOfType("Math.Add", pos); });
@@ -165,332 +151,118 @@ int main(int argc, char* argv[]) {
         editor.registerNodeType("Subgraph.Output", "Subgraph", "Subgraph output port",
                                [](const Vec2& pos) { return CreateNodeOfType("Subgraph.Output", pos); });
 
-        std::cout << "[LOG] Configuration de l'éditeur..." << std::endl;
         editor.setGraphTitle("Houdini-Style Node Graph");
         editor.setGraphTitleStyle(NodeEditor::TitleStyle::Houdini);
         editor.setConnectionStyle(NodeEditor::ConnectionStyle::Bezier);
         editor.setConnectionThickness(2.5f);
         editor.enableNodeAvoidance(true);
         editor.enableMinimap(true);
+        editor.activateAllConnectionFlows(false, 0.0f);
         editor.setShowSubgraphBreadcrumbs(true);
 
-        std::cout << "[LOG] Création des subgraphs..." << std::endl;
         UUID mainGraphUuid = editor.createSubgraphWithUUID("Main");
-        std::cout << "[LOG]   mainGraphUuid = " << mainGraphUuid << std::endl;
         UUID mathSubgraphUuid = editor.createSubgraphWithUUID("Math Utilities");
-        std::cout << "[LOG]   mathSubgraphUuid = " << mathSubgraphUuid << std::endl;
         UUID renderSubgraphUuid = editor.createSubgraphWithUUID("Rendering");
-        std::cout << "[LOG]   renderSubgraphUuid = " << renderSubgraphUuid << std::endl;
 
-        std::cout << "[LOG] Création des noeuds du graphe principal..." << std::endl;
         int boxNodeId = editor.addNode("Box", "Geometry.Box", Vec2(100, 100));
-        std::cout << "[LOG]   boxNodeId = " << boxNodeId << std::endl;
         int sphereNodeId = editor.addNode("Sphere", "Geometry.Sphere", Vec2(100, 250));
-        std::cout << "[LOG]   sphereNodeId = " << sphereNodeId << std::endl;
 
-        std::cout << "[LOG] Création et configuration du subgraph de math..." << std::endl;
         editor.enterSubgraphByUUID(mathSubgraphUuid);
-        std::cout << "[LOG]   Entré dans le subgraph mathSubgraphUuid" << std::endl;
         int addNodeId = editor.addNode("Add", "Math.Add", Vec2(300, 150));
-        std::cout << "[LOG]   addNodeId = " << addNodeId << std::endl;
         int multiplyNodeId = editor.addNode("Multiply", "Math.Multiply", Vec2(600, 150));
-        std::cout << "[LOG]   multiplyNodeId = " << multiplyNodeId << std::endl;
         int inputNodeId = editor.addNode("Input A", "Subgraph.Input", Vec2(50, 100));
-        std::cout << "[LOG]   inputNodeId = " << inputNodeId << std::endl;
         int input2NodeId = editor.addNode("Input B", "Subgraph.Input", Vec2(50, 200));
-        std::cout << "[LOG]   input2NodeId = " << input2NodeId << std::endl;
         int outputNodeId = editor.addNode("Output", "Subgraph.Output", Vec2(900, 150));
-        std::cout << "[LOG]   outputNodeId = " << outputNodeId << std::endl;
 
-        std::cout << "[LOG] Connexion des noeuds du subgraph de math..." << std::endl;
-        std::cout << "[LOG]   inputNodeId->addNodeId" << std::endl;
-
-        // Afficher les détails des nœuds avant de tenter la connexion
         Node* inputNode = editor.getNode(inputNodeId);
         Node* addNode = editor.getNode(addNodeId);
-        if (inputNode) {
-            std::cout << "[DEBUG] Nœud d'entrée (ID " << inputNodeId << "):" << std::endl;
-            std::cout << "[DEBUG]   Outputs:" << std::endl;
-            for (const auto& pin : inputNode->outputs) {
-                std::cout << "[DEBUG]     ID=" << pin.id << ", Nom='" << pin.name << "'" << std::endl;
-            }
-        }
-        if (addNode) {
-            std::cout << "[DEBUG] Nœud add (ID " << addNodeId << "):" << std::endl;
-            std::cout << "[DEBUG]   Inputs:" << std::endl;
-            for (const auto& pin : addNode->inputs) {
-                std::cout << "[DEBUG]     ID=" << pin.id << ", Nom='" << pin.name << "'" << std::endl;
-            }
-        }
-
-        // Utiliser les IDs réels des pins au lieu des valeurs codées en dur
         if (inputNode && !inputNode->outputs.empty() && addNode && !addNode->inputs.empty()) {
             editor.addConnection(inputNodeId, inputNode->outputs[0].id, addNodeId, addNode->inputs[0].id);
-        } else {
-            std::cout << "[ERREUR] Impossible de connecter inputNode->addNode: pins manquants" << std::endl;
         }
 
-        std::cout << "[LOG]   input2NodeId->addNodeId" << std::endl;
-
-        // Afficher les détails pour le deuxième nœud d'entrée
         Node* input2Node = editor.getNode(input2NodeId);
-        if (input2Node) {
-            std::cout << "[DEBUG] Nœud d'entrée 2 (ID " << input2NodeId << "):" << std::endl;
-            std::cout << "[DEBUG]   Outputs:" << std::endl;
-            for (const auto& pin : input2Node->outputs) {
-                std::cout << "[DEBUG]     ID=" << pin.id << ", Nom='" << pin.name << "'" << std::endl;
-            }
-        }
-
-        // Utiliser les IDs réels des pins
         if (input2Node && !input2Node->outputs.empty() && addNode && addNode->inputs.size() >= 2) {
             editor.addConnection(input2NodeId, input2Node->outputs[0].id, addNodeId, addNode->inputs[1].id);
-        } else {
-            std::cout << "[ERREUR] Impossible de connecter input2Node->addNode: pins manquants" << std::endl;
         }
 
-        std::cout << "[LOG]   addNodeId->multiplyNodeId (1)" << std::endl;
-
-        // Afficher les détails du nœud multiply
         Node* multiplyNode = editor.getNode(multiplyNodeId);
-        if (multiplyNode) {
-            std::cout << "[DEBUG] Nœud multiply (ID " << multiplyNodeId << "):" << std::endl;
-            std::cout << "[DEBUG]   Inputs:" << std::endl;
-            for (const auto& pin : multiplyNode->inputs) {
-                std::cout << "[DEBUG]     ID=" << pin.id << ", Nom='" << pin.name << "'" << std::endl;
-            }
-        }
-
-        // Utiliser les IDs réels des pins
         if (addNode && !addNode->outputs.empty() && multiplyNode && !multiplyNode->inputs.empty()) {
             editor.addConnection(addNodeId, addNode->outputs[0].id, multiplyNodeId, multiplyNode->inputs[0].id);
-        } else {
-            std::cout << "[ERREUR] Impossible de connecter addNode->multiplyNode (1): pins manquants" << std::endl;
         }
-
-        std::cout << "[LOG]   addNodeId->multiplyNodeId (2)" << std::endl;
-        // Utiliser les IDs réels des pins
         if (addNode && !addNode->outputs.empty() && multiplyNode && multiplyNode->inputs.size() >= 2) {
             editor.addConnection(addNodeId, addNode->outputs[0].id, multiplyNodeId, multiplyNode->inputs[1].id);
-        } else {
-            std::cout << "[ERREUR] Impossible de connecter addNode->multiplyNode (2): pins manquants" << std::endl;
         }
 
-        std::cout << "[LOG]   multiplyNodeId->outputNodeId" << std::endl;
-
-        // Afficher les détails du nœud de sortie
         Node* outputNode = editor.getNode(outputNodeId);
-        if (outputNode) {
-            std::cout << "[DEBUG] Nœud de sortie (ID " << outputNodeId << "):" << std::endl;
-            std::cout << "[DEBUG]   Inputs:" << std::endl;
-            for (const auto& pin : outputNode->inputs) {
-                std::cout << "[DEBUG]     ID=" << pin.id << ", Nom='" << pin.name << "'" << std::endl;
-            }
-        }
-
-        // Utiliser les IDs réels des pins
         if (multiplyNode && !multiplyNode->outputs.empty() && outputNode && !outputNode->inputs.empty()) {
             editor.addConnection(multiplyNodeId, multiplyNode->outputs[0].id, outputNodeId, outputNode->inputs[0].id);
-        } else {
-            std::cout << "[ERREUR] Impossible de connecter multiplyNode->outputNode: pins manquants" << std::endl;
         }
 
-        std::cout << "[LOG]   Récupération du subgraph mathSubgraph" << std::endl;
         auto mathSubgraph = editor.getSubgraph(editor.getSubgraphId(mathSubgraphUuid));
         if (mathSubgraph) {
-            std::cout << "[LOG]   Ajout interfaceInputs/Outputs à mathSubgraph" << std::endl;
             mathSubgraph->interfaceInputs.push_back((inputNodeId << 16) | 1);
             mathSubgraph->interfaceInputs.push_back((input2NodeId << 16) | 1);
             mathSubgraph->interfaceOutputs.push_back((outputNodeId << 16) | 1);
-        } else {
-            std::cerr << "[ERREUR] mathSubgraph est nul !" << std::endl;
         }
         editor.exitSubgraph();
-        std::cout << "[LOG]   Sorti du subgraph mathSubgraphUuid" << std::endl;
 
-        std::cout << "[LOG] Création et configuration du subgraph de rendu..." << std::endl;
         editor.enterSubgraphByUUID(renderSubgraphUuid);
-        std::cout << "[LOG]   Entré dans le subgraph renderSubgraphUuid" << std::endl;
         int materialNodeId = editor.addNode("Material", "Material.Basic", Vec2(300, 150));
-        std::cout << "[LOG]   materialNodeId = " << materialNodeId << std::endl;
         int rendererNodeId = editor.addNode("Renderer", "Render.MeshRenderer", Vec2(600, 150));
-        std::cout << "[LOG]   rendererNodeId = " << rendererNodeId << std::endl;
         int geomInputNodeId = editor.addNode("Geometry Input", "Subgraph.Input", Vec2(100, 100));
-        std::cout << "[LOG]   geomInputNodeId = " << geomInputNodeId << std::endl;
         int renderOutputNodeId = editor.addNode("Output", "Subgraph.Output", Vec2(900, 150));
-        std::cout << "[LOG]   renderOutputNodeId = " << renderOutputNodeId << std::endl;
 
-        std::cout << "[LOG] Connexion des noeuds du subgraph de rendu..." << std::endl;
-        std::cout << "[LOG]   geomInputNodeId->rendererNodeId" << std::endl;
-
-        // Afficher les détails des nœuds avant de tenter la connexion
         Node* geomInputNode = editor.getNode(geomInputNodeId);
         Node* rendererNode = editor.getNode(rendererNodeId);
-        if (geomInputNode) {
-            std::cout << "[DEBUG] Nœud d'entrée géométrie (ID " << geomInputNodeId << "):" << std::endl;
-            std::cout << "[DEBUG]   Outputs:" << std::endl;
-            for (const auto& pin : geomInputNode->outputs) {
-                std::cout << "[DEBUG]     ID=" << pin.id << ", Nom='" << pin.name << "'" << std::endl;
-            }
-        }
-        if (rendererNode) {
-            std::cout << "[DEBUG] Nœud renderer (ID " << rendererNodeId << "):" << std::endl;
-            std::cout << "[DEBUG]   Inputs:" << std::endl;
-            for (const auto& pin : rendererNode->inputs) {
-                std::cout << "[DEBUG]     ID=" << pin.id << ", Nom='" << pin.name << "'" << std::endl;
-            }
-        }
-
-        // Utiliser les IDs réels des pins au lieu des valeurs codées en dur
         if (geomInputNode && !geomInputNode->outputs.empty() && rendererNode && !rendererNode->inputs.empty()) {
             editor.addConnection(geomInputNodeId, geomInputNode->outputs[0].id, rendererNodeId, rendererNode->inputs[0].id);
-        } else {
-            std::cout << "[ERREUR] Impossible de connecter geomInputNode->rendererNode: pins manquants" << std::endl;
         }
 
-        std::cout << "[LOG]   materialNodeId->rendererNodeId" << std::endl;
-
-        // Afficher les détails du nœud matériau
         Node* materialNode = editor.getNode(materialNodeId);
-        if (materialNode) {
-            std::cout << "[DEBUG] Nœud material (ID " << materialNodeId << "):" << std::endl;
-            std::cout << "[DEBUG]   Outputs:" << std::endl;
-            for (const auto& pin : materialNode->outputs) {
-                std::cout << "[DEBUG]     ID=" << pin.id << ", Nom='" << pin.name << "'" << std::endl;
-            }
-        }
-
-        // Utiliser les IDs réels des pins
         if (materialNode && !materialNode->outputs.empty() && rendererNode && rendererNode->inputs.size() >= 2) {
             editor.addConnection(materialNodeId, materialNode->outputs[0].id, rendererNodeId, rendererNode->inputs[1].id);
-        } else {
-            std::cout << "[ERREUR] Impossible de connecter materialNode->rendererNode: pins manquants" << std::endl;
         }
 
-        std::cout << "[LOG]   rendererNodeId->renderOutputNodeId" << std::endl;
-
-        // Afficher les détails du nœud de sortie
         Node* renderOutputNode = editor.getNode(renderOutputNodeId);
-        if (renderOutputNode) {
-            std::cout << "[DEBUG] Nœud de sortie rendu (ID " << renderOutputNodeId << "):" << std::endl;
-            std::cout << "[DEBUG]   Inputs:" << std::endl;
-            for (const auto& pin : renderOutputNode->inputs) {
-                std::cout << "[DEBUG]     ID=" << pin.id << ", Nom='" << pin.name << "'" << std::endl;
-            }
-        }
-
-        // Utiliser les IDs réels des pins
         if (rendererNode && !rendererNode->outputs.empty() && renderOutputNode && !renderOutputNode->inputs.empty()) {
             editor.addConnection(rendererNodeId, rendererNode->outputs[0].id, renderOutputNodeId, renderOutputNode->inputs[0].id);
-        } else {
-            std::cout << "[ERREUR] Impossible de connecter rendererNode->renderOutputNode: pins manquants" << std::endl;
         }
 
-        std::cout << "[LOG]   Récupération du subgraph renderSubgraph" << std::endl;
         auto renderSubgraph = editor.getSubgraph(editor.getSubgraphId(renderSubgraphUuid));
         if (renderSubgraph) {
-            std::cout << "[LOG]   Ajout interfaceInputs/Outputs à renderSubgraph" << std::endl;
             renderSubgraph->interfaceInputs.push_back((geomInputNodeId << 16) | 1);
             renderSubgraph->interfaceOutputs.push_back((renderOutputNodeId << 16) | 1);
-        } else {
-            std::cerr << "[ERREUR] renderSubgraph est nul !" << std::endl;
         }
         editor.exitSubgraph();
-        std::cout << "[LOG]   Sorti du subgraph renderSubgraphUuid" << std::endl;
 
-        std::cout << "[LOG] Création des noeuds de subgraph dans le graphe principal..." << std::endl;
         Node* mathSubgraphNode = editor.createSubgraphNode(editor.getSubgraphId(mathSubgraphUuid),
                                                          "Math Utilities",
                                                          Vec2(300, 175));
-        if (!mathSubgraphNode) {
-            std::cerr << "[ERREUR] mathSubgraphNode est nul !" << std::endl;
-        }
         int mathSubgraphNodeId = mathSubgraphNode ? mathSubgraphNode->id : -1;
-        std::cout << "[LOG]   mathSubgraphNodeId = " << mathSubgraphNodeId << std::endl;
 
         Node* renderSubgraphNode = editor.createSubgraphNode(editor.getSubgraphId(renderSubgraphUuid),
                                                            "Rendering",
                                                            Vec2(500, 175));
-        if (!renderSubgraphNode) {
-            std::cerr << "[ERREUR] renderSubgraphNode est nul !" << std::endl;
-        }
         int renderSubgraphNodeId = renderSubgraphNode ? renderSubgraphNode->id : -1;
-        std::cout << "[LOG]   renderSubgraphNodeId = " << renderSubgraphNodeId << std::endl;
 
-        std::cout << "[LOG] Connexion des noeuds dans le graphe principal..." << std::endl;
-        std::cout << "[LOG]   boxNodeId->mathSubgraphNodeId" << std::endl;
-
-        // Afficher les détails des nœuds avant de tenter la connexion
         Node* boxNode = editor.getNode(boxNodeId);
         if (mathSubgraphNode && boxNode) {
-            std::cout << "[DEBUG] Nœud box (ID " << boxNodeId << "):" << std::endl;
-            std::cout << "[DEBUG]   Outputs:" << std::endl;
-            for (const auto& pin : boxNode->outputs) {
-                std::cout << "[DEBUG]     ID=" << pin.id << ", Nom='" << pin.name << "'" << std::endl;
-            }
-            
-            std::cout << "[DEBUG] Nœud mathSubgraph (ID " << mathSubgraphNodeId << "):" << std::endl;
-            std::cout << "[DEBUG]   Inputs:" << std::endl;
-            for (const auto& pin : mathSubgraphNode->inputs) {
-                std::cout << "[DEBUG]     ID=" << pin.id << ", Nom='" << pin.name << "'" << std::endl;
-            }
-            
-            // Utiliser les IDs réels des pins au lieu des valeurs codées en dur
             if (!boxNode->outputs.empty() && !mathSubgraphNode->inputs.empty()) {
                 editor.addConnection(boxNodeId, boxNode->outputs[0].id, mathSubgraphNodeId, mathSubgraphNode->inputs[0].id);
-            } else {
-                std::cout << "[ERREUR] Impossible de connecter boxNode->mathSubgraphNode: pins manquants" << std::endl;
             }
-        } else {
-            std::cout << "[ERREUR] Un ou plusieurs nœuds manquants pour la connexion boxNode->mathSubgraphNode" << std::endl;
         }
 
-        std::cout << "[LOG]   sphereNodeId->mathSubgraphNodeId" << std::endl;
-
-        // Afficher les détails du nœud sphère
         Node* sphereNode = editor.getNode(sphereNodeId);
-        if (sphereNode) {
-            std::cout << "[DEBUG] Nœud sphere (ID " << sphereNodeId << "):" << std::endl;
-            std::cout << "[DEBUG]   Outputs:" << std::endl;
-            for (const auto& pin : sphereNode->outputs) {
-                std::cout << "[DEBUG]     ID=" << pin.id << ", Nom='" << pin.name << "'" << std::endl;
-            }
-        }
-
         if (sphereNode && mathSubgraphNode) {
-            // Utiliser les IDs réels des pins
             if (!sphereNode->outputs.empty() && mathSubgraphNode->inputs.size() >= 2) {
                 editor.addConnection(sphereNodeId, sphereNode->outputs[0].id, mathSubgraphNodeId, mathSubgraphNode->inputs[1].id);
-            } else {
-                std::cout << "[ERREUR] Impossible de connecter sphereNode->mathSubgraphNode: pins manquants" << std::endl;
             }
-        } else {
-            std::cout << "[ERREUR] Un ou plusieurs nœuds manquants pour la connexion sphereNode->mathSubgraphNode" << std::endl;
         }
 
-        std::cout << "[LOG]   mathSubgraphNodeId->renderSubgraphNodeId" << std::endl;
-
         if (mathSubgraphNode && renderSubgraphNode) {
-            std::cout << "[DEBUG] Nœud mathSubgraph (ID " << mathSubgraphNodeId << ") pour connexion sortie:" << std::endl;
-            std::cout << "[DEBUG]   Outputs:" << std::endl;
-            for (const auto& pin : mathSubgraphNode->outputs) {
-                std::cout << "[DEBUG]     ID=" << pin.id << ", Nom='" << pin.name << "'" << std::endl;
-            }
-            
-            std::cout << "[DEBUG] Nœud renderSubgraph (ID " << renderSubgraphNodeId << "):" << std::endl;
-            std::cout << "[DEBUG]   Inputs:" << std::endl;
-            for (const auto& pin : renderSubgraphNode->inputs) {
-                std::cout << "[DEBUG]     ID=" << pin.id << ", Nom='" << pin.name << "'" << std::endl;
-            }
-            
-            // Utiliser les IDs réels des pins
             if (!mathSubgraphNode->outputs.empty() && !renderSubgraphNode->inputs.empty()) {
                 editor.addConnection(mathSubgraphNodeId, mathSubgraphNode->outputs[0].id, renderSubgraphNodeId, renderSubgraphNode->inputs[0].id);
-            } else {
-                std::cout << "[ERREUR] Impossible de connecter mathSubgraphNode->renderSubgraphNode: pins manquants" << std::endl;
             }
-        } else {
-            std::cout << "[ERREUR] Un ou plusieurs nœuds manquants pour la connexion mathSubgraphNode->renderSubgraphNode" << std::endl;
         }
 
         enum class CurrentPanel {
@@ -503,7 +275,6 @@ int main(int argc, char* argv[]) {
         std::vector<std::string> subgraphHistory;
         bool showProperties = true;
 
-        std::cout << "[LOG] Entrée dans la boucle principale..." << std::endl;
         bool done = false;
         int frameCount = 0;
         while (!done) {
@@ -524,32 +295,31 @@ int main(int argc, char* argv[]) {
 
             if (ImGui::BeginMainMenuBar()) {
                 if (ImGui::BeginMenu("File")) {
-                    if (ImGui::MenuItem("New Graph")) { std::cout << "[LOG] New Graph demandé" << std::endl; }
-                    if (ImGui::MenuItem("Open Graph...")) { std::cout << "[LOG] Open Graph demandé" << std::endl; }
-                    if (ImGui::MenuItem("Save Graph")) { std::cout << "[LOG] Save Graph demandé" << std::endl; }
-                    if (ImGui::MenuItem("Save Graph As...")) { std::cout << "[LOG] Save Graph As demandé" << std::endl; }
+                    if (ImGui::MenuItem("New Graph")) { }
+                    if (ImGui::MenuItem("Open Graph...")) { }
+                    if (ImGui::MenuItem("Save Graph")) { }
+                    if (ImGui::MenuItem("Save Graph As...")) { }
                     ImGui::Separator();
-                    if (ImGui::MenuItem("Exit")) { std::cout << "[LOG] Exit demandé" << std::endl; done = true; }
+                    if (ImGui::MenuItem("Exit")) { done = true; }
                     ImGui::EndMenu();
                 }
 
                 if (ImGui::BeginMenu("Edit")) {
-                    if (ImGui::MenuItem("Undo", "CTRL+Z")) { std::cout << "[LOG] Undo" << std::endl; }
-                    if (ImGui::MenuItem("Redo", "CTRL+Y")) { std::cout << "[LOG] Redo" << std::endl; }
+                    if (ImGui::MenuItem("Undo", "CTRL+Z")) { }
+                    if (ImGui::MenuItem("Redo", "CTRL+Y")) { }
                     ImGui::Separator();
-                    if (ImGui::MenuItem("Cut", "CTRL+X")) { std::cout << "[LOG] Cut" << std::endl; }
-                    if (ImGui::MenuItem("Copy", "CTRL+C")) { std::cout << "[LOG] Copy" << std::endl; }
-                    if (ImGui::MenuItem("Paste", "CTRL+V")) { std::cout << "[LOG] Paste" << std::endl; }
+                    if (ImGui::MenuItem("Cut", "CTRL+X")) { }
+                    if (ImGui::MenuItem("Copy", "CTRL+C")) { }
+                    if (ImGui::MenuItem("Paste", "CTRL+V")) { }
                     ImGui::EndMenu();
                 }
 
                 if (ImGui::BeginMenu("View")) {
-                    if (ImGui::MenuItem("Zoom to Fit", "F")) { std::cout << "[LOG] Zoom to Fit" << std::endl; editor.zoomToFit(); }
-                    if (ImGui::MenuItem("Center View", "C")) { std::cout << "[LOG] Center View" << std::endl; editor.centerView(); }
+                    if (ImGui::MenuItem("Zoom to Fit", "F")) { editor.zoomToFit(); }
+                    if (ImGui::MenuItem("Center View", "C")) { editor.centerView(); }
                     ImGui::Separator();
                     bool showMinimap = editor.isMinimapEnabled();
                     if (ImGui::MenuItem("Minimap", nullptr, &showMinimap)) {
-                        std::cout << "[LOG] Minimap toggled: " << (showMinimap ? "ON" : "OFF") << std::endl;
                         editor.enableMinimap(showMinimap);
                     }
                     ImGui::EndMenu();
@@ -557,20 +327,17 @@ int main(int argc, char* argv[]) {
 
                 if (ImGui::BeginMenu("Subgraph")) {
                     if (ImGui::MenuItem("Main Graph")) {
-                        std::cout << "[LOG] Navigation vers Main Graph" << std::endl;
                         while (editor.getCurrentSubgraphId() >= 0) {
                             editor.exitSubgraph();
                         }
                     }
                     if (ImGui::MenuItem("Math Utilities")) {
-                        std::cout << "[LOG] Navigation vers Math Utilities" << std::endl;
                         while (editor.getCurrentSubgraphId() >= 0) {
                             editor.exitSubgraph();
                         }
                         editor.enterSubgraphByUUID(mathSubgraphUuid);
                     }
                     if (ImGui::MenuItem("Rendering")) {
-                        std::cout << "[LOG] Navigation vers Rendering" << std::endl;
                         while (editor.getCurrentSubgraphId() >= 0) {
                             editor.exitSubgraph();
                         }
@@ -578,7 +345,6 @@ int main(int argc, char* argv[]) {
                     }
                     ImGui::Separator();
                     if (ImGui::MenuItem("Create New Subgraph...")) {
-                        std::cout << "[LOG] Création d'un nouveau subgraph" << std::endl;
                         UUID newGraphUuid = editor.createSubgraphWithUUID("New Subgraph");
                         editor.enterSubgraphByUUID(newGraphUuid);
                     }
@@ -602,7 +368,6 @@ int main(int argc, char* argv[]) {
             ImGui::BeginChild("SubgraphNavigation", ImVec2(ImGui::GetContentRegionAvail().x, 30), true);
 
             if (ImGui::Button("Main Graph")) {
-                std::cout << "[LOG] Bouton Main Graph cliqué" << std::endl;
                 while (editor.getCurrentSubgraphId() >= 0) {
                     editor.exitSubgraph();
                 }
@@ -611,7 +376,6 @@ int main(int argc, char* argv[]) {
             ImGui::SameLine();
             if (editor.getCurrentSubgraphId() >= 0) {
                 if (ImGui::Button("Exit Subgraph")) {
-                    std::cout << "[LOG] Bouton Exit Subgraph cliqué" << std::endl;
                     editor.exitSubgraph();
                 }
 
@@ -621,7 +385,6 @@ int main(int argc, char* argv[]) {
                     ImGui::Text("Current: %s", currentSubgraph->name.c_str());
                 } else {
                     ImGui::Text("Current: [ERREUR: subgraph nul]");
-                    std::cerr << "[ERREUR] getSubgraph retourne nullptr pour id=" << editor.getCurrentSubgraphId() << std::endl;
                 }
             }
 
@@ -632,7 +395,6 @@ int main(int argc, char* argv[]) {
                 editor.render();
                 editor.endFrame();
             } catch (const std::exception& e) {
-                std::cerr << "[ERREUR] Exception dans editor.beginFrame/render/endFrame: " << e.what() << std::endl;
             }
 
             ImGui::End();
@@ -648,14 +410,12 @@ int main(int argc, char* argv[]) {
 
                     if (ImGui::CollapsingHeader("Available Subgraphs", ImGuiTreeNodeFlags_DefaultOpen)) {
                         if (ImGui::Button("Main Graph")) {
-                            std::cout << "[LOG] Navigation via panneau latéral vers Main Graph" << std::endl;
                             while (editor.getCurrentSubgraphId() >= 0) {
                                 editor.exitSubgraph();
                             }
                         }
 
                         if (ImGui::Button("Math Utilities")) {
-                            std::cout << "[LOG] Navigation via panneau latéral vers Math Utilities" << std::endl;
                             while (editor.getCurrentSubgraphId() >= 0) {
                                 editor.exitSubgraph();
                             }
@@ -663,7 +423,6 @@ int main(int argc, char* argv[]) {
                         }
 
                         if (ImGui::Button("Rendering")) {
-                            std::cout << "[LOG] Navigation via panneau latéral vers Rendering" << std::endl;
                             while (editor.getCurrentSubgraphId() >= 0) {
                                 editor.exitSubgraph();
                             }
@@ -676,7 +435,6 @@ int main(int argc, char* argv[]) {
                         ImGui::InputText("Name", newSubgraphName, IM_ARRAYSIZE(newSubgraphName));
 
                         if (ImGui::Button("Create Subgraph")) {
-                            std::cout << "[LOG] Création d'un subgraph nommé : " << newSubgraphName << std::endl;
                             UUID newGraphUuid = editor.createSubgraphWithUUID(newSubgraphName);
                             editor.enterSubgraphByUUID(newGraphUuid);
                         }
@@ -726,18 +484,11 @@ int main(int argc, char* argv[]) {
                                         ImGui::Text("Connections: %zu", subgraph->connectionIds.size());
 
                                         if (ImGui::Button("Enter Subgraph")) {
-                                            std::cout << "[LOG] Entrée dans le subgraph depuis propriétés" << std::endl;
                                             editor.enterSubgraph(subgraphId);
                                         }
-                                    } else {
-                                        std::cerr << "[ERREUR] subgraph est nul dans propriétés (id=" << subgraphId << ")" << std::endl;
                                     }
-                                } else {
-                                    std::cerr << "[ERREUR] subgraphId < 0 dans propriétés" << std::endl;
                                 }
                             }
-                        } else {
-                            std::cerr << "[ERREUR] node est nul dans propriétés" << std::endl;
                         }
                     }
                     else {
@@ -753,50 +504,42 @@ int main(int argc, char* argv[]) {
 
                     if (ImGui::CollapsingHeader("Math", ImGuiTreeNodeFlags_DefaultOpen)) {
                         if (ImGui::Button("Add")) {
-                            std::cout << "[LOG] Ajout d'un noeud Math.Add" << std::endl;
                             editor.createNodeOfType("Math.Add", Vec2(300, 200));
                         }
                         ImGui::SameLine();
                         if (ImGui::Button("Multiply")) {
-                            std::cout << "[LOG] Ajout d'un noeud Math.Multiply" << std::endl;
                             editor.createNodeOfType("Math.Multiply", Vec2(300, 300));
                         }
                     }
 
                     if (ImGui::CollapsingHeader("Geometry", ImGuiTreeNodeFlags_DefaultOpen)) {
                         if (ImGui::Button("Box")) {
-                            std::cout << "[LOG] Ajout d'un noeud Geometry.Box" << std::endl;
                             editor.createNodeOfType("Geometry.Box", Vec2(300, 200));
                         }
                         ImGui::SameLine();
                         if (ImGui::Button("Sphere")) {
-                            std::cout << "[LOG] Ajout d'un noeud Geometry.Sphere" << std::endl;
                             editor.createNodeOfType("Geometry.Sphere", Vec2(300, 300));
                         }
                     }
 
                     if (ImGui::CollapsingHeader("Material", ImGuiTreeNodeFlags_DefaultOpen)) {
                         if (ImGui::Button("Basic Material")) {
-                            std::cout << "[LOG] Ajout d'un noeud Material.Basic" << std::endl;
                             editor.createNodeOfType("Material.Basic", Vec2(300, 200));
                         }
                     }
 
                     if (ImGui::CollapsingHeader("Render", ImGuiTreeNodeFlags_DefaultOpen)) {
                         if (ImGui::Button("Mesh Renderer")) {
-                            std::cout << "[LOG] Ajout d'un noeud Render.MeshRenderer" << std::endl;
                             editor.createNodeOfType("Render.MeshRenderer", Vec2(300, 200));
                         }
                     }
 
                     if (ImGui::CollapsingHeader("Subgraph", ImGuiTreeNodeFlags_DefaultOpen)) {
                         if (ImGui::Button("Input")) {
-                            std::cout << "[LOG] Ajout d'un noeud Subgraph.Input" << std::endl;
                             editor.createNodeOfType("Subgraph.Input", Vec2(100, 200));
                         }
                         ImGui::SameLine();
                         if (ImGui::Button("Output")) {
-                            std::cout << "[LOG] Ajout d'un noeud Subgraph.Output" << std::endl;
                             editor.createNodeOfType("Subgraph.Output", Vec2(500, 200));
                         }
                     }
@@ -809,13 +552,11 @@ int main(int argc, char* argv[]) {
                         ImGui::InputText("Name", interfaceName, IM_ARRAYSIZE(interfaceName));
 
                         if (ImGui::Button("Add Input Node")) {
-                            std::cout << "[LOG] Ajout d'un noeud d'interface Input dans le subgraph courant" << std::endl;
                             editor.addNode(interfaceName, "Subgraph.Input", Vec2(100, 200));
                         }
 
                         ImGui::SameLine();
                         if (ImGui::Button("Add Output Node")) {
-                            std::cout << "[LOG] Ajout d'un noeud d'interface Output dans le subgraph courant" << std::endl;
                             editor.addNode(interfaceName, "Subgraph.Output", Vec2(500, 200));
                         }
                     }
@@ -835,7 +576,6 @@ int main(int argc, char* argv[]) {
             SDL_RenderPresent(renderer);
         }
 
-        std::cout << "[LOG] Fermeture de l'application..." << std::endl;
         ImGui_ImplSDLRenderer2_Shutdown();
         ImGui_ImplSDL2_Shutdown();
         ImGui::DestroyContext();
@@ -844,13 +584,10 @@ int main(int argc, char* argv[]) {
         SDL_DestroyWindow(window);
         SDL_Quit();
 
-        std::cout << "[LOG] Application terminée." << std::endl;
         return 0;
     } catch (const std::exception& e) {
-        std::cerr << "[ERREUR] Exception attrapée dans main: " << e.what() << std::endl;
         return -100;
     } catch (...) {
-        std::cerr << "[ERREUR] Exception inconnue attrapée dans main." << std::endl;
         return -101;
     }
 }
