@@ -117,8 +117,6 @@ namespace NodeEditorCore {
         const Pin* getPinByUUID(const UUID& nodeUuid, const UUID& pinUuid) const;
         UUID getPinUUID(int nodeId, int pinId) const;
 
-        void createDefaultPinsForNode(int nodeId);
-
         int addConnection(int startNodeId, int startPinId, int endNodeId, int endPinId, const UUID& uuid = "");
         int addConnectionByUUID(const UUID& startNodeUuid, const UUID& startPinUuid,
                               const UUID& endNodeUuid, const UUID& endPinUuid, const UUID& uuid = "");
@@ -149,7 +147,6 @@ namespace NodeEditorCore {
         Group* getGroup(int groupId);
         Group* getGroupByUUID(const UUID& uuid);
         const Group* getGroup(int groupId) const;
-        const Group* getGroupByUUID(const UUID& uuid) const;
 
         UUID getGroupUUID(int groupId) const;
         int getGroupId(const UUID& uuid) const;
@@ -157,12 +154,10 @@ namespace NodeEditorCore {
         void addNodeToGroup(int nodeId, int groupId);
         void addNodeToGroupByUUID(const UUID& nodeUuid, const UUID& groupUuid);
         void removeNodeFromGroup(int nodeId, int groupId);
-        void removeNodeFromGroupByUUID(const UUID& nodeUuid, const UUID& groupUuid);
 
         void selectNode(int nodeId, bool append = false);
         void selectNodeByUUID(const UUID& uuid, bool append = false);
         void deselectNode(int nodeId);
-        void deselectNodeByUUID(const UUID& uuid);
         void selectAllNodes();
         void deselectAllNodes();
         std::vector<int> getSelectedNodes() const;
@@ -181,25 +176,12 @@ namespace NodeEditorCore {
         void centerOnNodeWithSize(int nodeId, float windowWidth, float windowHeight);
 
         void setStyle(const NodeEditorStyle& style);
-        const NodeEditorStyle& getStyle() const;
-        void setStyle(const EditorStyle& style);
-
-        EditorStyle getStyle();
 
         void setNodeCreatedCallback(NodeCallback callback);
         void setNodeRemovedCallback(NodeCallback callback);
         void setConnectionCreatedCallback(ConnectionCallback callback);
         void setConnectionRemovedCallback(ConnectionCallback callback);
         void setCanConnectCallback(CanConnectCallback callback);
-        void setNodeEvaluateCallback(NodeEvaluateCallback callback);
-        void setNodeEvaluateCallbackUUID(NodeEvaluateCallbackUUID callback);
-        void setActionCallback(ActionCallback callback);
-        void setNodeOverlayCallback(NodeOverlayCallback callback);
-        void setNodeOverlayCallbackUUID(NodeOverlayCallbackUUID callback);
-
-        void evaluateNode(int nodeId, const NodeEvaluationContext& context = NodeEvaluationContext());
-        void evaluateNodeByUUID(const UUID& uuid, const NodeEvaluationContext& context = NodeEvaluationContext());
-        void dispatchAction(const std::string& action, const std::unordered_map<std::string, std::any>& data = {});
 
         Vec2 screenToCanvas(const Vec2& pos) const;
         Vec2 canvasToScreen(const Vec2& pos) const;
@@ -219,20 +201,9 @@ namespace NodeEditorCore {
         void deselectConnectionByUUID(const UUID& uuid);
         void deselectAllConnections();
 
-        void exposeNodeInput(int nodeId, int pinId);
-        void exposeNodeInputByUUID(const UUID& nodeUuid, const UUID& pinUuid);
-        void exposeNodeOutput(int nodeId, int pinId);
-        void exposeNodeOutputByUUID(const UUID& nodeUuid, const UUID& pinUuid);
-        void unexposeNodeInput(int nodeId, int pinId);
-        void unexposeNodeInputByUUID(const UUID& nodeUuid, const UUID& pinUuid);
-        void unexposeNodeOutput(int nodeId, int pinId);
-        void unexposeNodeOutputByUUID(const UUID& nodeUuid, const UUID& pinUuid);
-
         void registerNodeType(const std::string& type, const std::string& category, const std::string& description,
                             std::function<Node*(const Vec2&)> builder);
-        std::vector<NodeTypeInfo> getRegisteredNodeTypes() const;
         Node* createNodeOfType(const std::string& type, const Vec2& position);
-        Node* createNodeOfTypeWithUUID(const std::string& type, const Vec2& position, UUID& outUuid);
 
         int createSubgraph(const std::string& name, const UUID& uuid = "");
         int createSubgraph(const std::string &name, const UUID &uuid = "", bool createDefaultNodes = true);
@@ -240,7 +211,6 @@ namespace NodeEditorCore {
 
         Subgraph *getSubgraph(int subgraphId);
 
-        Subgraph* getSubgraph(int subgraphId) const;
         Subgraph* getSubgraphByUUID(const UUID& uuid);
 
         void removeSubgraph(int subgraphId);
@@ -251,52 +221,26 @@ namespace NodeEditorCore {
 
         int addOutputPinToSubgraph(int subgraphId, const std::string &name, PinType type);
 
-        int addInputPinToSubgraphByUUID(const UUID &subgraphUuid, const std::string &name, PinType type);
-
-        int addOutputPinToSubgraphByUUID(const UUID &subgraphUuid, const std::string &name, PinType type);
-
-        int getSubgraphInputNodeId(int subgraphId) const;
-
-        int getSubgraphOutputNodeId(int subgraphId) const;
-
-        UUID getSubgraphInputNodeUUID(int subgraphId) const;
-
-        UUID getSubgraphOutputNodeUUID(int subgraphId) const;
-
-        Node *getSubgraphInputNode(int subgraphId);
-
-        Node *getSubgraphOutputNode(int subgraphId);
-
         void synchronizeSubgraphConnections(int subgraphId, int subgraphNodeId);
         void handleSubgraphConnections(int connectionId);
-
-        void removeSubgraphByUUID(const UUID& uuid);
 
         UUID getSubgraphUUID(int subgraphId) const;
         int getSubgraphId(const UUID& uuid) const;
 
         void addNodeToSubgraph(int nodeId, int subgraphId);
-        void addNodeToSubgraphByUUID(const UUID& nodeUuid, const UUID& subgraphUuid);
         void removeNodeFromSubgraph(int nodeId, int subgraphId);
-        void removeNodeFromSubgraphByUUID(const UUID& nodeUuid, const UUID& subgraphUuid);
 
         void addConnectionToSubgraph(int connectionId, int subgraphId);
 
         bool isConnectionInSubgraph(int connectionId, int subgraphId) const;
 
-        void addConnectionToSubgraphByUUID(const UUID& connectionUuid, const UUID& subgraphUuid);
         void removeConnectionFromSubgraph(int connectionId, int subgraphId);
-        void removeConnectionFromSubgraphByUUID(const UUID& connectionUuid, const UUID& subgraphUuid);
 
         std::vector<int> getNodesInSubgraph(int subgraphId) const;
-        std::vector<UUID> getNodesInSubgraphByUUID(const UUID& subgraphUuid) const;
         std::vector<int> getConnectionsInSubgraph(int subgraphId) const;
-        std::vector<UUID> getConnectionsInSubgraphByUUID(const UUID& subgraphUuid) const;
 
         void saveSubgraphViewState(int subgraphId);
-        void saveSubgraphViewStateByUUID(const UUID& subgraphUuid);
         void restoreSubgraphViewState(int subgraphId);
-        void restoreSubgraphViewStateByUUID(const UUID& subgraphUuid);
 
         void setCurrentSubgraphId(int subgraphId);
         void setCurrentSubgraphByUUID(const UUID& uuid);
@@ -306,12 +250,8 @@ namespace NodeEditorCore {
         bool enterSubgraph(int subgraphId);
         bool enterSubgraphByUUID(const UUID& uuid);
         bool exitSubgraph();
-        std::vector<int> getSubgraphStack() const;
-        std::vector<UUID> getSubgraphStackUUIDs() const;
 
         Node* createSubgraphNode(int subgraphId, const std::string& name, const Vec2& position, const UUID& uuid = "");
-        Node* createSubgraphNodeByUUID(const UUID& subgraphUuid, const std::string& name, const Vec2& position,
-                                     const UUID& uuid = "");
 
         bool isNodeInCurrentSubgraph(const Node& node) const;
         bool isSubgraphContainer(const Node& node) const;
@@ -338,8 +278,6 @@ namespace NodeEditorCore {
         std::vector<NodeEvaluator::ConnectionInfo> getInputConnectionsByUUID(const UUID& nodeUuid);
         std::vector<NodeEvaluator::ConnectionInfo> getOutputConnections(int nodeId);
         std::vector<NodeEvaluator::ConnectionInfo> getOutputConnectionsByUUID(const UUID& nodeUuid);
-
-        std::vector<Connection> reconstructConnections() const;
 
         ViewManager& getViewManager() { return m_viewManager; }
         GraphTitleManager& getTitleManager() { return m_titleManager; }
@@ -421,7 +359,6 @@ namespace NodeEditorCore {
 
         void enableMinimap(bool enable);
         bool isMinimapEnabled() const;
-        void setMinimapEnabled(bool enable);
         MinimapManager& getMinimapManager() { return m_minimapManager; }
         const MinimapManager& getMinimapManager() const { return m_minimapManager; }
         void setMinimapPosition(const Vec2& position);
@@ -441,13 +378,9 @@ namespace NodeEditorCore {
 
         void updateMinimapBounds();
 
-        SerializedState serialize() const;
-        void deserialize(const SerializedState& state);
-
         std::vector<UUID> getAllNodeUUIDs() const;
         std::vector<UUID> getAllConnectionUUIDs() const;
         std::vector<UUID> getAllGroupUUIDs() const;
-        std::vector<UUID> getAllSubgraphUUIDs() const;
 
     private:
         struct State {
@@ -615,20 +548,11 @@ namespace NodeEditorCore {
         void processContextMenu();
         void processZoom(const ImVec2& mousePos);
         void duplicateNode(int nodeId);
-        void duplicateNodeByUUID(const UUID& uuid);
         std::string getInteractionModeName() const;
 
         void updateNodeUuidMap();
         void updateConnectionUuidMap();
         void updateGroupUuidMap();
-        void updateSubgraphUuidMap();
-        void updateStateSubgraphs(int subgraphId);
-        void updateAllStateSubgraphs();
-
-        NodeEditorStyle convertToInternalStyle(const EditorStyle& style) const;
-        EditorStyle convertToAPIStyle(const NodeEditorStyle& style) const;
-        ConnectionInfo getConnectionInfo(int connectionId) const;
-        ConnectionInfo getConnectionInfoByUUID(const UUID& uuid) const;
     };
 }
 
