@@ -56,6 +56,12 @@ add_executable(AdvancedNodeEditor
         AdvancedNodeEditor/Components/UUID/NodeEditorUuidOperations.cpp
         AdvancedNodeEditor/Rendering/NodeEditorAnimationManager.cpp
         AdvancedNodeEditor/Rendering/NodeEditorAnimationManager.h
+        AdvancedNodeEditor/Utils/CommandRouter.cpp
+        AdvancedNodeEditor/Utils/CommandRouter.h
+        AdvancedNodeEditor/Utils/CommandManager.cpp
+        AdvancedNodeEditor/Utils/CommandManager.h
+        AdvancedNodeEditor/Utils/TypedCommandRouter.h
+        AdvancedNodeEditor/Utils/CommandDefinitions.h
 )
 
 # === FetchContent for ImGui and SDL2 ===
@@ -150,6 +156,9 @@ if (BUILD_TESTS)
             tests/editor/ControllerTests.cpp
             tests/editor/ViewTests.cpp
             tests/evaluation/EvaluationDebug_Tests.cpp
+            tests/core/CommandRouterTests.cpp
+            tests/core/CommandManagertests.cpp
+            tests/core/TypedCommandRouterTests.cpp
     )
 
     # Add ALL source files to test executable (excluding main.cpp)
@@ -203,6 +212,13 @@ if (BUILD_TESTS)
             AdvancedNodeEditor/Rendering/NodeEditorDrawConnections.cpp
             AdvancedNodeEditor/Rendering/NodeEditorDrawGroups.cpp
             AdvancedNodeEditor/Rendering/NodeEditorUtilities.cpp
+
+            AdvancedNodeEditor/Utils/CommandManager.cpp
+            AdvancedNodeEditor/Utils/CommandManager.h
+            AdvancedNodeEditor/Utils/CommandRouter.cpp
+            AdvancedNodeEditor/Utils/CommandRouter.h
+            AdvancedNodeEditor/Utils/CommandDefinitions.h
+            AdvancedNodeEditor/Utils/TypedCommandRouter.h
             AdvancedNodeEditor/Utils/UuidGenerator.h
 
             AdvancedNodeEditor/NodeEditor.cpp
