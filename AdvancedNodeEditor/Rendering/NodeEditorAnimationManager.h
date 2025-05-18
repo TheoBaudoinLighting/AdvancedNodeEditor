@@ -15,7 +15,7 @@ namespace NodeEditorCore {
         int lastConnectedPinType = 0;
         Vec2 targetPosition;
         Vec2 velocity;
-        float transitionSpeed = 10.0f;
+        float transitionSpeed = 3.0f;
     };
 
     struct ConnectionAnimationState {

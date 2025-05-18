@@ -61,6 +61,8 @@ namespace NodeEditorCore {
         m_depthColors[5] = Color(0.5f, 0.3f, 0.8f, 0.7f);
 
         m_connectionStyleManager.setBoundingBoxManager(m_nodeBoundingBoxManager);
+
+        setupCommandSystem();
     }
 
     NodeEditor::~NodeEditor() {

@@ -596,7 +596,7 @@ namespace NodeEditorCore {
             float labelY = nodePos.y + 5.0f * m_state.viewScale;
             ImU32 labelColor = IM_COL32(220, 220, 220, 255);
 
-            std::string nodeTypeLabel = isInputNode ? "ENTRÉE" : "SORTIE";
+            std::string nodeTypeLabel = isInputNode ? "INPUT" : "OUTPUT";
             drawList->AddText(
                 ImVec2(labelX, labelY),
                 labelColor,

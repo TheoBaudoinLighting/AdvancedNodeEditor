@@ -130,20 +130,20 @@ TEST_F(TypedCommandRouterTest, UseCommandDefinitions) {
     bool evalCalled = false;
     bool addNodeCalled = false;
 
-    router.bind<std::nullptr_t>(Commands::Backend::EvaluateGraph, [&evalCalled](const std::nullptr_t&) {
+    router.bind<std::nullptr_t>(NodeEditorCommands::Evaluation::Evaluate, [&evalCalled](const std::nullptr_t&) {
         evalCalled = true;
     });
 
-    router.bind<int>(Commands::Backend::AddNode, [&addNodeCalled](const int& nodeId) {
+    router.bind<int>(NodeEditorCommands::Node::Add, [&addNodeCalled](const int& nodeId) {
         addNodeCalled = true;
     });
 
-    router.dispatchTyped(Commands::Backend::EvaluateGraph, nullptr);
-    router.dispatchTyped(Commands::Backend::AddNode, 1);
+    router.dispatchTyped(NodeEditorCommands::Evaluation::Evaluate, nullptr);
+    router.dispatchTyped(NodeEditorCommands::Node::Add, 1);
 
     EXPECT_TRUE(evalCalled);
     EXPECT_TRUE(addNodeCalled);
 
-    EXPECT_EQ(router.getExpectedType(Commands::Backend::EvaluateGraph), std::type_index(typeid(std::nullptr_t)));
-    EXPECT_EQ(router.getExpectedType(Commands::Backend::AddNode), std::type_index(typeid(int)));
+    EXPECT_EQ(router.getExpectedType(NodeEditorCommands::Evaluation::Evaluate), std::type_index(typeid(std::nullptr_t)));
+    EXPECT_EQ(router.getExpectedType(NodeEditorCommands::Node::Add), std::type_index(typeid(int)));
 }

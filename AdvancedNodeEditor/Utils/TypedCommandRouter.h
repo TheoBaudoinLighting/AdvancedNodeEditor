@@ -27,9 +27,9 @@ public:
                 const PayloadType& typedData = std::any_cast<const PayloadType&>(data);
                 handler(typedData);
             } catch (const std::bad_any_cast& e) {
-                throw std::runtime_error("Type incompatible pour la commande '" + command +
-                                        "'. Attendu: " + typeid(PayloadType).name() +
-                                        ", Reçu: " + data.type().name());
+                throw std::runtime_error("Type mismatch for command '" + command +
+                                        "'. Expected: " + typeid(PayloadType).name() +
+                                        ", Received: " + data.type().name());
             }
         };
 
@@ -43,16 +43,14 @@ public:
         auto it = handlers.find(command);
         if (it != handlers.end()) {
             const HandlerInfo& info = it->second;
-            
             if (data.type() != info.expectedType) {
-                throw std::runtime_error("Type incompatible pour la commande '" + command + 
-                                         "'. Attendu: " + info.expectedType.name() + 
-                                         ", Reçu: " + data.type().name());
+                throw std::runtime_error("Type mismatch for command '" + command +
+                                         "'. Expected: " + info.expectedType.name() +
+                                         ", Received: " + data.type().name());
             }
-            
             info.handler(data);
         } else {
-            throw std::runtime_error("Commande non liée: '" + command + "'");
+            throw std::runtime_error("Unbound command: '" + command + "'");
         }
     }
 
@@ -70,7 +68,7 @@ public:
         if (it != handlers.end()) {
             return it->second.expectedType;
         }
-        throw std::runtime_error("Commande non liée: '" + command + "'");
+        throw std::runtime_error("Unbound command: '" + command + "'");
     }
 };
 

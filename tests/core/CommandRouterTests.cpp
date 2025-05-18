@@ -202,21 +202,21 @@ TEST_F(CommandRouterTest, UseCommandDefinitions) {
     bool graphEvaluateCalled = false;
     bool nodeAddCalled = false;
 
-    router.bind(Commands::Backend::EvaluateGraph, [&graphEvaluateCalled](const std::any&) {
+    router.bind(NodeEditorCommands::Evaluation::Evaluate, [&graphEvaluateCalled](const std::any&) {
         graphEvaluateCalled = true;
     });
 
-    router.bind(Commands::Backend::AddNode, [&nodeAddCalled](const std::any&) {
+    router.bind(NodeEditorCommands::Node::Add, [&nodeAddCalled](const std::any&) {
         nodeAddCalled = true;
     });
 
-    router.dispatch(Commands::Backend::EvaluateGraph);
+    router.dispatch(NodeEditorCommands::Evaluation::Evaluate);
     EXPECT_TRUE(graphEvaluateCalled);
 
-    router.dispatch(Commands::Backend::AddNode);
+    router.dispatch(NodeEditorCommands::Node::Add);
     EXPECT_TRUE(nodeAddCalled);
 
-    EXPECT_TRUE(router.isBound(Commands::Backend::EvaluateGraph));
-    EXPECT_TRUE(router.isBound(Commands::Backend::AddNode));
-    EXPECT_FALSE(router.isBound(Commands::Backend::RemoveNode));
+    EXPECT_TRUE(router.isBound(NodeEditorCommands::Evaluation::Evaluate));
+    EXPECT_TRUE(router.isBound(NodeEditorCommands::Node::Add));
+    EXPECT_FALSE(router.isBound(NodeEditorCommands::Node::Remove));
 }

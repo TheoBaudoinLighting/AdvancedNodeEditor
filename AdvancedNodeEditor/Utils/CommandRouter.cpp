@@ -13,7 +13,7 @@ void CommandRouter::dispatch(const std::string& command, const std::any& data) {
     if (it != handlers.end()) {
         it->second(data);
     } else {
-        std::cerr << "[CommandRouter] ATTENTION: Command non liée: '" << command << "'" << std::endl;
+        std::cerr << "[CommandRouter] WARNING: Unbound command: '" << command << "'" << std::endl;
         if (errorHandler) {
             errorHandler(command, data);
         }
@@ -34,11 +34,9 @@ void CommandRouter::setLoggingEnabled(bool enabled) {
 std::vector<std::string> CommandRouter::getBoundCommands() const {
     std::vector<std::string> commands;
     commands.reserve(handlers.size());
-    
     for (const auto& [command, _] : handlers) {
         commands.push_back(command);
     }
-    
     return commands;
 }
 

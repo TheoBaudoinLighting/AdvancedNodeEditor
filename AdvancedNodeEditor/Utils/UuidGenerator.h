@@ -24,7 +24,7 @@ namespace NodeEditorCore {
 
         explicit Uuid(const std::string &str) {
             if (str.size() != 36 || str[8] != '-' || str[13] != '-' || str[18] != '-' || str[23] != '-') {
-                throw std::invalid_argument("Format UUID invalide");
+                throw std::invalid_argument("Invalid UUID format");
             }
 
             std::string hexStr = str.substr(0, 8) + str.substr(9, 4) + str.substr(14, 4) +
@@ -35,7 +35,7 @@ namespace NodeEditorCore {
                 try {
                     m_data[i] = static_cast<uint8_t>(std::stoi(byteStr, nullptr, 16));
                 } catch (const std::exception &) {
-                    throw std::invalid_argument("UUID contient des caractères non hexadécimaux");
+                    throw std::invalid_argument("UUID contains non-hexadecimal characters");
                 }
             }
         }

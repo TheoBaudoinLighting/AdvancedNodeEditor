@@ -18,6 +18,8 @@
 #include "Editor/View/ViewManager.h"
 #include "Evaluation/NodeEditorEvaluation.h"
 #include "Rendering/NodeEditorAnimationManager.h"
+#include "Utils/CommandManager.h"
+#include "Utils/CommandDefinitions.h"
 
 namespace NodeEditorCore {
     enum class InteractionMode;
@@ -382,6 +384,22 @@ namespace NodeEditorCore {
         std::vector<UUID> getAllConnectionUUIDs() const;
         std::vector<UUID> getAllGroupUUIDs() const;
 
+        CommandManager& getCommandManager() { return m_commandManager; }
+        void setupCommandSystem();
+        void enableCommandLogging(bool enable);
+        void bindToBackend(const std::string& command, std::function<void(const std::any&)> handler);
+        void bindToUI(const std::string& command, std::function<void(const std::any&)> handler);
+        void dispatchToBackend(const std::string& command, const std::any& data = std::any());
+        template<typename T>
+        void dispatchTypedToBackend(const std::string& command, const T& data) {
+            m_commandManager.dispatchTypedToBackend(command, data);
+        }
+        void dispatchToUI(const std::string& command, const std::any& data = std::any());
+        template<typename T>
+        void dispatchTypedToUI(const std::string& command, const T& data) {
+            m_commandManager.dispatchTypedToUI(command, data);
+        }
+
     private:
         struct State {
             std::vector<Node> nodes;
@@ -495,6 +513,9 @@ namespace NodeEditorCore {
         AnimationManager m_animationManager;
         bool m_nodeAvoidanceEnabled;
 
+        CommandManager m_commandManager;
+        bool m_commandsInitialized;
+
         void processInteraction();
         void processBoxSelection(const ImVec2& canvasPos);
         void processNodeDragging();
@@ -553,6 +574,10 @@ namespace NodeEditorCore {
         void updateNodeUuidMap();
         void updateConnectionUuidMap();
         void updateGroupUuidMap();
+
+        void setupBackendCommands();
+        void setupUICommands();
+        void handleErrors(const std::string& command, const std::any& data);
     };
 }
 

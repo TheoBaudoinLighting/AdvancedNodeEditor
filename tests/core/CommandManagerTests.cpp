@@ -250,23 +250,23 @@ TEST_F(CommandManagerTest, UseCommandDefinitionsWithManager) {
     bool evalCalled = false;
     bool resultCalled = false;
 
-    manager.bindToBackend(Commands::Backend::EvaluateGraph, [&evalCalled](const std::any&) {
+    manager.bindToBackend(NodeEditorCommands::Evaluation::Evaluate, [&evalCalled](const std::any&) {
         evalCalled = true;
     });
 
-    manager.bindToUI(Commands::UI::ShowResult, [&resultCalled](const std::any&) {
+    manager.bindToUI(NodeEditorCommands::UI::ShowEvaluationResult, [&resultCalled](const std::any&) {
         resultCalled = true;
     });
 
-    manager.dispatchToBackend(Commands::Backend::EvaluateGraph);
-    manager.dispatchToUI(Commands::UI::ShowResult);
+    manager.dispatchToBackend(NodeEditorCommands::Evaluation::Evaluate);
+    manager.dispatchToUI(NodeEditorCommands::UI::ShowEvaluationResult);
 
     EXPECT_TRUE(evalCalled);
     EXPECT_TRUE(resultCalled);
 
-    EXPECT_TRUE(manager.isBackendBound(Commands::Backend::EvaluateGraph));
-    EXPECT_TRUE(manager.isUIBound(Commands::UI::ShowResult));
+    EXPECT_TRUE(manager.isBackendBound(NodeEditorCommands::Evaluation::Evaluate));
+    EXPECT_TRUE(manager.isUIBound(NodeEditorCommands::UI::ShowEvaluationResult));
 
-    EXPECT_FALSE(manager.isBackendBound(Commands::Backend::RemoveNode));
-    EXPECT_FALSE(manager.isUIBound(Commands::UI::ShowError));
+    EXPECT_FALSE(manager.isBackendBound(NodeEditorCommands::Node::Remove));
+    EXPECT_FALSE(manager.isUIBound(NodeEditorCommands::UI::ShowError));
 }
