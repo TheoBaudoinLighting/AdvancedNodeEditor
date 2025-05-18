@@ -514,12 +514,4 @@ namespace NodeEditorCore {
         }
         return uuids;
     }
-
-    std::vector<UUID> NodeEditor::getAllSubgraphUUIDs() const {
-        std::vector<UUID> uuids;
-        for (const auto &subgraph: m_state.subgraphs) {
-            uuids.push_back(subgraph.uuid);
-        }
-        return uuids;
-    }
 }
