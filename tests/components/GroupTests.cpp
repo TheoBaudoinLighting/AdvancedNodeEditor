@@ -1,5 +1,5 @@
 #include <gtest/gtest.h>
-#include "../../AdvancedNodeEditor/NodeEditor.h"
+#include "../../AdvancedNodeEditor/Core/NodeEditor.h"
 
 using namespace NodeEditorCore;
 

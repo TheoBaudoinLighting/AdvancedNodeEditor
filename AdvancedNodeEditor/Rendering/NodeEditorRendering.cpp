@@ -1,4 +1,4 @@
-#include "../NodeEditor.h"
+#include "../Core/NodeEditor.h"
 #include "../Core/Style/InteractionMode.h"
 #include "../Editor/View/MinimapManager.h"
 #include <algorithm>
@@ -72,8 +72,6 @@ namespace NodeEditorCore {
             drawContextMenu(drawList);
         }
 
-        m_titleManager.setViewScale(m_state.viewScale);
-
         if (m_state.currentSubgraphId >= 0) {
             std::vector<std::string> path;
             int parentId = m_state.currentSubgraphId;
@@ -87,16 +85,6 @@ namespace NodeEditorCore {
                     break;
                 }
             }
-
-            if (!path.empty()) {
-                m_titleManager.setCurrentSubgraph(path.back(), path);
-            }
-        }
-
-        m_titleManager.draw(drawList, canvasPos, canvasSize);
-
-        if (isShowingSubgraphBreadcrumbs() && m_state.currentSubgraphId >= 0) {
-            drawSubgraphBreadcrumbs(drawList, canvasPos);
         }
 
         if (isNodeAvoidanceEnabled()) {
@@ -410,10 +398,6 @@ namespace NodeEditorCore {
         );
     }
 
-    bool NodeEditor::isShowingSubgraphBreadcrumbs() const {
-        return m_breadcrumbManager.getConfig().showSubgraphPath;
-    }
-
     void NodeEditor::drawSubgraphBreadcrumbs(ImDrawList *drawList, const ImVec2 &canvasPos) {
         std::vector<std::string> path;
         int parentId = m_state.currentSubgraphId;
@@ -429,15 +413,6 @@ namespace NodeEditorCore {
         }
 
         if (path.empty()) return;
-
-        m_breadcrumbManager.setViewScale(m_state.viewScale);
-        m_breadcrumbManager.setCurrentSubgraph(path.back(), path);
-
-        auto config = m_breadcrumbManager.getConfig();
-        config.position = GraphTitleManager::TitlePosition::TopCenter;
-        m_breadcrumbManager.setConfig(config);
-
-        m_breadcrumbManager.draw(drawList, canvasPos, ImGui::GetWindowSize());
     }
 
     void NodeEditor::updateMinimapBounds() {

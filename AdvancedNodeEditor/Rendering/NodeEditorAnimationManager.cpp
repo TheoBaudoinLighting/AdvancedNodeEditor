@@ -31,7 +31,6 @@ namespace NodeEditorCore {
 
                 state.connectionGlowAngle += deltaTime * 4.0f;
                 if (state.connectionGlowAngle > 6.28318f) {
-                    // 2π
                     state.connectionGlowAngle -= 6.28318f;
                 }
 

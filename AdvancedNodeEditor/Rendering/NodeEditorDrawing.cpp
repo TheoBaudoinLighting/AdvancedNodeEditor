@@ -1,4 +1,4 @@
-#include "../NodeEditor.h"
+#include "../Core/NodeEditor.h"
 #include <algorithm>
 
 namespace NodeEditorCore {
@@ -32,7 +32,6 @@ namespace NodeEditorCore {
             if (!magnetPinInternal) {
                 p2 = ImGui::GetMousePos();
             } else {
-                // Convertir en Pin API
                 Pin magnetPin;
                 magnetPin.id = magnetPinInternal->id;
                 magnetPin.name = magnetPinInternal->name;

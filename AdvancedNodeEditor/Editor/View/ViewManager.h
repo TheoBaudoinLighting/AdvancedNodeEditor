@@ -5,6 +5,7 @@
 #include <functional>
 #include <unordered_map>
 #include <string>
+#include <vector>
 
 namespace NodeEditorCore {
     class ViewManager {
@@ -38,15 +39,14 @@ namespace NodeEditorCore {
 
         float getViewScale() const;
 
-        void centerView();
+        void setWindowSize(const Vec2& size);
+        Vec2 getWindowSize() const;
 
-        void centerOnNode(int nodeId);
-
-        void centerOnNodes(const std::vector<int> &nodeIds);
-
-        void zoomToFit(float padding = 50.0f);
-
-        void zoomToFitSelected(float padding = 50.0f);
+        void centerView(const Vec2& windowSize = Vec2(0.0f, 0.0f));
+        void centerOnNode(int nodeId, const Vec2& windowSize = Vec2(0.0f, 0.0f));
+        void centerOnNodes(const std::vector<int>& nodeIds, const Vec2& windowSize = Vec2(0.0f, 0.0f));
+        void zoomToFit(float padding = 50.0f, const Vec2& windowSize = Vec2(0.0f, 0.0f));
+        void zoomToFitSelected(float padding = 50.0f, const Vec2& windowSize = Vec2(0.0f, 0.0f));
 
         void startViewTransition(const ViewState &targetState, float duration = 0.3f,
                                  ViewTransitionType type = ViewTransitionType::EaseInOut);
@@ -68,6 +68,8 @@ namespace NodeEditorCore {
         float getMaxZoom() const;
 
         void setBoundingBoxProvider(std::function<void(Vec2 &, Vec2 &)> provider);
+        void setNodeBoundingBoxProvider(std::function<void(int, Vec2&, Vec2&)> provider);
+        void setSelectedNodesBoundingBoxProvider(std::function<void(Vec2&, Vec2&)> provider);
 
     private:
         ViewState m_currentState;
@@ -80,13 +82,18 @@ namespace NodeEditorCore {
         float m_minZoom;
         float m_maxZoom;
 
+        Vec2 m_windowSize;
+
         std::unordered_map<std::string, ViewState> m_storedStates;
+
         std::function<void(Vec2 &, Vec2 &)> m_boundingBoxProvider;
+        std::function<void(int, Vec2&, Vec2&)> m_nodeBoundingBoxProvider;
+        std::function<void(Vec2&, Vec2&)> m_selectedNodesBoundingBoxProvider;
 
         float applyEasing(float t) const;
-
         ViewState interpolateStates(const ViewState &start, const ViewState &end, float t) const;
+        Vec2 getEffectiveWindowSize(const Vec2& providedSize) const;
     };
-} // namespace NodeEditorCore
+}
 
-#endif // VIEW_MANAGER_H
+#endif

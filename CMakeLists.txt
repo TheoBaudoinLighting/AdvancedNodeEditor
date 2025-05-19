@@ -18,8 +18,8 @@ add_executable(AdvancedNodeEditor
         AdvancedNodeEditor/Core/Style/StyleDefinitions.h
         AdvancedNodeEditor/Components/Node/NodeEditorComponents.cpp
         AdvancedNodeEditor/Editor/Operations/NodeEditorState.cpp
-        AdvancedNodeEditor/NodeEditor.cpp
-        AdvancedNodeEditor/NodeEditor.h
+        AdvancedNodeEditor/Core/NodeEditor.cpp
+        AdvancedNodeEditor/Core/NodeEditor.h
         AdvancedNodeEditor/Components/Connection/NodeEditorConnections.cpp
         AdvancedNodeEditor/Components/Group/NodeEditorGroups.cpp
         AdvancedNodeEditor/Rendering/NodeEditorRendering.cpp
@@ -45,8 +45,6 @@ add_executable(AdvancedNodeEditor
         AdvancedNodeEditor/Utils/UuidGenerator.h
         AdvancedNodeEditor/Editor/View/ViewManager.cpp
         AdvancedNodeEditor/Editor/View/ViewManager.h
-        AdvancedNodeEditor/Editor/View/GraphTitleManager.cpp
-        AdvancedNodeEditor/Editor/View/GraphTitleManager.h
         AdvancedNodeEditor/Core/Style/ConnectionStyleManager.cpp
         AdvancedNodeEditor/Core/Style/ConnectionStyleManager.h
         AdvancedNodeEditor/Editor/View/NodeBoundingBoxManager.cpp
@@ -62,6 +60,8 @@ add_executable(AdvancedNodeEditor
         AdvancedNodeEditor/Utils/CommandManager.h
         AdvancedNodeEditor/Utils/TypedCommandRouter.h
         AdvancedNodeEditor/Utils/CommandDefinitions.h
+        AdvancedNodeEditor/NodeEditorAPI.cpp
+        AdvancedNodeEditor/NodeEditorAPI.h
 )
 
 # === FetchContent for ImGui and SDL2 ===
@@ -190,8 +190,6 @@ if (BUILD_TESTS)
             AdvancedNodeEditor/Editor/Operations/NodeEditorOperations.cpp
             AdvancedNodeEditor/Editor/Operations/NodeEditorState.cpp
 
-            AdvancedNodeEditor/Editor/View/GraphTitleManager.cpp
-            AdvancedNodeEditor/Editor/View/GraphTitleManager.h
             AdvancedNodeEditor/Editor/View/MinimapManager.cpp
             AdvancedNodeEditor/Editor/View/MinimapManager.h
             AdvancedNodeEditor/Editor/View/NodeBoundingBoxManager.cpp
@@ -221,8 +219,8 @@ if (BUILD_TESTS)
             AdvancedNodeEditor/Utils/TypedCommandRouter.h
             AdvancedNodeEditor/Utils/UuidGenerator.h
 
-            AdvancedNodeEditor/NodeEditor.cpp
-            AdvancedNodeEditor/NodeEditor.h
+            AdvancedNodeEditor/Core/NodeEditor.cpp
+            AdvancedNodeEditor/Core/NodeEditor.h
     )
 
     # Add ImGui and SDL sources to tests

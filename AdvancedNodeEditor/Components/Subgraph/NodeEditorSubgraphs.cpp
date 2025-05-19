@@ -1,4 +1,4 @@
-#include "../../../AdvancedNodeEditor/NodeEditor.h"
+#include "../../Core/NodeEditor.h"
 #include <algorithm>
 
 namespace NodeEditorCore {
@@ -58,10 +58,17 @@ namespace NodeEditorCore {
             return false;
         }
 
+        if (m_state.currentSubgraphId >= 0) {
+            saveSubgraphViewState(m_state.currentSubgraphId);
+        }
+
         m_subgraphStack.push(m_state.currentSubgraphId);
+        m_subgraphUuidStack.push(m_state.currentSubgraphUuid);
 
         m_state.currentSubgraphId = subgraphId;
         m_state.currentSubgraphUuid = it->second->uuid;
+
+        restoreSubgraphViewState(subgraphId);
 
         Event event(EventType::SubgraphEntered);
         event.subgraphId = subgraphId;
@@ -72,18 +79,22 @@ namespace NodeEditorCore {
     bool NodeEditor::exitSubgraph() {
         if (m_state.currentSubgraphId < 0) return false;
 
+        saveSubgraphViewState(m_state.currentSubgraphId);
+
         if (!m_subgraphStack.empty()) {
             int previousSubgraphId = m_state.currentSubgraphId;
             m_state.currentSubgraphId = m_subgraphStack.top();
             m_subgraphStack.pop();
 
-            if (m_state.currentSubgraphId >= 0) {
-                Subgraph *currentSubgraph = getSubgraph(m_state.currentSubgraphId);
-                if (currentSubgraph) {
-                    m_state.currentSubgraphUuid = currentSubgraph->uuid;
-                }
+            if (!m_subgraphUuidStack.empty()) {
+                m_state.currentSubgraphUuid = m_subgraphUuidStack.top();
+                m_subgraphUuidStack.pop();
             } else {
                 m_state.currentSubgraphUuid = "";
+            }
+
+            if (m_state.currentSubgraphId >= 0) {
+                restoreSubgraphViewState(m_state.currentSubgraphId);
             }
 
             return true;
@@ -101,6 +112,51 @@ namespace NodeEditorCore {
             }
         }
         return -1;
+    }
+
+    void NodeEditor::updateSubgraphInstances(int subgraphId) {
+        Subgraph* subgraph = getSubgraph(subgraphId);
+        if (!subgraph) return;
+
+        for (auto& node : m_state.nodes) {
+            if (node.isSubgraph && node.subgraphId == subgraphId) {
+                updateSubgraphNodePins(&node, subgraph);
+
+                synchronizeSubgraphConnections(subgraphId, node.id);
+            }
+        }
+    }
+
+    void NodeEditor::updateSubgraphNodePins(Node* subgraphNode, Subgraph* subgraph) {
+        if (!subgraphNode || !subgraph) return;
+
+        int inputNodeId = subgraph->metadata.getAttribute<int>("inputNodeId", -1);
+        int outputNodeId = subgraph->metadata.getAttribute<int>("outputNodeId", -1);
+
+        Node* inputNode = getNode(inputNodeId);
+        Node* outputNode = getNode(outputNodeId);
+
+        if (!inputNode || !outputNode) return;
+
+        std::unordered_set<std::string> existingInputPins, existingOutputPins;
+        for (const auto& pin : subgraphNode->inputs) {
+            existingInputPins.insert(pin.name);
+        }
+        for (const auto& pin : subgraphNode->outputs) {
+            existingOutputPins.insert(pin.name);
+        }
+
+        for (const auto& pin : inputNode->outputs) {
+            if (existingInputPins.find(pin.name) == existingInputPins.end()) {
+                addPin(subgraphNode->id, pin.name, true, static_cast<PinType>(pin.type));
+            }
+        }
+
+        for (const auto& pin : outputNode->inputs) {
+            if (existingOutputPins.find(pin.name) == existingOutputPins.end()) {
+                addPin(subgraphNode->id, pin.name, false, static_cast<PinType>(pin.type));
+            }
+        }
     }
 
     Node *NodeEditor::createSubgraphNode(int subgraphId, const std::string &name, const Vec2 &position,
@@ -300,9 +356,24 @@ namespace NodeEditorCore {
     }
 
     void NodeEditor::saveSubgraphViewState(int subgraphId) {
+        auto it = m_subgraphs.find(subgraphId);
+        if (it == m_subgraphs.end()) return;
+
+        Subgraph *subgraph = it->second.get();
+        subgraph->viewPosition = m_state.viewPosition;
+        subgraph->viewScale = m_state.viewScale;
     }
 
     void NodeEditor::restoreSubgraphViewState(int subgraphId) {
+        auto it = m_subgraphs.find(subgraphId);
+        if (it == m_subgraphs.end()) return;
+
+        Subgraph *subgraph = it->second.get();
+        m_state.viewPosition = subgraph->viewPosition;
+        m_state.viewScale = subgraph->viewScale;
+
+        m_viewManager.setViewPosition(m_state.viewPosition);
+        m_viewManager.setViewScale(m_state.viewScale);
     }
 
     void NodeEditor::setCurrentSubgraphId(int subgraphId) {
@@ -326,7 +397,10 @@ namespace NodeEditorCore {
     }
 
     bool NodeEditor::isNodeInSubgraph(const Node &node, int subgraphId) const {
-        return node.getSubgraphId() == subgraphId;
+        auto subgraph = getSubgraph(subgraphId);
+        if (!subgraph) return false;
+
+        return std::find(subgraph->nodeIds.begin(), subgraph->nodeIds.end(), node.id) != subgraph->nodeIds.end();
     }
 
     bool NodeEditor::isSubgraphContainer(int nodeId) const {
@@ -395,6 +469,14 @@ namespace NodeEditorCore {
     }
 
     Subgraph *NodeEditor::getSubgraph(int subgraphId) {
+        auto it = m_subgraphs.find(subgraphId);
+        if (it != m_subgraphs.end()) {
+            return it->second.get();
+        }
+        return nullptr;
+    }
+
+    const Subgraph *NodeEditor::getSubgraph(int subgraphId) const {
         auto it = m_subgraphs.find(subgraphId);
         if (it != m_subgraphs.end()) {
             return it->second.get();
@@ -485,6 +567,18 @@ namespace NodeEditorCore {
 
         if (!inputNode || !outputNode) return;
 
+        std::vector<int> connectionsToRemove;
+        for (const auto &conn: m_state.connections) {
+            if ((conn.startNodeId == inputNodeId || conn.endNodeId == outputNodeId) &&
+                isConnectionInSubgraph(conn.id, subgraphId)) {
+                connectionsToRemove.push_back(conn.id);
+            }
+        }
+
+        for (int connId: connectionsToRemove) {
+            removeConnection(connId);
+        }
+
         for (const auto &conn: m_state.connections) {
             if (conn.endNodeId == subgraphNodeId) {
                 Pin *subgraphPin = subgraphNode->findPin(conn.endPinId);
@@ -492,7 +586,10 @@ namespace NodeEditorCore {
 
                 for (auto &pin: inputNode->outputs) {
                     if (pin.name == subgraphPin->name) {
-                        addConnection(conn.startNodeId, conn.startPinId, inputNodeId, pin.id);
+                        int newConnId = addConnection(conn.startNodeId, conn.startPinId, inputNodeId, pin.id);
+                        if (newConnId >= 0) {
+                            addConnectionToSubgraph(newConnId, subgraphId);
+                        }
                         break;
                     }
                 }
@@ -502,7 +599,10 @@ namespace NodeEditorCore {
 
                 for (auto &pin: outputNode->inputs) {
                     if (pin.name == subgraphPin->name) {
-                        addConnection(outputNodeId, pin.id, conn.endNodeId, conn.endPinId);
+                        int newConnId = addConnection(outputNodeId, pin.id, conn.endNodeId, conn.endPinId);
+                        if (newConnId >= 0) {
+                            addConnectionToSubgraph(newConnId, subgraphId);
+                        }
                         break;
                     }
                 }

@@ -1,4 +1,4 @@
-#include "../../NodeEditor.h"
+#include "../../Core/NodeEditor.h"
 #include "../../Core/Style/InteractionMode.h"
 #include <algorithm>
 
@@ -25,8 +25,6 @@ namespace NodeEditorCore {
     NodeEditor::NodeEditor()
         : m_debugMode(false)
           , m_viewManager()
-          , m_titleManager()
-          , m_breadcrumbManager()
           , m_connectionStyleManager()
           , m_nodeBoundingBoxManager(std::make_shared<NodeBoundingBoxManager>())
           , m_nodeAvoidanceEnabled(false) {
@@ -34,20 +32,6 @@ namespace NodeEditorCore {
 
         m_viewManager.setMinZoom(0.1f);
         m_viewManager.setMaxZoom(5.0f);
-
-        GraphTitleManager::TitleConfig titleConfig;
-        titleConfig.text = "Graph";
-        titleConfig.position = GraphTitleManager::TitlePosition::TopCenter;
-        titleConfig.style = GraphTitleManager::TitleStyle::Unreal;
-        m_titleManager.setConfig(titleConfig);
-
-        GraphTitleManager::TitleConfig breadcrumbConfig;
-        breadcrumbConfig.text = "";
-        breadcrumbConfig.position = GraphTitleManager::TitlePosition::TopLeft;
-        breadcrumbConfig.style = GraphTitleManager::TitleStyle::Minimal;
-        breadcrumbConfig.showSubgraphPath = true;
-        breadcrumbConfig.fontSize = 14.0f;
-        m_breadcrumbManager.setConfig(breadcrumbConfig);
 
         ConnectionStyleManager::ConnectionConfig connectionConfig;
         connectionConfig.style = ConnectionStyleManager::ConnectionStyle::Bezier;
@@ -483,10 +467,4 @@ namespace NodeEditorCore {
         }
     }
 
-    void NodeEditor::centerOnNodeByUUID(const UUID &uuid) {
-        int nodeId = getNodeId(uuid);
-        if (nodeId != -1) {
-            centerOnNode(nodeId);
-        }
-    }
 }

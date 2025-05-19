@@ -1,9 +1,9 @@
 #ifndef NODE_EDITOR_H
 #define NODE_EDITOR_H
 
-#include "Core/Style/StyleDefinitions.h"
-#include "Core/Types/CoreTypes.h"
-#include "Editor/View/NodeBoundingBoxManager.h"
+#include "Style/StyleDefinitions.h"
+#include "Types/CoreTypes.h"
+#include "../Editor/View/NodeBoundingBoxManager.h"
 #include <functional>
 #include <stack>
 #include <vector>
@@ -12,14 +12,13 @@
 #include <any>
 #include <string>
 
-#include "Core/Style/ConnectionStyleManager.h"
-#include "Editor/View/GraphTitleManager.h"
-#include "Editor/View/MinimapManager.h"
-#include "Editor/View/ViewManager.h"
-#include "Evaluation/NodeEditorEvaluation.h"
-#include "Rendering/NodeEditorAnimationManager.h"
-#include "Utils/CommandManager.h"
-#include "Utils/CommandDefinitions.h"
+#include "Style/ConnectionStyleManager.h"
+#include "../Editor/View/MinimapManager.h"
+#include "../Editor/View/ViewManager.h"
+#include "../Evaluation/NodeEditorEvaluation.h"
+#include "../Rendering/NodeEditorAnimationManager.h"
+#include "../Utils/CommandManager.h"
+#include "../Utils/CommandDefinitions.h"
 
 namespace NodeEditorCore {
     enum class InteractionMode;
@@ -212,6 +211,7 @@ namespace NodeEditorCore {
         UUID createSubgraphWithUUID(const std::string& name);
 
         Subgraph *getSubgraph(int subgraphId);
+        const Subgraph* getSubgraph(int subgraphId) const;
 
         Subgraph* getSubgraphByUUID(const UUID& uuid);
 
@@ -228,6 +228,10 @@ namespace NodeEditorCore {
 
         UUID getSubgraphUUID(int subgraphId) const;
         int getSubgraphId(const UUID& uuid) const;
+
+        void updateSubgraphInstances(int subgraphId);
+
+        void updateSubgraphNodePins(Node *subgraphNode, Subgraph *subgraph);
 
         void addNodeToSubgraph(int nodeId, int subgraphId);
         void removeNodeFromSubgraph(int nodeId, int subgraphId);
@@ -282,7 +286,6 @@ namespace NodeEditorCore {
         std::vector<NodeEvaluator::ConnectionInfo> getOutputConnectionsByUUID(const UUID& nodeUuid);
 
         ViewManager& getViewManager() { return m_viewManager; }
-        GraphTitleManager& getTitleManager() { return m_titleManager; }
         ConnectionStyleManager& getConnectionStyleManager() { return m_connectionStyleManager; }
 
         void setNodeExecuting(int nodeId, bool executing) {
@@ -290,38 +293,6 @@ namespace NodeEditorCore {
         }
 
         void arrangeNodesWithAnimation(const std::vector<int>& nodeIds, const ArrangementType type);
-
-
-        void setGraphTitle(const std::string& title);
-        std::string getGraphTitle() const;
-
-        enum class TitlePosition {
-            TopLeft,
-            TopCenter,
-            TopRight,
-            BottomLeft,
-            BottomCenter,
-            BottomRight,
-            Center,
-            Custom
-        };
-
-        enum class TitleStyle {
-            Default,
-            Minimal,
-            Bordered,
-            Filled,
-            FilledTransparent,
-            Houdini,
-            Unreal
-        };
-
-        void setGraphTitlePosition(GraphTitleManager::TitlePosition position);
-        void setGraphTitleStyle(GraphTitleManager::TitleStyle style);
-        void setGraphTitlePosition(TitlePosition position);
-        void setGraphTitleStyle(TitleStyle style);
-        void setGraphTitleColor(const Color& textColor, const Color& backgroundColor = Color(0.2f, 0.2f, 0.2f, 0.7f));
-        void setGraphTitleCustomPosition(const Vec2& position);
 
         enum class ConnectionStyle {
             Bezier,
@@ -345,6 +316,8 @@ namespace NodeEditorCore {
         Color getBackgroundColor() const;
         void setSubgraphDepthColor(int depth, const Color& color);
 
+        void setupViewManager();
+
         void zoomToFit(float padding = 50.0f);
         void zoomToFitSelected(float padding = 50.0f);
         void smoothCenterView(float duration = 0.3f);
@@ -352,10 +325,7 @@ namespace NodeEditorCore {
         void smoothCenterOnNodeByUUID(const UUID& uuid, float duration = 0.3f);
 
 
-        bool isShowingSubgraphBreadcrumbs() const;
         void setShowSubgraphBreadcrumbs(bool show);
-        void setSubgraphBreadcrumbStyle(GraphTitleManager::TitleStyle style);
-        void setSubgraphBreadcrumbStyle(TitleStyle style);
         int getSubgraphDepth(int subgraphId) const;
         void drawSubgraphBreadcrumbs(ImDrawList* drawList, const ImVec2& canvasPos);
 
@@ -505,8 +475,6 @@ namespace NodeEditorCore {
         MinimapManager m_minimapManager;
         bool m_minimapEnabled;
         ViewManager m_viewManager;
-        GraphTitleManager m_titleManager;
-        GraphTitleManager m_breadcrumbManager;
         ConnectionStyleManager m_connectionStyleManager;
         std::unordered_map<int, Color> m_depthColors;
         std::shared_ptr<NodeBoundingBoxManager> m_nodeBoundingBoxManager;

@@ -1,4 +1,4 @@
-#include "../../NodeEditor.h"
+#include "../../Core/NodeEditor.h"
 #include <algorithm>
 
 namespace NodeEditorCore {

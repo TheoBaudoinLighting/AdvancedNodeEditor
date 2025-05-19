@@ -1,5 +1,5 @@
 #include "NodeEditorView.h"
-#include "../../NodeEditor.h"
+#include "../../Core/NodeEditor.h"
 #include <algorithm>
 
 #include "../../Core/Conversions/Conversions.h"

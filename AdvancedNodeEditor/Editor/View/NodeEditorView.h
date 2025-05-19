@@ -7,7 +7,7 @@
 #include <string>
 #include <imgui.h>
 
-#include "../../NodeEditor.h"
+#include "../../Core/NodeEditor.h"
 #include "../../Core/Style/StyleDefinitions.h"
 #include "../../Core/Types/CoreTypes.h"
 

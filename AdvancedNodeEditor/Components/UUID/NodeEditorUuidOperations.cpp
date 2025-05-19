@@ -1,4 +1,4 @@
-#include "../../NodeEditor.h"
+#include "../../Core/NodeEditor.h"
 
 namespace NodeEditorCore {
     UUID NodeEditor::getNodeUUID(int nodeId) const {

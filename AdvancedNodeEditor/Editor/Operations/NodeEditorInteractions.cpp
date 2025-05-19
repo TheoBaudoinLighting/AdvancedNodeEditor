@@ -1,4 +1,4 @@
-#include "../../NodeEditor.h"
+#include "../../Core/NodeEditor.h"
 #include "../../Core/Style/InteractionMode.h"
 #include <algorithm>
 #include <cfloat>
@@ -12,7 +12,7 @@ namespace NodeEditorCore {
         drawList->AddText(ImVec2(10, 10), IM_COL32(255, 0, 0, 255),
                           ("Interaction Mode: " + std::to_string(static_cast<int>(m_state.interactionMode))).c_str());
         drawList->AddText(ImVec2(10, 30), IM_COL32(255, 0, 0, 255),
-                          ("Mouse Pos: " + std::to_string(static_cast<int>(mousePos.x)) + ", " +
+                          ("Mouse Position: " + std::to_string(static_cast<int>(mousePos.x)) + ", " +
                            std::to_string(static_cast<int>(mousePos.y))).c_str());
         drawList->AddText(ImVec2(10, 50), IM_COL32(255, 0, 0, 255),
                           ("Hovered Pin: " + std::to_string(m_state.hoveredPinId)).c_str());
@@ -77,26 +77,40 @@ namespace NodeEditorCore {
             ImGui::SetMouseCursor(ImGuiMouseCursor_Arrow);
         }
 
-        // Traitement des clics souris
         if (isMouseClicked) {
-            // NOUVEAU: Log pour le débogage
             drawList->AddText(ImVec2(10, 210), IM_COL32(255, 0, 0, 255), "MOUSE CLICKED!");
 
-            if (m_state.hoveredPinId >= 0 && m_state.hoveredNodeId >= 0) {
-                // NOUVEAU: Log pour le débogage
+            if (m_state.hoveredPinId >= 0 && m_state.hoveredNodeId >= 0)
+            {
                 drawList->AddText(ImVec2(10, 230), IM_COL32(255, 0, 0, 255),
                                   ("Starting Connection on Pin " + std::to_string(m_state.hoveredPinId)).c_str());
 
                 startConnectionDrag(m_state.hoveredNodeId, m_state.hoveredPinId);
-            } else if (m_state.hoveredNodeId >= 0) {
+            }
+            else if (m_state.hoveredNodeId >= 0)
+            {
                 Node *node = getNode(m_state.hoveredNodeId);
                 if (node) {
-                    selectNode(m_state.hoveredNodeId, ImGui::GetIO().KeyCtrl);
-                    startNodeDrag(m_state.hoveredNodeId, mousePos);
+                    bool isAlreadySelected = node->selected;
+                    if (!isAlreadySelected) {
+                        selectNode(m_state.hoveredNodeId, ImGui::GetIO().KeyCtrl);
+                    } else if (!ImGui::GetIO().KeyCtrl) {
+                    } else {
+                        deselectNode(m_state.hoveredNodeId);
+                    }
+
+                    // Toujours démarrer le déplacement
+                    if (isAlreadySelected || node->selected) {
+                        startNodeDrag(m_state.hoveredNodeId, mousePos);
+                    }
                 }
-            } else if (m_state.hoveredConnectionId >= 0) {
+            }
+            else if (m_state.hoveredConnectionId >= 0)
+            {
                 selectConnection(m_state.hoveredConnectionId, ImGui::GetIO().KeyCtrl);
-            } else if (m_state.hoveredGroupId >= 0) {
+            }
+            else if (m_state.hoveredGroupId >= 0)
+                {
                 startGroupInteraction(mousePos);
             } else {
                 startBoxSelect(mousePos);
@@ -107,11 +121,8 @@ namespace NodeEditorCore {
             }
         }
 
-        // Si nous sommes en train d'interagir
         if (m_state.interactionMode != InteractionMode::None) {
-            // Pendant le glissement
             if (isMouseDragging) {
-                // NOUVEAU: Ajout du mode d'interaction lors du glissement
                 drawList->AddText(ImVec2(10, 250), IM_COL32(255, 0, 0, 255),
                                   ("Dragging with Mode: " + std::to_string(static_cast<int>(m_state.interactionMode))).
                                   c_str());
@@ -122,12 +133,9 @@ namespace NodeEditorCore {
                 processConnectionCreation();
             }
 
-
             if (isMouseReleased) {
-                if (m_state.interactionMode == InteractionMode::DragConnection)
-                    {
-                    if (m_state.magnetPinNodeId != -1 && m_state.magnetPinId != -1)
-                        {
+                if (m_state.interactionMode == InteractionMode::DragConnection) {
+                    if (m_state.magnetPinNodeId != -1 && m_state.magnetPinId != -1) {
                         const Node *sourceNode = getNode(m_state.connectingNodeId);
                         const Node *targetNode = getNode(m_state.magnetPinNodeId);
 
@@ -201,8 +209,23 @@ namespace NodeEditorCore {
 
         ImVec2 mousePos = ImGui::GetMousePos();
         Vec2 mouseDelta = Vec2(mousePos.x - m_state.dragStart.x, mousePos.y - m_state.dragStart.y);
-
         Vec2 scaledDelta = Vec2(mouseDelta.x / m_state.viewScale, mouseDelta.y / m_state.viewScale);
+
+        bool needsRefresh = false;
+        for (auto &node: m_state.nodes) {
+            if (node.selected && m_state.draggedNodePositions.find(node.id) == m_state.draggedNodePositions.end()) {
+                needsRefresh = true;
+                break;
+            }
+        }
+
+        if (needsRefresh) {
+            for (auto &node: m_state.nodes) {
+                if (node.selected) {
+                    m_state.draggedNodePositions[node.id] = node.position;
+                }
+            }
+        }
 
         for (auto &node: m_state.nodes) {
             if (node.selected) {
@@ -728,7 +751,6 @@ namespace NodeEditorCore {
 
         float pinSpacing = 25.0f * m_state.viewScale;
         float leftMargin = 20.0f * m_state.viewScale;
-
 
         if (pin.isInput) {
             int pinIndex = -1;

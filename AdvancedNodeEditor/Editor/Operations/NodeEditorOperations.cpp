@@ -1,4 +1,4 @@
-#include "../../NodeEditor.h"
+#include "../../Core/NodeEditor.h"
 #include <algorithm>
 #include <cfloat>
 
@@ -100,11 +100,6 @@ namespace NodeEditorCore {
         return m_state.viewScale;
     }
 
-    void NodeEditor::centerView() {
-        ImVec2 windowSize = ImGui::GetWindowSize();
-        centerViewWithSize(windowSize.x, windowSize.y);
-    }
-
     void NodeEditor::centerViewWithSize(float windowWidth, float windowHeight) {
         if (m_state.nodes.empty()) {
             m_state.viewPosition = Vec2(0, 0);
@@ -132,10 +127,6 @@ namespace NodeEditorCore {
         );
     }
 
-    void NodeEditor::centerOnNode(int nodeId) {
-        ImVec2 windowSize = ImGui::GetWindowSize();
-        centerOnNodeWithSize(nodeId, windowSize.x, windowSize.y);
-    }
 
     void NodeEditor::centerOnNodeWithSize(int nodeId, float windowWidth, float windowHeight) {
         const Node *node = getNode(nodeId);
