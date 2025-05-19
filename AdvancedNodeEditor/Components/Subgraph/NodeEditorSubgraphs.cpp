@@ -115,10 +115,10 @@ namespace NodeEditorCore {
     }
 
     void NodeEditor::updateSubgraphInstances(int subgraphId) {
-        Subgraph* subgraph = getSubgraph(subgraphId);
+        Subgraph *subgraph = getSubgraph(subgraphId);
         if (!subgraph) return;
 
-        for (auto& node : m_state.nodes) {
+        for (auto &node: m_state.nodes) {
             if (node.isSubgraph && node.subgraphId == subgraphId) {
                 updateSubgraphNodePins(&node, subgraph);
 
@@ -127,32 +127,32 @@ namespace NodeEditorCore {
         }
     }
 
-    void NodeEditor::updateSubgraphNodePins(Node* subgraphNode, Subgraph* subgraph) {
+    void NodeEditor::updateSubgraphNodePins(Node *subgraphNode, Subgraph *subgraph) {
         if (!subgraphNode || !subgraph) return;
 
         int inputNodeId = subgraph->metadata.getAttribute<int>("inputNodeId", -1);
         int outputNodeId = subgraph->metadata.getAttribute<int>("outputNodeId", -1);
 
-        Node* inputNode = getNode(inputNodeId);
-        Node* outputNode = getNode(outputNodeId);
+        Node *inputNode = getNode(inputNodeId);
+        Node *outputNode = getNode(outputNodeId);
 
         if (!inputNode || !outputNode) return;
 
         std::unordered_set<std::string> existingInputPins, existingOutputPins;
-        for (const auto& pin : subgraphNode->inputs) {
+        for (const auto &pin: subgraphNode->inputs) {
             existingInputPins.insert(pin.name);
         }
-        for (const auto& pin : subgraphNode->outputs) {
+        for (const auto &pin: subgraphNode->outputs) {
             existingOutputPins.insert(pin.name);
         }
 
-        for (const auto& pin : inputNode->outputs) {
+        for (const auto &pin: inputNode->outputs) {
             if (existingInputPins.find(pin.name) == existingInputPins.end()) {
                 addPin(subgraphNode->id, pin.name, true, static_cast<PinType>(pin.type));
             }
         }
 
-        for (const auto& pin : outputNode->inputs) {
+        for (const auto &pin: outputNode->inputs) {
             if (existingOutputPins.find(pin.name) == existingOutputPins.end()) {
                 addPin(subgraphNode->id, pin.name, false, static_cast<PinType>(pin.type));
             }
@@ -550,14 +550,22 @@ namespace NodeEditorCore {
         return pinId;
     }
 
-
     void NodeEditor::synchronizeSubgraphConnections(int subgraphId, int subgraphNodeId) {
+        if (m_isSynchronizing) return;
+        m_isSynchronizing = true;
+
         auto it = m_subgraphs.find(subgraphId);
-        if (it == m_subgraphs.end()) return;
+        if (it == m_subgraphs.end()) {
+            m_isSynchronizing = false;
+            return;
+        }
 
         Subgraph *subgraph = it->second.get();
         Node *subgraphNode = getNode(subgraphNodeId);
-        if (!subgraphNode) return;
+        if (!subgraphNode) {
+            m_isSynchronizing = false;
+            return;
+        }
 
         int inputNodeId = subgraph->metadata.getAttribute<int>("inputNodeId", -1);
         int outputNodeId = subgraph->metadata.getAttribute<int>("outputNodeId", -1);
@@ -565,7 +573,10 @@ namespace NodeEditorCore {
         Node *inputNode = getNode(inputNodeId);
         Node *outputNode = getNode(outputNodeId);
 
-        if (!inputNode || !outputNode) return;
+        if (!inputNode || !outputNode) {
+            m_isSynchronizing = false;
+            return;
+        }
 
         std::vector<int> connectionsToRemove;
         for (const auto &conn: m_state.connections) {
@@ -586,9 +597,11 @@ namespace NodeEditorCore {
 
                 for (auto &pin: inputNode->outputs) {
                     if (pin.name == subgraphPin->name) {
-                        int newConnId = addConnection(conn.startNodeId, conn.startPinId, inputNodeId, pin.id);
-                        if (newConnId >= 0) {
-                            addConnectionToSubgraph(newConnId, subgraphId);
+                        if (!doesConnectionExist(conn.startNodeId, conn.startPinId, inputNodeId, pin.id)) {
+                            int newConnId = addConnection(conn.startNodeId, conn.startPinId, inputNodeId, pin.id);
+                            if (newConnId >= 0) {
+                                addConnectionToSubgraph(newConnId, subgraphId);
+                            }
                         }
                         break;
                     }
@@ -599,66 +612,105 @@ namespace NodeEditorCore {
 
                 for (auto &pin: outputNode->inputs) {
                     if (pin.name == subgraphPin->name) {
-                        int newConnId = addConnection(outputNodeId, pin.id, conn.endNodeId, conn.endPinId);
-                        if (newConnId >= 0) {
-                            addConnectionToSubgraph(newConnId, subgraphId);
+                        if (!doesConnectionExist(outputNodeId, pin.id, conn.endNodeId, conn.endPinId)) {
+                            int newConnId = addConnection(outputNodeId, pin.id, conn.endNodeId, conn.endPinId);
+                            if (newConnId >= 0) {
+                                addConnectionToSubgraph(newConnId, subgraphId);
+                            }
                         }
                         break;
                     }
                 }
             }
         }
+
+        m_isSynchronizing = false;
     }
 
     void NodeEditor::handleSubgraphConnections(int connectionId) {
+        if (m_isSynchronizing) return;
+        m_isSynchronizing = true;
+
         Connection *connection = getConnection(connectionId);
-        if (!connection) return;
+        if (!connection) {
+            m_isSynchronizing = false;
+            return;
+        }
 
         Node *startNode = getNode(connection->startNodeId);
         Node *endNode = getNode(connection->endNodeId);
 
-        if (!startNode || !endNode) return;
+        if (!startNode || !endNode) {
+            m_isSynchronizing = false;
+            return;
+        }
 
         if (endNode->isSubgraph) {
             Pin *endPin = endNode->findPin(connection->endPinId);
-            if (!endPin) return;
+            if (!endPin) {
+                m_isSynchronizing = false;
+                return;
+            }
 
             Subgraph *subgraph = getSubgraph(endNode->subgraphId);
-            if (!subgraph) return;
+            if (!subgraph) {
+                m_isSynchronizing = false;
+                return;
+            }
 
             int inputNodeId = subgraph->metadata.getAttribute<int>("inputNodeId", -1);
             Node *inputNode = getNode(inputNodeId);
-            if (!inputNode) return;
+            if (!inputNode) {
+                m_isSynchronizing = false;
+                return;
+            }
 
             for (auto &pin: inputNode->outputs) {
                 if (pin.name == endPin->name) {
-                    addConnectionToSubgraph(
-                        addConnection(connection->startNodeId, connection->startPinId, inputNodeId, pin.id),
-                        endNode->subgraphId
-                    );
+                    if (!doesConnectionExist(connection->startNodeId, connection->startPinId, inputNodeId, pin.id)) {
+                        int newConnId = addConnection(connection->startNodeId, connection->startPinId, inputNodeId,
+                                                      pin.id);
+                        if (newConnId >= 0) {
+                            addConnectionToSubgraph(newConnId, endNode->subgraphId);
+                        }
+                    }
                     break;
                 }
             }
         } else if (startNode->isSubgraph) {
             Pin *startPin = startNode->findPin(connection->startPinId);
-            if (!startPin) return;
+            if (!startPin) {
+                m_isSynchronizing = false;
+                return;
+            }
 
             Subgraph *subgraph = getSubgraph(startNode->subgraphId);
-            if (!subgraph) return;
+            if (!subgraph) {
+                m_isSynchronizing = false;
+                return;
+            }
 
             int outputNodeId = subgraph->metadata.getAttribute<int>("outputNodeId", -1);
             Node *outputNode = getNode(outputNodeId);
-            if (!outputNode) return;
+            if (!outputNode) {
+                m_isSynchronizing = false;
+                return;
+            }
 
             for (auto &pin: outputNode->inputs) {
                 if (pin.name == startPin->name) {
-                    addConnectionToSubgraph(
-                        addConnection(outputNodeId, pin.id, connection->endNodeId, connection->endPinId),
-                        startNode->subgraphId
-                    );
+                    if (!doesConnectionExist(outputNodeId, pin.id, connection->endNodeId, connection->endPinId)) {
+                        int newConnId = addConnection(outputNodeId, pin.id, connection->endNodeId,
+                                                      connection->endPinId);
+                        if (newConnId >= 0) {
+                            addConnectionToSubgraph(newConnId, startNode->subgraphId);
+                        }
+                    }
                     break;
                 }
             }
         }
+
+        m_isSynchronizing = false;
     }
 }

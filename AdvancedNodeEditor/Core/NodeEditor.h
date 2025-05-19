@@ -480,6 +480,7 @@ namespace NodeEditorCore {
         std::shared_ptr<NodeBoundingBoxManager> m_nodeBoundingBoxManager;
         AnimationManager m_animationManager;
         bool m_nodeAvoidanceEnabled;
+        bool m_isSynchronizing = false;
 
         CommandManager m_commandManager;
         bool m_commandsInitialized;
