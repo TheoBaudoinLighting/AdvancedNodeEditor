@@ -7,30 +7,6 @@ namespace NodeEditorCore {
                                [connectionId](const Connection &conn) { return conn.id == connectionId; });
 
         if (it != m_state.connections.end()) {
-            Node *startNode = getNode(it->startNodeId);
-            Node *endNode = getNode(it->endNodeId);
-
-            Pin *startPinInternal = startNode ? startNode->findPin(it->startPinId) : nullptr;
-            Pin *endPinInternal = endNode ? endNode->findPin(it->endPinId) : nullptr;
-
-            bool startPinConnected = false;
-            bool endPinConnected = false;
-
-            for (const auto &conn: m_state.connections) {
-                if (conn.id == connectionId) continue;
-
-                if (conn.startNodeId == it->startNodeId && conn.startPinId == it->startPinId) {
-                    startPinConnected = true;
-                }
-
-                if (conn.endNodeId == it->endNodeId && conn.endPinId == it->endPinId) {
-                    endPinConnected = true;
-                }
-            }
-
-            if (startPinInternal && !startPinConnected) startPinInternal->connected = false;
-            if (endPinInternal && !endPinConnected) endPinInternal->connected = false;
-
             UUID connectionUuid = it->uuid;
 
             if (m_state.connectionRemovedCallback) {
@@ -39,6 +15,8 @@ namespace NodeEditorCore {
 
             m_state.connections.erase(it);
             updateConnectionUuidMap();
+
+            refreshPinConnectionStates();
         }
     }
 
@@ -209,10 +187,20 @@ namespace NodeEditorCore {
         connection.endNodeUuid = endNode->uuid;
         connection.endPinUuid = endPinInternal->uuid;
 
+        int commonSubgraphId = -1;
+
         if (startNode->getSubgraphId() == endNode->getSubgraphId() && startNode->getSubgraphId() >= 0) {
-            connection.subgraphId = startNode->getSubgraphId();
-        } else {
-            connection.subgraphId = -1;
+            commonSubgraphId = startNode->getSubgraphId();
+        }
+        else if (m_state.currentSubgraphId >= 0 &&
+                 isNodeInSubgraph(*startNode, m_state.currentSubgraphId) &&
+                 isNodeInSubgraph(*endNode, m_state.currentSubgraphId)) {
+            commonSubgraphId = m_state.currentSubgraphId;
+        }
+
+        connection.subgraphId = commonSubgraphId;
+        if (commonSubgraphId >= 0) {
+            connection.metadata.setAttribute("subgraphId", commonSubgraphId);
         }
 
         startPinInternal->connected = true;
@@ -226,11 +214,8 @@ namespace NodeEditorCore {
             m_state.connectionCreatedCallback(connectionId, connection.uuid);
         }
 
-        if (m_state.currentSubgraphId >= 0) {
-            if (startNode->getSubgraphId() == m_state.currentSubgraphId &&
-                endNode->getSubgraphId() == m_state.currentSubgraphId) {
-                addConnectionToSubgraph(connectionId, m_state.currentSubgraphId);
-            }
+        if (commonSubgraphId >= 0) {
+            addConnectionToSubgraph(connectionId, commonSubgraphId);
         }
 
         return connectionId;
@@ -248,75 +233,97 @@ namespace NodeEditorCore {
             return;
         }
 
-        Connection connection;
-        connection.id = m_state.nextConnectionId++;
-        connection.startNodeId = startNodeId;
-        connection.startPinId = startPinId;
-        connection.endNodeId = endNodeId;
-        connection.endPinId = endPinId;
-        connection.selected = false;
-        connection.isActive = true;
-
-        m_state.connections.push_back(connection);
-
-        Node *startNode = getNode(startNodeId);
-        Node *endNode = getNode(endNodeId);
-
-        if (startNode && endNode) {
-            for (auto &pin: startNode->inputs) {
-                if (pin.id == startPinId) {
-                    pin.connected = true;
-                    break;
-                }
-            }
-
-            for (auto &pin: startNode->outputs) {
-                if (pin.id == startPinId) {
-                    pin.connected = true;
-                    break;
-                }
-            }
-
-            for (auto &pin: endNode->inputs) {
-                if (pin.id == endPinId) {
-                    pin.connected = true;
-                    break;
-                }
-            }
-
-            for (auto &pin: endNode->outputs) {
-                if (pin.id == endPinId) {
-                    pin.connected = true;
-                    break;
-                }
-            }
+        if (!canCreateConnection(*startPin, *endPin)) {
+            return;
         }
 
-        Connection &newConnection = m_state.connections.back();
-        newConnection.isActive = true;
-        m_animationManager.activateConnectionFlow(newConnection.id, false, 3.0f);
+        int connectionId = addConnection(startNodeId, startPinId, endNodeId, endPinId);
+        if (connectionId >= 0) {
+            Connection *conn = getConnection(connectionId);
+            if (conn) {
+                conn->isActive = true;
+                m_animationManager.activateConnectionFlow(connectionId, false, 3.0f);
+            }
 
-        if (startPin && endPin) {
-            m_animationManager.setNodeJustConnected(startNodeId, static_cast<int>(startPin->type));
-            m_animationManager.setNodeJustConnected(endNodeId, static_cast<int>(endPin->type));
-        }
-
-        if (m_state.connectionCreatedCallback) {
-            m_state.connectionCreatedCallback(connection.id, getConnectionUUID(connection.id));
+            if (startPin && endPin) {
+                m_animationManager.setNodeJustConnected(startNodeId, static_cast<int>(startPin->type));
+                m_animationManager.setNodeJustConnected(endNodeId, static_cast<int>(endPin->type));
+            }
         }
     }
 
     void NodeEditor::createConnectionByUUID(const UUID &startNodeUuid, const UUID &startPinUuid,
                                             const UUID &endNodeUuid, const UUID &endPinUuid) {
-        const Pin *apiStartPin = getPinByUUID(startNodeUuid, startPinUuid);
-        const Pin *apiEndPin = getPinByUUID(endNodeUuid, endPinUuid);
+        int startNodeId = getNodeId(startNodeUuid);
+        int endNodeId = getNodeId(endNodeUuid);
 
-        if (!apiStartPin || !apiEndPin) return;
+        if (startNodeId == -1 || endNodeId == -1) {
+            return;
+        }
+
+        const Node *startNode = getNode(startNodeId);
+        const Node *endNode = getNode(endNodeId);
+
+        if (!startNode || !endNode) {
+            return;
+        }
+
+        int startPinId = -1;
+        int endPinId = -1;
+
+        for (const auto &pin: startNode->inputs) {
+            if (pin.uuid == startPinUuid) {
+                startPinId = pin.id;
+                break;
+            }
+        }
+        for (const auto &pin: startNode->outputs) {
+            if (pin.uuid == startPinUuid) {
+                startPinId = pin.id;
+                break;
+            }
+        }
+
+        for (const auto &pin: endNode->inputs) {
+            if (pin.uuid == endPinUuid) {
+                endPinId = pin.id;
+                break;
+            }
+        }
+        for (const auto &pin: endNode->outputs) {
+            if (pin.uuid == endPinUuid) {
+                endPinId = pin.id;
+                break;
+            }
+        }
+
+        if (startPinId == -1 || endPinId == -1) {
+            return;
+        }
+
+        const Pin *apiStartPin = getPin(startNodeId, startPinId);
+        const Pin *apiEndPin = getPin(endNodeId, endPinId);
+
+        if (!apiStartPin || !apiEndPin) {
+            return;
+        }
+
+        if (!canCreateConnection(*apiStartPin, *apiEndPin)) {
+            return;
+        }
 
         if (apiStartPin->isInput) {
-            addConnectionByUUID(endNodeUuid, endPinUuid, startNodeUuid, startPinUuid, "");
+            int connectionId = addConnection(endNodeId, endPinId, startNodeId, startPinId);
+            if (connectionId >= 0 && (apiStartPin->isInput != apiEndPin->isInput)) {
+                m_animationManager.setNodeJustConnected(startNodeId, static_cast<int>(apiStartPin->type));
+                m_animationManager.setNodeJustConnected(endNodeId, static_cast<int>(apiEndPin->type));
+            }
         } else {
-            addConnectionByUUID(startNodeUuid, startPinUuid, endNodeUuid, endPinUuid, "");
+            int connectionId = addConnection(startNodeId, startPinId, endNodeId, endPinId);
+            if (connectionId >= 0 && (apiStartPin->isInput != apiEndPin->isInput)) {
+                m_animationManager.setNodeJustConnected(startNodeId, static_cast<int>(apiStartPin->type));
+                m_animationManager.setNodeJustConnected(endNodeId, static_cast<int>(apiEndPin->type));
+            }
         }
     }
 
@@ -378,21 +385,33 @@ namespace NodeEditorCore {
         int startPinId = -1;
         int endPinId = -1;
 
-        for (const auto &pin: startNode->outputs) {
+        for (const auto &pin : startNode->outputs) {
             if (pin.uuid == startPinUuid) {
                 startPinId = pin.id;
                 break;
             }
         }
 
-        for (const auto &pin: endNode->inputs) {
+        for (const auto &pin : endNode->inputs) {
             if (pin.uuid == endPinUuid) {
                 endPinId = pin.id;
                 break;
             }
         }
 
-        if (startPinId == -1 || endPinId == -1) return -1;
+        if (startPinId == -1 || endPinId == -1) {
+            for (const auto &pin : startNode->inputs) {
+                if (pin.uuid == startPinUuid) {
+                    return -1;
+                }
+            }
+            for (const auto &pin : endNode->outputs) {
+                if (pin.uuid == endPinUuid) {
+                    return -1;
+                }
+            }
+            return -1;
+        }
 
         return addConnection(startNodeId, startPinId, endNodeId, endPinId, uuid);
     }

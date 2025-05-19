@@ -1,7 +1,26 @@
 #include "../../Core/NodeEditor.h"
 #include <algorithm>
+#include <set>
 
 namespace NodeEditorCore {
+    void NodeEditor::updateAllSubgraphs() {
+        std::set<int> subgraphsToUpdate;
+
+        for (const auto& pair : m_subgraphs) {
+            subgraphsToUpdate.insert(pair.first);
+        }
+
+        for (int subgraphId : subgraphsToUpdate) {
+            updateSubgraphInstances(subgraphId);
+
+            for (auto& node : m_state.nodes) {
+                if (node.isSubgraph && node.subgraphId == subgraphId) {
+                    synchronizeSubgraphConnections(subgraphId, node.id);
+                }
+            }
+        }
+    }
+
     int NodeEditor::createSubgraph(const std::string &name, const UUID &uuid, bool createDefaultNodes) {
         int subgraphId = m_state.nextGroupId++;
 
@@ -516,11 +535,7 @@ namespace NodeEditorCore {
         int interfaceId = (inputNodeId << 16) | pinId;
         subgraph->interfaceInputs.push_back(interfaceId);
 
-        for (const auto &node: m_state.nodes) {
-            if (node.isSubgraph && node.subgraphId == subgraphId) {
-                addPin(node.id, name, true, type);
-            }
-        }
+        updateSubgraphInstances(subgraphId);
 
         return pinId;
     }
@@ -541,11 +556,7 @@ namespace NodeEditorCore {
         int interfaceId = (outputNodeId << 16) | pinId;
         subgraph->interfaceOutputs.push_back(interfaceId);
 
-        for (const auto &node: m_state.nodes) {
-            if (node.isSubgraph && node.subgraphId == subgraphId) {
-                addPin(node.id, name, false, type);
-            }
-        }
+        updateSubgraphInstances(subgraphId);
 
         return pinId;
     }
@@ -712,5 +723,68 @@ namespace NodeEditorCore {
         }
 
         m_isSynchronizing = false;
+    }
+
+    void NodeEditor::setupSubgraphCallbacks() {
+        auto originalConnectionCreatedCallback = m_state.connectionCreatedCallback;
+        m_state.connectionCreatedCallback = [this, originalConnectionCreatedCallback
+                ](int connectionId, const UUID &connectionUuid) {
+                    Connection *connection = nullptr;
+                    for (auto &conn: m_state.connections) {
+                        if (conn.id == connectionId) {
+                            connection = &conn;
+                            break;
+                        }
+                    }
+
+                    if (connection) {
+                        Node *startNode = nullptr;
+                        Node *endNode = nullptr;
+
+                        for (auto &node: m_state.nodes) {
+                            if (node.id == connection->startNodeId) {
+                                startNode = &node;
+                            }
+                            if (node.id == connection->endNodeId) {
+                                endNode = &node;
+                            }
+                            if (startNode && endNode) break;
+                        }
+
+                        if (startNode && startNode->isSubgraph) {
+                            synchronizeSubgraphConnections(startNode->subgraphId, startNode->id);
+                        }
+
+                        if (endNode && endNode->isSubgraph) {
+                            synchronizeSubgraphConnections(endNode->subgraphId, endNode->id);
+                        }
+                    }
+
+                    if (originalConnectionCreatedCallback) {
+                        originalConnectionCreatedCallback(connectionId, connectionUuid);
+                    }
+                };
+
+        auto originalConnectionRemovedCallback = m_state.connectionRemovedCallback;
+        m_state.connectionRemovedCallback = [this, originalConnectionRemovedCallback
+                ](int connectionId, const UUID &connectionUuid) {
+                    std::set<int> subgraphsToUpdate;
+
+                    for (const auto &pair: m_subgraphs) {
+                        subgraphsToUpdate.insert(pair.first);
+                    }
+
+                    for (int subgraphId: subgraphsToUpdate) {
+                        for (auto &node: m_state.nodes) {
+                            if (node.isSubgraph && node.subgraphId == subgraphId) {
+                                synchronizeSubgraphConnections(subgraphId, node.id);
+                            }
+                        }
+                    }
+
+                    if (originalConnectionRemovedCallback) {
+                        originalConnectionRemovedCallback(connectionId, connectionUuid);
+                    }
+                };
     }
 }

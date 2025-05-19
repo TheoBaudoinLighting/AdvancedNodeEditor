@@ -27,7 +27,9 @@ namespace NodeEditorCore {
           , m_viewManager()
           , m_connectionStyleManager()
           , m_nodeBoundingBoxManager(std::make_shared<NodeBoundingBoxManager>())
-          , m_nodeAvoidanceEnabled(false) {
+          , m_nodeAvoidanceEnabled(false)
+          , m_isSynchronizing(false)
+          , m_commandsInitialized(false) {
         m_state = State();
 
         m_viewManager.setMinZoom(0.1f);
@@ -53,6 +55,13 @@ namespace NodeEditorCore {
     }
 
     void NodeEditor::beginFrame() {
+        static bool firstFrame = true;
+
+        if (firstFrame) {
+            setupSubgraphCallbacks();
+            firstFrame = false;
+        }
+
         if (!m_viewManager.isViewTransitioning()) {
             m_viewManager.setViewPosition(m_state.viewPosition);
             m_viewManager.setViewScale(m_state.viewScale);
@@ -97,14 +106,14 @@ namespace NodeEditorCore {
 
     void NodeEditor::removeNode(int nodeId) {
         auto it = std::find_if(m_state.nodes.begin(), m_state.nodes.end(),
-                              [nodeId](const Node &node) { return node.id == nodeId; });
+                               [nodeId](const Node &node) { return node.id == nodeId; });
 
         if (it != m_state.nodes.end()) {
             if (it->isProtected) {
                 return;
             }
 
-            for (const auto& subgraphPair : m_subgraphs) {
+            for (const auto &subgraphPair: m_subgraphs) {
                 int inputNodeId = subgraphPair.second->metadata.getAttribute<int>("inputNodeId", -1);
                 int outputNodeId = subgraphPair.second->metadata.getAttribute<int>("outputNodeId", -1);
 
@@ -115,16 +124,16 @@ namespace NodeEditorCore {
 
             m_state.connections.erase(
                 std::remove_if(m_state.connections.begin(), m_state.connections.end(),
-                             [nodeId](const Connection &conn) {
-                                 return conn.startNodeId == nodeId || conn.endNodeId == nodeId;
-                             }),
+                               [nodeId](const Connection &conn) {
+                                   return conn.startNodeId == nodeId || conn.endNodeId == nodeId;
+                               }),
                 m_state.connections.end());
 
             if (it->groupId >= 0) {
                 auto groupIt = std::find_if(m_state.groups.begin(), m_state.groups.end(),
-                                          [groupId = it->groupId](const Group& group) {
-                                              return group.id == groupId;
-                                          });
+                                            [groupId = it->groupId](const Group &group) {
+                                                return group.id == groupId;
+                                            });
                 if (groupIt != m_state.groups.end()) {
                     groupIt->nodes.erase(nodeId);
                 }
@@ -138,7 +147,6 @@ namespace NodeEditorCore {
             updateNodeUuidMap();
         }
     }
-
 
 
     const std::vector<Node> &NodeEditor::getNodes() const {
@@ -263,8 +271,9 @@ namespace NodeEditorCore {
         return node->metadata.getAttribute<UUID>("subgraphUuid", "");
     }
 
-    int NodeEditor::addPin(int nodeId, const std::string& name, bool isInput, PinType type, PinShape shape, const UUID& uuid) {
-        Node* node = getNode(nodeId);
+    int NodeEditor::addPin(int nodeId, const std::string &name, bool isInput, PinType type, PinShape shape,
+                           const UUID &uuid) {
+        Node *node = getNode(nodeId);
         if (!node) {
             return -1;
         }
@@ -296,11 +305,11 @@ namespace NodeEditorCore {
         removeFromVec(node->outputs);
     }
 
-    const Pin* NodeEditor::getPin(int nodeId, int pinId) const {
-        const Node* node = getNode(nodeId);
+    const Pin *NodeEditor::getPin(int nodeId, int pinId) const {
+        const Node *node = getNode(nodeId);
         if (!node) return nullptr;
 
-        for (const auto& pin : node->inputs) {
+        for (const auto &pin: node->inputs) {
             if (pin.id == pinId) {
                 static thread_local Pin result;
                 result.id = pin.id;
@@ -314,7 +323,7 @@ namespace NodeEditorCore {
             }
         }
 
-        for (const auto& pin : node->outputs) {
+        for (const auto &pin: node->outputs) {
             if (pin.id == pinId) {
                 static thread_local Pin result;
                 result.id = pin.id;
@@ -332,12 +341,11 @@ namespace NodeEditorCore {
     }
 
 
-
-    Pin* NodeEditor::getPin(int nodeId, int pinId) {
-        Node* node = getNode(nodeId);
+    Pin *NodeEditor::getPin(int nodeId, int pinId) {
+        Node *node = getNode(nodeId);
         if (!node) return nullptr;
 
-        for (auto& pin : node->inputs) {
+        for (auto &pin: node->inputs) {
             if (pin.id == pinId) {
                 static thread_local Pin result;
                 result.id = pin.id;
@@ -351,7 +359,7 @@ namespace NodeEditorCore {
             }
         }
 
-        for (auto& pin : node->outputs) {
+        for (auto &pin: node->outputs) {
             if (pin.id == pinId) {
                 static thread_local Pin result;
                 result.id = pin.id;
@@ -406,7 +414,6 @@ namespace NodeEditorCore {
     }
 
 
-
     Node *NodeEditor::createNodeOfType(const std::string &type, const Vec2 &position) {
         auto it = m_registeredNodeTypes.find(type);
         if (it == m_registeredNodeTypes.end()) {
@@ -444,7 +451,6 @@ namespace NodeEditorCore {
     }
 
 
-
     void NodeEditor::removePinByUUID(const UUID &nodeUuid, const UUID &pinUuid) {
         int nodeId = getNodeId(nodeUuid);
         if (nodeId == -1) return;
@@ -467,4 +473,188 @@ namespace NodeEditorCore {
         }
     }
 
+    void NodeEditor::loadGraphState(const SerializedState &state) {
+        m_state.nodes.clear();
+        m_state.connections.clear();
+        m_state.groups.clear();
+        m_subgraphs.clear();
+
+        for (const auto &serializedNode: state.nodes) {
+            Node node;
+            node.id = serializedNode.id;
+            node.uuid = serializedNode.uuid;
+            node.name = serializedNode.name;
+            node.type = serializedNode.type;
+            node.position = serializedNode.position;
+            node.size = serializedNode.size;
+            node.isSubgraph = serializedNode.isSubgraph;
+            node.subgraphId = serializedNode.subgraphId;
+            node.subgraphUuid = serializedNode.subgraphUuid;
+            node.metadata = serializedNode.metadata;
+
+            for (const auto &serializedPin: serializedNode.inputs) {
+                Pin pin;
+                pin.id = serializedPin.id;
+                pin.uuid = serializedPin.uuid;
+                pin.name = serializedPin.name;
+                pin.isInput = serializedPin.isInput;
+                pin.type = serializedPin.type;
+                pin.shape = serializedPin.shape;
+                pin.metadata = serializedPin.metadata;
+                pin.connected = false;
+
+                node.inputs.push_back(pin);
+            }
+
+            for (const auto &serializedPin: serializedNode.outputs) {
+                Pin pin;
+                pin.id = serializedPin.id;
+                pin.uuid = serializedPin.uuid;
+                pin.name = serializedPin.name;
+                pin.isInput = serializedPin.isInput;
+                pin.type = serializedPin.type;
+                pin.shape = serializedPin.shape;
+                pin.metadata = serializedPin.metadata;
+                pin.connected = false;
+
+                node.outputs.push_back(pin);
+            }
+
+            m_state.nodes.push_back(node);
+        }
+
+        for (const auto &serializedConnection: state.connections) {
+            Connection connection;
+            connection.id = serializedConnection.id;
+            connection.uuid = serializedConnection.uuid;
+            connection.startNodeId = serializedConnection.startNodeId;
+            connection.startNodeUuid = serializedConnection.startNodeUuid;
+            connection.startPinId = serializedConnection.startPinId;
+            connection.startPinUuid = serializedConnection.startPinUuid;
+            connection.endNodeId = serializedConnection.endNodeId;
+            connection.endNodeUuid = serializedConnection.endNodeUuid;
+            connection.endPinId = serializedConnection.endPinId;
+            connection.endPinUuid = serializedConnection.endPinUuid;
+            connection.metadata = serializedConnection.metadata;
+
+            m_state.connections.push_back(connection);
+        }
+
+        for (const auto &serializedGroup: state.groups) {
+            Group group(serializedGroup.uuid, serializedGroup.id, serializedGroup.name,
+                        serializedGroup.position, serializedGroup.size);
+            group.color = serializedGroup.color;
+            group.style = serializedGroup.style;
+            group.collapsed = serializedGroup.collapsed;
+
+            for (const int nodeId: serializedGroup.nodeIds) {
+                group.nodes.insert(nodeId);
+            }
+
+            for (const auto &nodeUuid: serializedGroup.nodeUuids) {
+                group.nodeUuids.insert(nodeUuid);
+            }
+
+            group.metadata = serializedGroup.metadata;
+
+            m_state.groups.push_back(group);
+        }
+
+        for (const auto &serializedSubgraph: state.subgraphs) {
+            auto subgraph = std::make_shared<Subgraph>();
+            subgraph->id = serializedSubgraph.id;
+            subgraph->uuid = serializedSubgraph.uuid;
+            subgraph->name = serializedSubgraph.name;
+            subgraph->nodeIds = serializedSubgraph.nodeIds;
+            subgraph->nodeUuids = serializedSubgraph.nodeUuids;
+            subgraph->connectionIds = serializedSubgraph.connectionIds;
+            subgraph->connectionUuids = serializedSubgraph.connectionUuids;
+            subgraph->groupIds = serializedSubgraph.groupIds;
+            subgraph->groupUuids = serializedSubgraph.groupUuids;
+            subgraph->interfaceInputs = serializedSubgraph.interfaceInputs;
+            subgraph->interfaceOutputs = serializedSubgraph.interfaceOutputs;
+            subgraph->parentSubgraphId = serializedSubgraph.parentSubgraphId;
+            subgraph->parentSubgraphUuid = serializedSubgraph.parentSubgraphUuid;
+            subgraph->childSubgraphIds = serializedSubgraph.childSubgraphIds;
+            subgraph->childSubgraphUuids = serializedSubgraph.childSubgraphUuids;
+            subgraph->viewPosition = serializedSubgraph.viewPosition;
+            subgraph->viewScale = serializedSubgraph.viewScale;
+            subgraph->description = serializedSubgraph.description;
+            subgraph->category = serializedSubgraph.category;
+            subgraph->isTemplate = serializedSubgraph.isTemplate;
+            subgraph->iconSymbol = serializedSubgraph.iconSymbol;
+            subgraph->accentColor = serializedSubgraph.accentColor;
+            subgraph->metadata = serializedSubgraph.metadata;
+
+            m_subgraphs[subgraph->id] = subgraph;
+        }
+
+        m_state.viewPosition = state.viewPosition;
+        m_state.viewScale = state.viewScale;
+
+        updateNodeUuidMap();
+        updateConnectionUuidMap();
+        updateGroupUuidMap();
+
+        refreshPinConnectionStates();
+
+        updateAllSubgraphs();
+
+        updateNextIds();
+    }
+
+    void NodeEditor::updateNextIds() {
+        int maxNodeId = 0;
+        for (const auto &node: m_state.nodes) {
+            maxNodeId = std::max(maxNodeId, node.id);
+        }
+        m_state.nextNodeId = maxNodeId + 1;
+
+        int maxPinId = 0;
+        for (const auto &node: m_state.nodes) {
+            for (const auto &pin: node.inputs) {
+                maxPinId = std::max(maxPinId, pin.id);
+            }
+            for (const auto &pin: node.outputs) {
+                maxPinId = std::max(maxPinId, pin.id);
+            }
+        }
+        m_state.nextPinId = maxPinId + 1;
+
+        int maxConnectionId = 0;
+        for (const auto &connection: m_state.connections) {
+            maxConnectionId = std::max(maxConnectionId, connection.id);
+        }
+        m_state.nextConnectionId = maxConnectionId + 1;
+
+        int maxGroupId = 0;
+        for (const auto &group: m_state.groups) {
+            maxGroupId = std::max(maxGroupId, group.id);
+        }
+        m_state.nextGroupId = maxGroupId + 1;
+    }
+
+    void NodeEditor::refreshPinConnectionStates() {
+        for (auto &node: m_state.nodes) {
+            for (auto &pin: node.inputs) {
+                pin.connected = false;
+            }
+            for (auto &pin: node.outputs) {
+                pin.connected = false;
+            }
+        }
+
+        for (const auto &connection: m_state.connections) {
+            Node *startNode = getNode(connection.startNodeId);
+            Node *endNode = getNode(connection.endNodeId);
+
+            if (startNode && endNode) {
+                Pin *startPin = startNode->findPin(connection.startPinId);
+                Pin *endPin = endNode->findPin(connection.endPinId);
+
+                if (startPin) startPin->connected = true;
+                if (endPin) endPin->connected = true;
+            }
+        }
+    }
 }

@@ -112,6 +112,12 @@ namespace NodeEditorCore {
         void removePin(int nodeId, int pinId);
         void removePinByUUID(const UUID& nodeUuid, const UUID& pinUuid);
 
+        void loadGraphState(const SerializedState &state);
+
+        void updateNextIds();
+
+        void refreshPinConnectionStates();
+
         Pin* getPin(int nodeId, int pinId);
         Pin* getPinByUUID(const UUID& nodeUuid, const UUID& pinUuid);
         const Pin* getPin(int nodeId, int pinId) const;
@@ -207,6 +213,9 @@ namespace NodeEditorCore {
         Node* createNodeOfType(const std::string& type, const Vec2& position);
 
         int createSubgraph(const std::string& name, const UUID& uuid = "");
+
+        void updateAllSubgraphs();
+
         int createSubgraph(const std::string &name, const UUID &uuid = "", bool createDefaultNodes = true);
         UUID createSubgraphWithUUID(const std::string& name);
 
@@ -225,6 +234,8 @@ namespace NodeEditorCore {
 
         void synchronizeSubgraphConnections(int subgraphId, int subgraphNodeId);
         void handleSubgraphConnections(int connectionId);
+
+        void setupSubgraphCallbacks();
 
         UUID getSubgraphUUID(int subgraphId) const;
         int getSubgraphId(const UUID& uuid) const;
