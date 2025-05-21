@@ -558,6 +558,19 @@ namespace NodeEditorCore {
         void setupBackendCommands();
         void setupUICommands();
         void handleErrors(const std::string& command, const std::any& data);
+
+        std::vector<Connection> getVisibleConnections() const;
+        void drawSingleConnection(ImDrawList *drawList, const Connection &connection, const ImVec2 &canvasPos);
+        Color getPinConnectionColor(const Pin &pin) const;
+        void drawConnectionLine(ImDrawList *drawList, const ImVec2 &p1, const ImVec2 &p2, const Connection &connection, const Pin &startPin, const Pin &endPin, const Color &startCol, const Color &endCol);
+        void drawConnectionAnimation(ImDrawList *drawList, const ImVec2 &p1, const ImVec2 &p2, const Connection &connection, const Pin &startPin, const Pin &endPin, const Color &startCol, const Color &endCol);
+        std::vector<ImVec2> calculateAnimationPath(const ImVec2 &p1, const ImVec2 &p2, const Pin &startPin, const Pin &endPin, const ConnectionAnimationState &animState) const;
+        std::vector<ImVec2> calculateBezierAnimationPath(const ImVec2 &p1, const ImVec2 &p2, const Pin &startPin, const Pin &endPin, const ConnectionAnimationState &animState, int particleCount) const;
+        std::vector<ImVec2> calculateStraightAnimationPath(const ImVec2 &p1, const ImVec2 &p2, const ConnectionAnimationState &animState, int particleCount) const;
+        std::vector<ImVec2> calculateAngleAnimationPath(const ImVec2 &p1, const ImVec2 &p2, const ConnectionAnimationState &animState, int particleCount) const;
+        std::vector<ImVec2> calculateMetroAnimationPath(const ImVec2 &p1, const ImVec2 &p2, const ConnectionAnimationState &animState, int particleCount) const;
+        void renderAnimationParticles(ImDrawList *drawList, const std::vector<ImVec2> &pathPoints, const Color &startCol, const Color &endCol);
+
     };
 }
 
