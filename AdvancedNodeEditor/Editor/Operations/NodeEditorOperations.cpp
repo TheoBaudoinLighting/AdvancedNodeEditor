@@ -21,13 +21,10 @@ namespace NodeEditorCore {
             ImVec2 nodeMin = nodePos;
             ImVec2 nodeMax = ImVec2(nodePos.x + nodeSize.x, nodePos.y + nodeSize.y);
 
-            bool contained = nodeMin.x >= boxMin.x && nodeMax.x <= boxMax.x &&
-                             nodeMin.y >= boxMin.y && nodeMax.y <= boxMax.y;
-
             bool intersected = !(nodeMax.x < boxMin.x || nodeMin.x > boxMax.x ||
                                  nodeMax.y < boxMin.y || nodeMin.y > boxMax.y);
 
-            if (contained || intersected) {
+            if (intersected) {
                 node.selected = true;
             } else if (!ImGui::GetIO().KeyCtrl) {
                 node.selected = false;
@@ -61,8 +58,8 @@ namespace NodeEditorCore {
 
     void NodeEditor::selectAllNodes() {
         for (auto &node : m_state.nodes) {
-            if ((m_state.currentSubgraphId >= 0 && node.getSubgraphId() == m_state.currentSubgraphId) ||
-                (m_state.currentSubgraphId == -1 && node.getSubgraphId() == -1)) {
+            if ((m_state.currentSubgraphId >= 0 && node.subgraphId == m_state.currentSubgraphId) ||
+                (m_state.currentSubgraphId == -1 && node.subgraphId == -1)) {
                 node.selected = true;
                 }
         }
@@ -114,6 +111,11 @@ namespace NodeEditorCore {
             min.y = std::min(min.y, node.position.y);
             max.x = std::max(max.x, node.position.x + node.size.x);
             max.y = std::max(max.y, node.position.y + node.size.y);
+        }
+
+        if (min.x == FLT_MAX) {
+            m_state.viewPosition = Vec2(0, 0);
+            return;
         }
 
         Vec2 center = Vec2(

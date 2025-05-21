@@ -49,6 +49,8 @@ namespace NodeEditorCore {
         m_connectionStyleManager.setBoundingBoxManager(m_nodeBoundingBoxManager);
 
         setupCommandSystem();
+
+        //m_debugMode = true;
     }
 
     NodeEditor::~NodeEditor() {
@@ -58,7 +60,14 @@ namespace NodeEditorCore {
         static bool firstFrame = true;
 
         if (firstFrame) {
-            setupSubgraphCallbacks();
+            try {
+                setupSubgraphCallbacks();
+
+                refreshPinConnectionStates();
+                updateAllSubgraphs();
+            } catch (...) {
+            }
+
             firstFrame = false;
         }
 
@@ -147,7 +156,6 @@ namespace NodeEditorCore {
             updateNodeUuidMap();
         }
     }
-
 
     const std::vector<Node> &NodeEditor::getNodes() const {
         return m_state.nodes;

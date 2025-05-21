@@ -80,37 +80,63 @@ namespace NodeEditorCore {
         if (isMouseClicked) {
             drawList->AddText(ImVec2(10, 210), IM_COL32(255, 0, 0, 255), "MOUSE CLICKED!");
 
-            if (m_state.hoveredPinId >= 0 && m_state.hoveredNodeId >= 0)
-            {
+            if (m_state.hoveredPinId >= 0 && m_state.hoveredNodeId >= 0) {
                 drawList->AddText(ImVec2(10, 230), IM_COL32(255, 0, 0, 255),
                                   ("Starting Connection on Pin " + std::to_string(m_state.hoveredPinId)).c_str());
 
                 startConnectionDrag(m_state.hoveredNodeId, m_state.hoveredPinId);
-            }
-            else if (m_state.hoveredNodeId >= 0)
-            {
+            } else if (m_state.hoveredNodeId >= 0) {
                 Node *node = getNode(m_state.hoveredNodeId);
                 if (node) {
                     bool isAlreadySelected = node->selected;
-                    if (!isAlreadySelected) {
-                        selectNode(m_state.hoveredNodeId, ImGui::GetIO().KeyCtrl);
-                    } else if (!ImGui::GetIO().KeyCtrl) {
-                    } else {
-                        deselectNode(m_state.hoveredNodeId);
+                    bool ctrlPressed = ImGui::GetIO().KeyCtrl;
+
+                    if (!ctrlPressed) {
+                        deselectAllConnections();
                     }
 
-                    // Toujours démarrer le déplacement
-                    if (isAlreadySelected || node->selected) {
+                    if (ctrlPressed) {
+                        if (isAlreadySelected) {
+                            deselectNode(m_state.hoveredNodeId);
+                        } else {
+                            selectNode(m_state.hoveredNodeId, true);
+                        }
+                    } else {
+                        if (!isAlreadySelected) {
+                            selectNode(m_state.hoveredNodeId, false);
+                        }
+                    }
+
+                    if (node->selected) {
                         startNodeDrag(m_state.hoveredNodeId, mousePos);
                     }
                 }
-            }
-            else if (m_state.hoveredConnectionId >= 0)
-            {
-                selectConnection(m_state.hoveredConnectionId, ImGui::GetIO().KeyCtrl);
-            }
-            else if (m_state.hoveredGroupId >= 0)
-                {
+            } else if (m_state.hoveredConnectionId >= 0) {
+                bool ctrlPressed = ImGui::GetIO().KeyCtrl;
+                bool altPressed = ImGui::GetIO().KeyAlt;
+
+                if (altPressed) {
+                    removeConnection(m_state.hoveredConnectionId);
+                } else {
+                    if (!ctrlPressed) {
+                        deselectAllNodes();
+                    }
+
+                    Connection *connection = getConnection(m_state.hoveredConnectionId);
+                    if (connection) {
+                        if (ctrlPressed) {
+                            if (connection->selected) {
+                                deselectConnection(m_state.hoveredConnectionId);
+                            } else {
+                                selectConnection(m_state.hoveredConnectionId, true);
+                            }
+                        } else {
+                            deselectAllConnections();
+                            selectConnection(m_state.hoveredConnectionId, false);
+                        }
+                    }
+                }
+            } else if (m_state.hoveredGroupId >= 0) {
                 startGroupInteraction(mousePos);
             } else {
                 startBoxSelect(mousePos);
@@ -798,13 +824,63 @@ namespace NodeEditorCore {
         ImVec2 p2 = getPinPos(*endNode, *apiEndPin, canvasPos);
         ImVec2 mousePos = ImGui::GetMousePos();
 
-        float distance = std::abs(p2.y - p1.y);
-        float cpOffset = std::max(50.0f, distance * 0.5f);
+        float threshold = std::max(8.0f, 12.0f * m_state.viewScale);
 
-        ImVec2 cp1 = ImVec2(p1.x, p1.y + cpOffset);
-        ImVec2 cp2 = ImVec2(p2.x, p2.y - cpOffset);
+        ConnectionStyleManager::ConnectionStyle style = m_connectionStyleManager.getDefaultStyle();
 
-        return isPointNearCubicBezier(mousePos, p1, cp1, cp2, p2, 5.0f);
+        switch (style) {
+            case ConnectionStyleManager::ConnectionStyle::Bezier: {
+                const float distance = std::sqrt(std::pow(p2.x - p1.x, 2) + std::pow(p2.y - p1.y, 2));
+                const float tension = m_connectionStyleManager.getConfig().curveTension;
+                const float cpDistance = distance * tension;
+
+                ImVec2 cp1, cp2;
+                if (apiStartPin->isInput) {
+                    cp1 = ImVec2(p1.x, p1.y - cpDistance);
+                } else {
+                    cp1 = ImVec2(p1.x, p1.y + cpDistance);
+                }
+
+                if (apiEndPin->isInput) {
+                    cp2 = ImVec2(p2.x, p2.y - cpDistance);
+                } else {
+                    cp2 = ImVec2(p2.x, p2.y + cpDistance);
+                }
+
+                return isPointNearCubicBezier(mousePos, p1, cp1, cp2, p2, threshold);
+            }
+
+            case ConnectionStyleManager::ConnectionStyle::StraightLine: {
+                return isPointNearLine(mousePos, p1, p2, threshold);
+            }
+
+            case ConnectionStyleManager::ConnectionStyle::AngleLine: {
+                ImVec2 middle = ImVec2(p2.x, p1.y);
+                return isPointNearLine(mousePos, p1, middle, threshold) ||
+                       isPointNearLine(mousePos, middle, p2, threshold);
+            }
+
+            case ConnectionStyleManager::ConnectionStyle::MetroLine: {
+                float dx = p2.x - p1.x;
+                float dy = p2.y - p1.y;
+
+                ImVec2 middle1, middle2;
+                if (std::abs(dx) > std::abs(dy)) {
+                    middle1 = ImVec2(p1.x + dx * 0.5f, p1.y);
+                    middle2 = ImVec2(p1.x + dx * 0.5f, p2.y);
+                } else {
+                    middle1 = ImVec2(p1.x, p1.y + dy * 0.5f);
+                    middle2 = ImVec2(p2.x, p1.y + dy * 0.5f);
+                }
+
+                return isPointNearLine(mousePos, p1, middle1, threshold) ||
+                       isPointNearLine(mousePos, middle1, middle2, threshold) ||
+                       isPointNearLine(mousePos, middle2, p2, threshold);
+            }
+
+            default:
+                return isPointNearLine(mousePos, p1, p2, threshold);
+        }
     }
 
     void NodeEditor::drawDebugHitboxes(ImDrawList *drawList, const ImVec2 &canvasPos) {
@@ -857,6 +933,206 @@ namespace NodeEditorCore {
                     0, 1.0f
                 );
             }
+        }
+
+        for (const auto &connection: m_state.connections) {
+            const Node *startNode = getNode(connection.startNodeId);
+            const Node *endNode = getNode(connection.endNodeId);
+
+            if (!startNode || !endNode) continue;
+            if (!isNodeInCurrentSubgraph(*startNode) || !isNodeInCurrentSubgraph(*endNode)) continue;
+
+            const Pin *startPin = getPin(connection.startNodeId, connection.startPinId);
+            const Pin *endPin = getPin(connection.endNodeId, connection.endPinId);
+
+            if (!startPin || !endPin) continue;
+
+            ImVec2 p1 = getPinPos(*startNode, *startPin, canvasPos);
+            ImVec2 p2 = getPinPos(*endNode, *endPin, canvasPos);
+            ImVec2 mousePos = ImGui::GetMousePos();
+
+            float threshold = std::max(8.0f, 12.0f * m_state.viewScale);
+            ConnectionStyleManager::ConnectionStyle style = m_connectionStyleManager.getDefaultStyle();
+
+            float minDist = FLT_MAX;
+
+            switch (style) {
+                case ConnectionStyleManager::ConnectionStyle::Bezier: {
+                    const float distance = std::sqrt(std::pow(p2.x - p1.x, 2) + std::pow(p2.y - p1.y, 2));
+                    const float tension = m_connectionStyleManager.getConfig().curveTension;
+                    const float cpDistance = distance * tension;
+
+                    ImVec2 cp1, cp2;
+                    if (startPin->isInput) {
+                        cp1 = ImVec2(p1.x, p1.y - cpDistance);
+                    } else {
+                        cp1 = ImVec2(p1.x, p1.y + cpDistance);
+                    }
+
+                    if (endPin->isInput) {
+                        cp2 = ImVec2(p2.x, p2.y - cpDistance);
+                    } else {
+                        cp2 = ImVec2(p2.x, p2.y + cpDistance);
+                    }
+
+                    drawList->AddCircle(cp1, 4.0f, IM_COL32(255, 255, 0, 255));
+                    drawList->AddCircle(cp2, 4.0f, IM_COL32(255, 255, 0, 255));
+
+                    const int steps = 20;
+                    ImVec2 prev = p1;
+                    for (int i = 1; i <= steps; ++i) {
+                        float t = i / (float) steps;
+                        ImVec2 current = ImBezierCubicCalc(p1, cp1, cp2, p2, t);
+
+                        drawList->AddLine(prev, current, IM_COL32(0, 255, 255, 255), 2.0f);
+                        drawList->AddCircle(current, threshold, IM_COL32(255, 0, 255, 100));
+
+                        float dx = mousePos.x - current.x;
+                        float dy = mousePos.y - current.y;
+                        float dist = sqrt(dx * dx + dy * dy);
+                        minDist = std::min(minDist, dist);
+                        prev = current;
+                    }
+                    break;
+                }
+
+                case ConnectionStyleManager::ConnectionStyle::StraightLine: {
+                    drawList->AddLine(p1, p2, IM_COL32(0, 255, 255, 255), 3.0f);
+
+                    float dx = p2.x - p1.x;
+                    float dy = p2.y - p1.y;
+                    float length2 = dx * dx + dy * dy;
+
+                    if (length2 > 0.0001f) {
+                        float t = ((mousePos.x - p1.x) * dx + (mousePos.y - p1.y) * dy) / length2;
+                        t = std::max(0.0f, std::min(1.0f, t));
+
+                        ImVec2 closest = ImVec2(p1.x + t * dx, p1.y + t * dy);
+                        drawList->AddCircle(closest, threshold, IM_COL32(255, 0, 255, 100));
+
+                        dx = mousePos.x - closest.x;
+                        dy = mousePos.y - closest.y;
+                        minDist = sqrt(dx * dx + dy * dy);
+                    }
+                    break;
+                }
+
+                case ConnectionStyleManager::ConnectionStyle::AngleLine: {
+                    ImVec2 middle = ImVec2(p2.x, p1.y);
+                    drawList->AddLine(p1, middle, IM_COL32(0, 255, 255, 255), 3.0f);
+                    drawList->AddLine(middle, p2, IM_COL32(0, 255, 255, 255), 3.0f);
+                    drawList->AddCircle(middle, 4.0f, IM_COL32(255, 255, 0, 255));
+
+                    float dist1 = FLT_MAX, dist2 = FLT_MAX;
+
+                    float dx = middle.x - p1.x;
+                    float dy = middle.y - p1.y;
+                    float length2 = dx * dx + dy * dy;
+                    if (length2 > 0.0001f) {
+                        float t = ((mousePos.x - p1.x) * dx + (mousePos.y - p1.y) * dy) / length2;
+                        t = std::max(0.0f, std::min(1.0f, t));
+                        ImVec2 closest = ImVec2(p1.x + t * dx, p1.y + t * dy);
+                        drawList->AddCircle(closest, threshold, IM_COL32(255, 0, 255, 100));
+                        dx = mousePos.x - closest.x;
+                        dy = mousePos.y - closest.y;
+                        dist1 = sqrt(dx * dx + dy * dy);
+                    }
+
+                    dx = p2.x - middle.x;
+                    dy = p2.y - middle.y;
+                    length2 = dx * dx + dy * dy;
+                    if (length2 > 0.0001f) {
+                        float t = ((mousePos.x - middle.x) * dx + (mousePos.y - middle.y) * dy) / length2;
+                        t = std::max(0.0f, std::min(1.0f, t));
+                        ImVec2 closest = ImVec2(middle.x + t * dx, middle.y + t * dy);
+                        drawList->AddCircle(closest, threshold, IM_COL32(255, 0, 255, 100));
+                        dx = mousePos.x - closest.x;
+                        dy = mousePos.y - closest.y;
+                        dist2 = sqrt(dx * dx + dy * dy);
+                    }
+
+                    minDist = std::min(dist1, dist2);
+                    break;
+                }
+
+                case ConnectionStyleManager::ConnectionStyle::MetroLine: {
+                    float dx = p2.x - p1.x;
+                    float dy = p2.y - p1.y;
+
+                    ImVec2 middle1, middle2;
+                    if (std::abs(dx) > std::abs(dy)) {
+                        middle1 = ImVec2(p1.x + dx * 0.5f, p1.y);
+                        middle2 = ImVec2(p1.x + dx * 0.5f, p2.y);
+                    } else {
+                        middle1 = ImVec2(p1.x, p1.y + dy * 0.5f);
+                        middle2 = ImVec2(p2.x, p1.y + dy * 0.5f);
+                    }
+
+                    drawList->AddLine(p1, middle1, IM_COL32(0, 255, 255, 255), 3.0f);
+                    drawList->AddLine(middle1, middle2, IM_COL32(0, 255, 255, 255), 3.0f);
+                    drawList->AddLine(middle2, p2, IM_COL32(0, 255, 255, 255), 3.0f);
+                    drawList->AddCircle(middle1, 4.0f, IM_COL32(255, 255, 0, 255));
+                    drawList->AddCircle(middle2, 4.0f, IM_COL32(255, 255, 0, 255));
+
+                    std::vector<ImVec2> points = {p1, middle1, middle2, p2};
+                    minDist = FLT_MAX;
+
+                    for (size_t i = 0; i < points.size() - 1; ++i) {
+                        ImVec2 segStart = points[i];
+                        ImVec2 segEnd = points[i + 1];
+
+                        float dx = segEnd.x - segStart.x;
+                        float dy = segEnd.y - segStart.y;
+                        float length2 = dx * dx + dy * dy;
+
+                        if (length2 > 0.0001f) {
+                            float t = ((mousePos.x - segStart.x) * dx + (mousePos.y - segStart.y) * dy) / length2;
+                            t = std::max(0.0f, std::min(1.0f, t));
+                            ImVec2 closest = ImVec2(segStart.x + t * dx, segStart.y + t * dy);
+                            drawList->AddCircle(closest, threshold, IM_COL32(255, 0, 255, 100));
+
+                            dx = mousePos.x - closest.x;
+                            dy = mousePos.y - closest.y;
+                            float dist = sqrt(dx * dx + dy * dy);
+                            minDist = std::min(minDist, dist);
+                        }
+                    }
+                    break;
+                }
+
+                default: {
+                    drawList->AddLine(p1, p2, IM_COL32(0, 255, 255, 255), 3.0f);
+
+                    float dx = p2.x - p1.x;
+                    float dy = p2.y - p1.y;
+                    float length2 = dx * dx + dy * dy;
+
+                    if (length2 > 0.0001f) {
+                        float t = ((mousePos.x - p1.x) * dx + (mousePos.y - p1.y) * dy) / length2;
+                        t = std::max(0.0f, std::min(1.0f, t));
+
+                        ImVec2 closest = ImVec2(p1.x + t * dx, p1.y + t * dy);
+                        drawList->AddCircle(closest, threshold, IM_COL32(255, 0, 255, 100));
+
+                        dx = mousePos.x - closest.x;
+                        dy = mousePos.y - closest.y;
+                        minDist = sqrt(dx * dx + dy * dy);
+                    }
+                    break;
+                }
+            }
+
+            drawList->AddCircle(p1, 6.0f, IM_COL32(255, 255, 0, 255));
+            drawList->AddCircle(p2, 6.0f, IM_COL32(255, 255, 0, 255));
+
+            const char *styleNames[] = {"Bezier", "Straight", "Angle", "Metro", "Unknown"};
+            int styleIndex = std::min(static_cast<int>(style), 4);
+
+            char debugText[256];
+            sprintf(debugText, "Conn%d (%s): %.1fpx (%.1f)",
+                    connection.id, styleNames[styleIndex], minDist, threshold);
+            ImVec2 midPoint = ImVec2((p1.x + p2.x) * 0.5f, (p1.y + p2.y) * 0.5f);
+            drawList->AddText(midPoint, IM_COL32(255, 255, 255, 255), debugText);
         }
 
         ImVec2 textPos = ImVec2(canvasPos.x + 10, canvasPos.y + 10);
