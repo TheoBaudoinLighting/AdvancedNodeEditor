@@ -3,6 +3,8 @@
 
 namespace NodeEditorCore {
     void NodeEditor::removeConnection(int connectionId) {
+        removeAllReroutesFromConnection(connectionId);
+
         auto it = std::find_if(m_state.connections.begin(), m_state.connections.end(),
                                [connectionId](const Connection &conn) { return conn.id == connectionId; });
 
@@ -360,8 +362,8 @@ namespace NodeEditorCore {
     }
 
     void NodeEditor::deselectAllConnections() {
-        for (auto it = m_state.connections.begin(); it != m_state.connections.end(); ++it) {
-            it->selected = false;
+        for (auto &connection : m_state.connections) {
+            connection.selected = false;
         }
     }
 

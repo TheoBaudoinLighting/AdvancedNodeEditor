@@ -50,7 +50,7 @@ namespace NodeEditorCore {
 
         setupCommandSystem();
 
-        //m_debugMode = true;
+       //m_debugMode = true;
     }
 
     NodeEditor::~NodeEditor() {

@@ -424,16 +424,16 @@ int main(int argc, char *argv[]) {
 
             std::cout << "Creating math nodes in main graph..." << std::endl;
 
-            const1NodeId = editor.createNode("Math.Constant", "Value A", Vec2(300, 100));
-            const2NodeId = editor.createNode("Math.Constant", "Value B", Vec2(300, 200));
-            const3NodeId = editor.createNode("Math.Constant", "Value C", Vec2(300, 300));
+            const1NodeId = editor.createNode("Math.Constant", "Value A", Vec2(200, 100));
+            const2NodeId = editor.createNode("Math.Constant", "Value B", Vec2(400, 100));
+            const3NodeId = editor.createNode("Math.Constant", "Value C", Vec2(600, 100));
 
-            addNodeId = editor.createNode("Math.Add", "Add", Vec2(500, 150));
-            multiplyNodeId = editor.createNode("Math.Multiply", "Multiply", Vec2(500, 300));
-            subtractNodeId = editor.createNode("Math.Subtract", "Subtract", Vec2(700, 200));
+            addNodeId = editor.createNode("Math.Add", "Add", Vec2(300, 250));
+            multiplyNodeId = editor.createNode("Math.Multiply", "Multiply", Vec2(500, 250));
+            subtractNodeId = editor.createNode("Math.Subtract", "Subtract", Vec2(400, 400));
 
             // Création explicite du nœud de sortie
-            outputNodeId = editor.createNode("Default", "Output", Vec2(900, 200));
+            outputNodeId = editor.createNode("Default", "Output", Vec2(400, 550));
             std::cout << "Output node created with UUID: " << outputNodeId << std::endl;
 
             constantValues[const1NodeId] = NodeValue(5.0f);

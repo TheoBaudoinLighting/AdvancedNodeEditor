@@ -514,6 +514,46 @@ namespace NodeEditorCore {
         }
     };
 
+    struct Reroute {
+        int id;
+        UUID uuid;
+        int connectionId;
+        Vec2 position;
+        bool selected;
+        bool hoveredInner;
+        bool hoveredOuter;
+        int index;
+
+        Reroute() : id(-1), connectionId(-1), position(0, 0), selected(false), hoveredInner(false), hoveredOuter(false), index(0) {}
+
+        Reroute(int _id, int _connectionId, const Vec2& _position, int _index)
+            : id(_id), connectionId(_connectionId), position(_position), selected(false), hoveredInner(false), hoveredOuter(false), index(_index) {
+            uuid = generateUUID();
+        }
+    };
+
+    struct RerouteStyle {
+        float innerRadius = 4.0f;
+        float outerRadius = 8.0f;
+        float selectedScale = 1.3f;
+        float hoverScale = 1.2f;
+
+        ImU32 innerColor = IM_COL32(255, 255, 255, 255);
+        ImU32 outerColor = IM_COL32(100, 100, 100, 255);
+        ImU32 selectedColor = IM_COL32(255, 150, 50, 255);
+        ImU32 hoveredColor = IM_COL32(200, 200, 255, 255);
+        ImU32 borderColor = IM_COL32(50, 50, 50, 255);
+
+        float borderWidth = 1.0f;
+        float dragThreshold = 30.0f;
+    };
+
+    enum class RerouteHitZone {
+        None,
+        Inner,
+        Outer
+    };
+
     struct Group {
         int id;
         UUID uuid;

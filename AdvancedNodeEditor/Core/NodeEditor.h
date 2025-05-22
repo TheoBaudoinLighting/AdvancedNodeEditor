@@ -232,6 +232,30 @@ namespace NodeEditorCore {
 
         int addOutputPinToSubgraph(int subgraphId, const std::string &name, PinType type);
 
+        int addReroute(int connectionId, const Vec2& position, int insertIndex = -1);
+        void removeReroute(int rerouteId);
+        void removeAllReroutesFromConnection(int connectionId);
+        std::vector<Reroute> getReroutesForConnection(int connectionId) const;
+        Reroute* getReroute(int rerouteId);
+        const Reroute* getReroute(int rerouteId) const;
+
+        void drawReroutes(ImDrawList* drawList, const ImVec2& canvasPos);
+        void updateRerouteHover(const ImVec2& mousePos, const ImVec2& canvasPos);
+        void processRerouteInteraction(const ImVec2& mousePos);
+        void processRerouteDrag(const ImVec2& mousePos);
+
+        RerouteHitZone getRerouteHitZone(const Reroute& reroute, const ImVec2& mousePos, const ImVec2& canvasPos) const;
+        int findRerouteAtPosition(const ImVec2& mousePos, const ImVec2& canvasPos, RerouteHitZone& hitZone) const;
+        float getDistanceToConnection(const Connection& connection, const ImVec2& mousePos, const ImVec2& canvasPos, int& insertIndex) const;
+
+        void selectReroute(int rerouteId, bool append = false);
+        void deselectReroute(int rerouteId);
+        void deselectAllReroutes();
+        std::vector<int> getSelectedReroutes() const;
+
+        void setRerouteStyle(const RerouteStyle& style);
+        const RerouteStyle& getRerouteStyle() const;
+
         void synchronizeSubgraphConnections(int subgraphId, int subgraphNodeId);
         void handleSubgraphConnections(int connectionId);
 
@@ -241,16 +265,11 @@ namespace NodeEditorCore {
         int getSubgraphId(const UUID& uuid) const;
 
         void updateSubgraphInstances(int subgraphId);
-
         void updateSubgraphNodePins(Node *subgraphNode, Subgraph *subgraph);
-
         void addNodeToSubgraph(int nodeId, int subgraphId);
         void removeNodeFromSubgraph(int nodeId, int subgraphId);
-
         void addConnectionToSubgraph(int connectionId, int subgraphId);
-
         bool isConnectionInSubgraph(int connectionId, int subgraphId) const;
-
         void removeConnectionFromSubgraph(int connectionId, int subgraphId);
 
         std::vector<int> getNodesInSubgraph(int subgraphId) const;
@@ -493,6 +512,15 @@ namespace NodeEditorCore {
         bool m_nodeAvoidanceEnabled;
         bool m_isSynchronizing = false;
 
+        std::vector<Reroute> m_reroutes;
+        RerouteStyle m_rerouteStyle;
+        int m_nextRerouteId = 1;
+        int m_hoveredRerouteId = -1;
+        int m_activeRerouteId = -1;
+        RerouteHitZone m_rerouteHitZone = RerouteHitZone::None;
+        bool m_connectingFromReroute = false;
+        int m_connectingRerouteId = -1;
+
         CommandManager m_commandManager;
         bool m_commandsInitialized;
 
@@ -569,7 +597,26 @@ namespace NodeEditorCore {
         std::vector<ImVec2> calculateStraightAnimationPath(const ImVec2 &p1, const ImVec2 &p2, const ConnectionAnimationState &animState, int particleCount) const;
         std::vector<ImVec2> calculateAngleAnimationPath(const ImVec2 &p1, const ImVec2 &p2, const ConnectionAnimationState &animState, int particleCount) const;
         std::vector<ImVec2> calculateMetroAnimationPath(const ImVec2 &p1, const ImVec2 &p2, const ConnectionAnimationState &animState, int particleCount) const;
+
+        void drawConnectionWithReroutes(ImDrawList *drawList, const ImVec2 &p1, const ImVec2 &p2,
+                                        const Connection &connection,
+                                        const Pin &startPin, const Pin &endPin, const Color &startCol,
+                                        const Color &endCol,
+                                        const std::vector<Reroute> &reroutes);
+
         void renderAnimationParticles(ImDrawList *drawList, const std::vector<ImVec2> &pathPoints, const Color &startCol, const Color &endCol);
+
+        void drawSingleReroute(ImDrawList* drawList, const Reroute& reroute, const ImVec2& canvasPos);
+        void drawRerouteDebugInfo(ImDrawList* drawList, const ImVec2& canvasPos);
+        void startRerouteConnection(int rerouteId, const ImVec2& mousePos);
+        std::vector<ImVec2> getConnectionPathWithReroutes(const Connection& connection, const ImVec2& p1, const ImVec2& p2) const;
+        std::vector<ImVec2> getConnectionPathWithReroutesForDetection(const Connection& connection, const ImVec2& canvasPos) const;
+        void drawConnectionWithReroutes(ImDrawList* drawList, const Connection& connection,
+                                      const ImVec2& p1, const ImVec2& p2,
+                                      const Color& startCol, const Color& endCol);
+        void updateConnectionAnimationWithReroutes(const Connection& connection, const ImVec2& p1, const ImVec2& p2,
+                                                  const ConnectionAnimationState& animState,
+                                                  std::vector<ImVec2>& particlePoints) const;
 
     };
 }

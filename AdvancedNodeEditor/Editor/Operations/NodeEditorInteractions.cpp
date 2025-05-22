@@ -4,204 +4,260 @@
 #include <cfloat>
 
 namespace NodeEditorCore {
-    void NodeEditor::processInteraction() {
-        ImVec2 mousePos = ImGui::GetMousePos();
-        ImVec2 canvasPos = ImGui::GetCursorScreenPos();
 
-        ImDrawList *drawList = ImGui::GetWindowDrawList();
-        drawList->AddText(ImVec2(10, 10), IM_COL32(255, 0, 0, 255),
-                          ("Interaction Mode: " + std::to_string(static_cast<int>(m_state.interactionMode))).c_str());
-        drawList->AddText(ImVec2(10, 30), IM_COL32(255, 0, 0, 255),
-                          ("Mouse Position: " + std::to_string(static_cast<int>(mousePos.x)) + ", " +
-                           std::to_string(static_cast<int>(mousePos.y))).c_str());
-        drawList->AddText(ImVec2(10, 50), IM_COL32(255, 0, 0, 255),
-                          ("Hovered Pin: " + std::to_string(m_state.hoveredPinId)).c_str());
-        drawList->AddText(ImVec2(10, 70), IM_COL32(255, 0, 0, 255),
-                          ("Connecting: " + std::string(m_state.connecting ? "true" : "false")).c_str());
-        drawList->AddText(ImVec2(10, 90), IM_COL32(255, 0, 0, 255),
-                          ("Magnet Pin: " + std::to_string(m_state.magnetPinId)).c_str());
+void NodeEditor::processInteraction() {
+    ImVec2 mousePos = ImGui::GetMousePos();
+    ImVec2 canvasPos = ImGui::GetCursorScreenPos();
 
-        bool isMouseDoubleClicked = ImGui::IsMouseDoubleClicked(0);
-        bool isMouseClicked = ImGui::IsMouseClicked(0);
-        bool isMouseReleased = ImGui::IsMouseReleased(0);
-        bool isMouseDragging = ImGui::IsMouseDragging(0);
-        bool isMiddleMousePressed = ImGui::IsMouseDown(2);
+    ImDrawList *drawList = ImGui::GetWindowDrawList();
 
-        drawList->AddText(ImVec2(10, 110), IM_COL32(255, 0, 0, 255),
-                          ("Mouse Clicked: " + std::string(isMouseClicked ? "true" : "false")).c_str());
-        drawList->AddText(ImVec2(10, 130), IM_COL32(255, 0, 0, 255),
-                          ("Mouse Released: " + std::string(isMouseReleased ? "true" : "false")).c_str());
-        drawList->AddText(ImVec2(10, 150), IM_COL32(255, 0, 0, 255),
-                          ("Mouse Dragging: " + std::string(isMouseDragging ? "true" : "false")).c_str());
+    bool isMouseDoubleClicked = ImGui::IsMouseDoubleClicked(0);
+    bool isMouseClicked = ImGui::IsMouseClicked(0);
+    bool isMouseReleased = ImGui::IsMouseReleased(0);
+    bool isMouseDragging = ImGui::IsMouseDragging(0);
+    bool isMiddleMousePressed = ImGui::IsMouseDown(2);
 
-        updateHoveredElements(mousePos);
+    updateHoveredElements(mousePos);
+    updateRerouteHover(mousePos, canvasPos);
 
-        drawList->AddText(ImVec2(10, 170), IM_COL32(255, 0, 0, 255),
-                          ("Hovered Node: " + std::to_string(m_state.hoveredNodeId)).c_str());
-        drawList->AddText(ImVec2(10, 190), IM_COL32(255, 0, 0, 255),
-                          ("Hovered Pin: " + std::to_string(m_state.hoveredPinId)).c_str());
+    // DEBUG TEMPORAIRE - Toujours affiché
+    char debugText[256];
+    sprintf(debugText, "Double-click: %s, HoveredConn: %d",
+            isMouseDoubleClicked ? "YES" : "NO", m_state.hoveredConnectionId);
+    drawList->AddText(ImVec2(10, 400), IM_COL32(255, 255, 0, 255), debugText);
 
-        if (isMouseDoubleClicked && m_state.hoveredNodeId >= 0) {
-            Node *node = getNode(m_state.hoveredNodeId);
-            if (node && node->isSubgraph) {
-                enterSubgraph(node->subgraphId);
+    if (isMouseDoubleClicked) {
+        printf("DOUBLE-CLICK DETECTED! HoveredConnection: %d\n", m_state.hoveredConnectionId);
+
+        if (m_state.hoveredConnectionId >= 0) {
+            printf("Processing connection double-click...\n");
+
+            const Connection* connection = getConnection(m_state.hoveredConnectionId);
+            if (!connection) {
+                printf("ERROR: Connection %d not found!\n", m_state.hoveredConnectionId);
+                drawList->AddText(ImVec2(10, 420), IM_COL32(255, 0, 0, 255), "ERROR: Connection not found!");
                 return;
-            } else if (node && m_state.currentSubgraphId >= 0) {
-                Subgraph *subgraph = getSubgraph(m_state.currentSubgraphId);
-                if (subgraph) {
-                    int inputNodeId = subgraph->metadata.getAttribute<int>("inputNodeId", -1);
-                    int outputNodeId = subgraph->metadata.getAttribute<int>("outputNodeId", -1);
-                    if (node->id == inputNodeId || node->id == outputNodeId) {
-                        exitSubgraph();
-                        return;
-                    }
-                }
             }
-        }
 
-        if (isMiddleMousePressed) {
-            if (!m_state.dragging) {
-                m_state.dragging = true;
-                m_state.dragOffset = Vec2(mousePos.x, mousePos.y);
-                ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeAll);
+            printf("Connection found, calculating distance...\n");
+            int insertIndex = 0;
+            float distance = getDistanceToConnection(*connection, mousePos, canvasPos, insertIndex);
+
+            printf("Distance: %.1f, Threshold: %.1f, InsertIndex: %d\n",
+                   distance, m_rerouteStyle.dragThreshold, insertIndex);
+
+            char distanceText[256];
+            sprintf(distanceText, "Distance: %.1f, Threshold: %.1f",
+                    distance, m_rerouteStyle.dragThreshold);
+            drawList->AddText(ImVec2(10, 420), IM_COL32(255, 255, 255, 255), distanceText);
+
+            if (distance < m_rerouteStyle.dragThreshold) {
+                Vec2 reroutePos = screenToCanvas(Vec2(mousePos.x, mousePos.y));
+                printf("Creating reroute at (%.1f, %.1f) with index %d\n", reroutePos.x, reroutePos.y, insertIndex);
+
+                int rerouteId = addReroute(m_state.hoveredConnectionId, reroutePos, insertIndex);
+
+                printf("SUCCESS: Created reroute %d\n", rerouteId);
+                char successText[256];
+                sprintf(successText, "SUCCESS: Created reroute %d", rerouteId);
+                drawList->AddText(ImVec2(10, 440), IM_COL32(0, 255, 0, 255), successText);
             } else {
-                float dx = mousePos.x - m_state.dragOffset.x;
-                float dy = mousePos.y - m_state.dragOffset.y;
-                m_state.viewPosition.x += dx;
-                m_state.viewPosition.y += dy;
-                m_state.dragOffset = Vec2(mousePos.x, mousePos.y);
+                printf("Distance too large - no reroute created\n");
+                drawList->AddText(ImVec2(10, 440), IM_COL32(255, 0, 0, 255), "Distance too large");
             }
             return;
-        } else if (m_state.dragging && !isMiddleMousePressed) {
-            m_state.dragging = false;
-            ImGui::SetMouseCursor(ImGuiMouseCursor_Arrow);
+        } else {
+            printf("No connection hovered\n");
+            drawList->AddText(ImVec2(10, 420), IM_COL32(255, 0, 0, 255), "No connection hovered");
         }
+    }
 
-        if (isMouseClicked) {
-            drawList->AddText(ImVec2(10, 210), IM_COL32(255, 0, 0, 255), "MOUSE CLICKED!");
+    if (isMouseDoubleClicked && m_state.hoveredNodeId >= 0) {
+        Node *node = getNode(m_state.hoveredNodeId);
+        if (node && node->isSubgraph) {
+            enterSubgraph(node->subgraphId);
+            return;
+        } else if (node && m_state.currentSubgraphId >= 0) {
+            Subgraph *subgraph = getSubgraph(m_state.currentSubgraphId);
+            if (subgraph) {
+                int inputNodeId = subgraph->metadata.getAttribute<int>("inputNodeId", -1);
+                int outputNodeId = subgraph->metadata.getAttribute<int>("outputNodeId", -1);
+                if (node->id == inputNodeId || node->id == outputNodeId) {
+                    exitSubgraph();
+                    return;
+                }
+            }
+        }
+    }
 
-            if (m_state.hoveredPinId >= 0 && m_state.hoveredNodeId >= 0) {
-                drawList->AddText(ImVec2(10, 230), IM_COL32(255, 0, 0, 255),
-                                  ("Starting Connection on Pin " + std::to_string(m_state.hoveredPinId)).c_str());
+    if (isMiddleMousePressed) {
+        if (!m_state.dragging) {
+            m_state.dragging = true;
+            m_state.dragOffset = Vec2(mousePos.x, mousePos.y);
+            ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeAll);
+        } else {
+            float dx = mousePos.x - m_state.dragOffset.x;
+            float dy = mousePos.y - m_state.dragOffset.y;
+            m_state.viewPosition.x += dx;
+            m_state.viewPosition.y += dy;
+            m_state.dragOffset = Vec2(mousePos.x, mousePos.y);
+        }
+        return;
+    } else if (m_state.dragging && !isMiddleMousePressed) {
+        m_state.dragging = false;
+        ImGui::SetMouseCursor(ImGuiMouseCursor_Arrow);
+    }
 
-                startConnectionDrag(m_state.hoveredNodeId, m_state.hoveredPinId);
-            } else if (m_state.hoveredNodeId >= 0) {
-                Node *node = getNode(m_state.hoveredNodeId);
-                if (node) {
-                    bool isAlreadySelected = node->selected;
-                    bool ctrlPressed = ImGui::GetIO().KeyCtrl;
+    if (isMouseClicked) {
+        RerouteHitZone hitZone;
+        int hoveredRerouteId = findRerouteAtPosition(mousePos, canvasPos, hitZone);
 
-                    if (!ctrlPressed) {
-                        deselectAllConnections();
+        if (hoveredRerouteId != -1) {
+            bool altPressed = ImGui::GetIO().KeyAlt;
+            bool ctrlPressed = ImGui::GetIO().KeyCtrl;
+
+            if (altPressed) {
+                removeReroute(hoveredRerouteId);
+            } else {
+                selectReroute(hoveredRerouteId, ctrlPressed);
+
+                if (hitZone == RerouteHitZone::Inner) {
+                    m_state.interactionMode = InteractionMode::DragReroute;
+                    m_activeRerouteId = hoveredRerouteId;
+                    m_state.dragStart = Vec2(mousePos.x, mousePos.y);
+                } else if (hitZone == RerouteHitZone::Outer) {
+                    startRerouteConnection(hoveredRerouteId, mousePos);
+                }
+            }
+        }
+        else if (m_state.hoveredPinId >= 0 && m_state.hoveredNodeId >= 0)
+        {
+            startConnectionDrag(m_state.hoveredNodeId, m_state.hoveredPinId);
+        }
+        else if (m_state.hoveredNodeId >= 0)
+        {
+            Node *node = getNode(m_state.hoveredNodeId);
+            if (node) {
+                bool isAlreadySelected = node->selected;
+                bool ctrlPressed = ImGui::GetIO().KeyCtrl;
+
+                if (!ctrlPressed) {
+                    deselectAllConnections();
+                    deselectAllReroutes();
+                }
+
+                if (ctrlPressed) {
+                    if (isAlreadySelected) {
+                        deselectNode(m_state.hoveredNodeId);
+                    } else {
+                        selectNode(m_state.hoveredNodeId, true);
                     }
+                } else {
+                    if (!isAlreadySelected) {
+                        selectNode(m_state.hoveredNodeId, false);
+                    }
+                }
 
+                if (node->selected) {
+                    startNodeDrag(m_state.hoveredNodeId, mousePos);
+                }
+            }
+        }
+        else if (m_state.hoveredConnectionId >= 0)
+        {
+            bool ctrlPressed = ImGui::GetIO().KeyCtrl;
+            bool altPressed = ImGui::GetIO().KeyAlt;
+
+            if (altPressed) {
+                removeConnection(m_state.hoveredConnectionId);
+            } else {
+                if (!ctrlPressed) {
+                    deselectAllNodes();
+                    deselectAllReroutes();
+                }
+
+                Connection *connection = getConnection(m_state.hoveredConnectionId);
+                if (connection) {
                     if (ctrlPressed) {
-                        if (isAlreadySelected) {
-                            deselectNode(m_state.hoveredNodeId);
+                        if (connection->selected) {
+                            deselectConnection(m_state.hoveredConnectionId);
                         } else {
-                            selectNode(m_state.hoveredNodeId, true);
+                            selectConnection(m_state.hoveredConnectionId, true);
                         }
                     } else {
-                        if (!isAlreadySelected) {
-                            selectNode(m_state.hoveredNodeId, false);
-                        }
+                        deselectAllConnections();
+                        selectConnection(m_state.hoveredConnectionId, false);
                     }
-
-                    if (node->selected) {
-                        startNodeDrag(m_state.hoveredNodeId, mousePos);
-                    }
-                }
-            } else if (m_state.hoveredConnectionId >= 0) {
-                bool ctrlPressed = ImGui::GetIO().KeyCtrl;
-                bool altPressed = ImGui::GetIO().KeyAlt;
-
-                if (altPressed) {
-                    removeConnection(m_state.hoveredConnectionId);
-                } else {
-                    if (!ctrlPressed) {
-                        deselectAllNodes();
-                    }
-
-                    Connection *connection = getConnection(m_state.hoveredConnectionId);
-                    if (connection) {
-                        if (ctrlPressed) {
-                            if (connection->selected) {
-                                deselectConnection(m_state.hoveredConnectionId);
-                            } else {
-                                selectConnection(m_state.hoveredConnectionId, true);
-                            }
-                        } else {
-                            deselectAllConnections();
-                            selectConnection(m_state.hoveredConnectionId, false);
-                        }
-                    }
-                }
-            } else if (m_state.hoveredGroupId >= 0) {
-                startGroupInteraction(mousePos);
-            } else {
-                startBoxSelect(mousePos);
-                if (!ImGui::GetIO().KeyCtrl) {
-                    deselectAllNodes();
-                    deselectAllConnections();
                 }
             }
         }
-
-        if (m_state.interactionMode != InteractionMode::None) {
-            if (isMouseDragging) {
-                drawList->AddText(ImVec2(10, 250), IM_COL32(255, 0, 0, 255),
-                                  ("Dragging with Mode: " + std::to_string(static_cast<int>(m_state.interactionMode))).
-                                  c_str());
-                updateCurrentInteraction(mousePos);
+        else if (m_state.hoveredGroupId >= 0)
+        {
+            startGroupInteraction(mousePos);
+        } else {
+            startBoxSelect(mousePos);
+            if (!ImGui::GetIO().KeyCtrl) {
+                deselectAllNodes();
+                deselectAllConnections();
+                deselectAllReroutes();
             }
+        }
+    }
 
+    if (m_state.interactionMode != InteractionMode::None) {
+        if (isMouseDragging) {
+            updateCurrentInteraction(mousePos);
+        }
+
+        if (m_state.interactionMode == InteractionMode::DragConnection) {
+            processConnectionCreation();
+        }
+
+        if (isMouseReleased) {
             if (m_state.interactionMode == InteractionMode::DragConnection) {
-                processConnectionCreation();
-            }
+                if (m_state.magnetPinNodeId != -1 && m_state.magnetPinId != -1) {
+                    const Node *sourceNode = getNode(m_state.connectingNodeId);
+                    const Node *targetNode = getNode(m_state.magnetPinNodeId);
 
-            if (isMouseReleased) {
-                if (m_state.interactionMode == InteractionMode::DragConnection) {
-                    if (m_state.magnetPinNodeId != -1 && m_state.magnetPinId != -1) {
-                        const Node *sourceNode = getNode(m_state.connectingNodeId);
-                        const Node *targetNode = getNode(m_state.magnetPinNodeId);
+                    if (sourceNode && targetNode) {
+                        const Pin *sourcePin = sourceNode->findPin(m_state.connectingPinId);
+                        const Pin *targetPin = targetNode->findPin(m_state.magnetPinId);
 
-                        if (sourceNode && targetNode) {
-                            const Pin *sourcePin = sourceNode->findPin(m_state.connectingPinId);
-                            const Pin *targetPin = targetNode->findPin(m_state.magnetPinId);
+                        if (sourcePin && targetPin) {
+                            int connectionId = -1;
 
-                            if (sourcePin && targetPin) {
-                                int connectionId = -1;
-
-                                if (sourcePin->isInput) {
-                                    connectionId = addConnection(m_state.magnetPinNodeId, m_state.magnetPinId,
-                                                                 m_state.connectingNodeId, m_state.connectingPinId);
-                                    drawList->AddText(ImVec2(10, 330), IM_COL32(255, 0, 0, 255),
-                                                      ("Inverted connection: output to input"));
-                                } else {
-                                    connectionId = addConnection(m_state.connectingNodeId, m_state.connectingPinId,
-                                                                 m_state.magnetPinNodeId, m_state.magnetPinId);
-                                    drawList->AddText(ImVec2(10, 330), IM_COL32(255, 0, 0, 255),
-                                                      ("Normal connection: output to input"));
-                                }
+                            if (sourcePin->isInput) {
+                                connectionId = addConnection(m_state.magnetPinNodeId, m_state.magnetPinId,
+                                                             m_state.connectingNodeId, m_state.connectingPinId);
+                            } else {
+                                connectionId = addConnection(m_state.connectingNodeId, m_state.connectingPinId,
+                                                             m_state.magnetPinNodeId, m_state.magnetPinId);
                             }
                         }
                     }
                 }
-
-                endCurrentInteraction();
             }
-        }
 
-        processZoom(mousePos);
-
-        if (ImGui::IsKeyPressed(ImGuiKey_Delete) || ImGui::IsKeyPressed(ImGuiKey_Backspace)) {
-            processDeleteKeyPress();
-        }
-
-        if (ImGui::IsKeyPressed(ImGuiKey_Escape)) {
             endCurrentInteraction();
         }
     }
+
+    processZoom(mousePos);
+
+    if (ImGui::IsKeyPressed(ImGuiKey_Delete) || ImGui::IsKeyPressed(ImGuiKey_Backspace)) {
+        processDeleteKeyPress();
+    }
+
+    if (ImGui::IsKeyPressed(ImGuiKey_Escape)) {
+        endCurrentInteraction();
+    }
+
+    if (ImGui::IsKeyPressed(ImGuiKey_R) && !m_state.connections.empty()) {
+        Vec2 testPos = screenToCanvas(Vec2(400, 300));
+        int testReroute = addReroute(m_state.connections[0].id, testPos, 0);
+        printf("Test reroute created: %d\n", testReroute);
+    }
+}
 
     void NodeEditor::updateCurrentInteraction(const ImVec2 &mousePos) {
         switch (m_state.interactionMode) {
@@ -225,8 +281,74 @@ namespace NodeEditorCore {
                 processGroupResize();
                 break;
 
+            case InteractionMode::DragReroute:
+                processRerouteDrag(mousePos);
+                break;
+
             default:
                 break;
+        }
+    }
+
+    void NodeEditor::endCurrentInteraction() {
+        if (m_state.interactionMode == InteractionMode::DragConnection &&
+            m_state.magnetPinNodeId != -1 && m_state.magnetPinId != -1) {
+        }
+
+        m_state.interactionMode = InteractionMode::None;
+        m_state.activeNodeId = -1;
+        m_state.activeNodeUuid = "";
+        m_state.activeConnectionId = -1;
+        m_state.activeConnectionUuid = "";
+        m_state.activeGroupId = -1;
+        m_state.activeGroupUuid = "";
+        m_state.connectingNodeId = -1;
+        m_state.connectingNodeUuid = "";
+        m_state.connectingPinId = -1;
+        m_state.connectingPinUuid = "";
+        m_state.dragging = false;
+        m_state.connecting = false;
+        m_state.boxSelecting = false;
+
+        m_activeRerouteId = -1;
+        m_connectingFromReroute = false;
+        m_connectingRerouteId = -1;
+
+        ImGui::SetMouseCursor(ImGuiMouseCursor_Arrow);
+    }
+
+    void NodeEditor::processDeleteKeyPress() {
+        std::vector<int> reroutesToRemove;
+        for (const auto &reroute: m_reroutes) {
+            if (reroute.selected) {
+                reroutesToRemove.push_back(reroute.id);
+            }
+        }
+
+        for (int id: reroutesToRemove) {
+            removeReroute(id);
+        }
+
+        std::vector<int> connectionsToRemove;
+        for (const auto &connection: m_state.connections) {
+            if (connection.selected) {
+                connectionsToRemove.push_back(connection.id);
+            }
+        }
+
+        for (int id: connectionsToRemove) {
+            removeConnection(id);
+        }
+
+        std::vector<int> nodesToRemove;
+        for (const auto &node: m_state.nodes) {
+            if (node.selected) {
+                nodesToRemove.push_back(node.id);
+            }
+        }
+
+        for (int id: nodesToRemove) {
+            removeNode(id);
         }
     }
 
@@ -341,52 +463,7 @@ namespace NodeEditorCore {
         ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeAll);
     }
 
-    void NodeEditor::endCurrentInteraction() {
-        if (m_state.interactionMode == InteractionMode::DragConnection &&
-            m_state.magnetPinNodeId != -1 && m_state.magnetPinId != -1) {
-        }
 
-        m_state.interactionMode = InteractionMode::None;
-        m_state.activeNodeId = -1;
-        m_state.activeNodeUuid = "";
-        m_state.activeConnectionId = -1;
-        m_state.activeConnectionUuid = "";
-        m_state.activeGroupId = -1;
-        m_state.activeGroupUuid = "";
-        m_state.connectingNodeId = -1;
-        m_state.connectingNodeUuid = "";
-        m_state.connectingPinId = -1;
-        m_state.connectingPinUuid = "";
-        m_state.dragging = false;
-        m_state.connecting = false;
-        m_state.boxSelecting = false;
-
-        ImGui::SetMouseCursor(ImGuiMouseCursor_Arrow);
-    }
-
-    void NodeEditor::processDeleteKeyPress() {
-        std::vector<int> connectionsToRemove;
-        for (const auto &connection: m_state.connections) {
-            if (connection.selected) {
-                connectionsToRemove.push_back(connection.id);
-            }
-        }
-
-        for (int id: connectionsToRemove) {
-            removeConnection(id);
-        }
-
-        std::vector<int> nodesToRemove;
-        for (const auto &node: m_state.nodes) {
-            if (node.selected) {
-                nodesToRemove.push_back(node.id);
-            }
-        }
-
-        for (int id: nodesToRemove) {
-            removeNode(id);
-        }
-    }
 
     void NodeEditor::updateHoveredElements(const ImVec2 &mousePos) {
         m_state.hoveredNodeId = -1;
@@ -826,60 +903,135 @@ namespace NodeEditorCore {
 
         float threshold = std::max(8.0f, 12.0f * m_state.viewScale);
 
-        ConnectionStyleManager::ConnectionStyle style = m_connectionStyleManager.getDefaultStyle();
+        std::vector<Reroute> reroutes = getReroutesForConnection(connection.id);
 
-        switch (style) {
-            case ConnectionStyleManager::ConnectionStyle::Bezier: {
-                const float distance = std::sqrt(std::pow(p2.x - p1.x, 2) + std::pow(p2.y - p1.y, 2));
-                const float tension = m_connectionStyleManager.getConfig().curveTension;
-                const float cpDistance = distance * tension;
+        if (reroutes.empty()) {
+            ConnectionStyleManager::ConnectionStyle style = m_connectionStyleManager.getDefaultStyle();
 
-                ImVec2 cp1, cp2;
-                if (apiStartPin->isInput) {
-                    cp1 = ImVec2(p1.x, p1.y - cpDistance);
-                } else {
-                    cp1 = ImVec2(p1.x, p1.y + cpDistance);
+            switch (style) {
+                case ConnectionStyleManager::ConnectionStyle::Bezier: {
+                    const float distance = std::sqrt(std::pow(p2.x - p1.x, 2) + std::pow(p2.y - p1.y, 2));
+                    const float tension = m_connectionStyleManager.getConfig().curveTension;
+                    const float cpDistance = distance * tension;
+
+                    ImVec2 cp1, cp2;
+                    if (apiStartPin->isInput) {
+                        cp1 = ImVec2(p1.x, p1.y - cpDistance);
+                    } else {
+                        cp1 = ImVec2(p1.x, p1.y + cpDistance);
+                    }
+
+                    if (apiEndPin->isInput) {
+                        cp2 = ImVec2(p2.x, p2.y - cpDistance);
+                    } else {
+                        cp2 = ImVec2(p2.x, p2.y + cpDistance);
+                    }
+
+                    return isPointNearCubicBezier(mousePos, p1, cp1, cp2, p2, threshold);
                 }
 
-                if (apiEndPin->isInput) {
-                    cp2 = ImVec2(p2.x, p2.y - cpDistance);
-                } else {
-                    cp2 = ImVec2(p2.x, p2.y + cpDistance);
+                case ConnectionStyleManager::ConnectionStyle::StraightLine: {
+                    return isPointNearLine(mousePos, p1, p2, threshold);
                 }
 
-                return isPointNearCubicBezier(mousePos, p1, cp1, cp2, p2, threshold);
-            }
-
-            case ConnectionStyleManager::ConnectionStyle::StraightLine: {
-                return isPointNearLine(mousePos, p1, p2, threshold);
-            }
-
-            case ConnectionStyleManager::ConnectionStyle::AngleLine: {
-                ImVec2 middle = ImVec2(p2.x, p1.y);
-                return isPointNearLine(mousePos, p1, middle, threshold) ||
-                       isPointNearLine(mousePos, middle, p2, threshold);
-            }
-
-            case ConnectionStyleManager::ConnectionStyle::MetroLine: {
-                float dx = p2.x - p1.x;
-                float dy = p2.y - p1.y;
-
-                ImVec2 middle1, middle2;
-                if (std::abs(dx) > std::abs(dy)) {
-                    middle1 = ImVec2(p1.x + dx * 0.5f, p1.y);
-                    middle2 = ImVec2(p1.x + dx * 0.5f, p2.y);
-                } else {
-                    middle1 = ImVec2(p1.x, p1.y + dy * 0.5f);
-                    middle2 = ImVec2(p2.x, p1.y + dy * 0.5f);
+                case ConnectionStyleManager::ConnectionStyle::AngleLine: {
+                    ImVec2 middle = ImVec2(p2.x, p1.y);
+                    return isPointNearLine(mousePos, p1, middle, threshold) ||
+                           isPointNearLine(mousePos, middle, p2, threshold);
                 }
 
-                return isPointNearLine(mousePos, p1, middle1, threshold) ||
-                       isPointNearLine(mousePos, middle1, middle2, threshold) ||
-                       isPointNearLine(mousePos, middle2, p2, threshold);
+                case ConnectionStyleManager::ConnectionStyle::MetroLine: {
+                    float dx = p2.x - p1.x;
+                    float dy = p2.y - p1.y;
+
+                    ImVec2 middle1, middle2;
+                    if (std::abs(dx) > std::abs(dy)) {
+                        middle1 = ImVec2(p1.x + dx * 0.5f, p1.y);
+                        middle2 = ImVec2(p1.x + dx * 0.5f, p2.y);
+                    } else {
+                        middle1 = ImVec2(p1.x, p1.y + dy * 0.5f);
+                        middle2 = ImVec2(p2.x, p1.y + dy * 0.5f);
+                    }
+
+                    return isPointNearLine(mousePos, p1, middle1, threshold) ||
+                           isPointNearLine(mousePos, middle1, middle2, threshold) ||
+                           isPointNearLine(mousePos, middle2, p2, threshold);
+                }
+
+                default:
+                    return isPointNearLine(mousePos, p1, p2, threshold);
+            }
+        } else {
+            std::vector<ImVec2> pathPoints = getConnectionPathWithReroutes(connection, p1, p2);
+
+            for (size_t i = 0; i < pathPoints.size() - 1; i++) {
+                ImVec2 segmentStart = pathPoints[i];
+                ImVec2 segmentEnd = pathPoints[i + 1];
+
+                ConnectionStyleManager::ConnectionStyle style = m_connectionStyleManager.getDefaultStyle();
+
+                switch (style) {
+                    case ConnectionStyleManager::ConnectionStyle::Bezier: {
+                        const float distance = std::sqrt(
+                            std::pow(segmentEnd.x - segmentStart.x, 2) + std::pow(segmentEnd.y - segmentStart.y, 2));
+                        const float tension = m_connectionStyleManager.getConfig().curveTension;
+                        const float cpDistance = distance * tension * 0.5f;
+
+                        ImVec2 cp1 = ImVec2(segmentStart.x, segmentStart.y + cpDistance);
+                        ImVec2 cp2 = ImVec2(segmentEnd.x, segmentEnd.y - cpDistance);
+
+                        if (isPointNearCubicBezier(mousePos, segmentStart, cp1, cp2, segmentEnd, threshold)) {
+                            return true;
+                        }
+                        break;
+                    }
+
+                    case ConnectionStyleManager::ConnectionStyle::StraightLine: {
+                        if (isPointNearLine(mousePos, segmentStart, segmentEnd, threshold)) {
+                            return true;
+                        }
+                        break;
+                    }
+
+                    case ConnectionStyleManager::ConnectionStyle::AngleLine: {
+                        ImVec2 middle = ImVec2(segmentEnd.x, segmentStart.y);
+                        if (isPointNearLine(mousePos, segmentStart, middle, threshold) ||
+                            isPointNearLine(mousePos, middle, segmentEnd, threshold)) {
+                            return true;
+                        }
+                        break;
+                    }
+
+                    case ConnectionStyleManager::ConnectionStyle::MetroLine: {
+                        float dx = segmentEnd.x - segmentStart.x;
+                        float dy = segmentEnd.y - segmentStart.y;
+
+                        ImVec2 middle1, middle2;
+                        if (std::abs(dx) > std::abs(dy)) {
+                            middle1 = ImVec2(segmentStart.x + dx * 0.5f, segmentStart.y);
+                            middle2 = ImVec2(segmentStart.x + dx * 0.5f, segmentEnd.y);
+                        } else {
+                            middle1 = ImVec2(segmentStart.x, segmentStart.y + dy * 0.5f);
+                            middle2 = ImVec2(segmentEnd.x, segmentStart.y + dy * 0.5f);
+                        }
+
+                        if (isPointNearLine(mousePos, segmentStart, middle1, threshold) ||
+                            isPointNearLine(mousePos, middle1, middle2, threshold) ||
+                            isPointNearLine(mousePos, middle2, segmentEnd, threshold)) {
+                            return true;
+                        }
+                        break;
+                    }
+
+                    default:
+                        if (isPointNearLine(mousePos, segmentStart, segmentEnd, threshold)) {
+                            return true;
+                        }
+                        break;
+                }
             }
 
-            default:
-                return isPointNearLine(mousePos, p1, p2, threshold);
+            return false;
         }
     }
 
@@ -952,187 +1104,225 @@ namespace NodeEditorCore {
             ImVec2 mousePos = ImGui::GetMousePos();
 
             float threshold = std::max(8.0f, 12.0f * m_state.viewScale);
-            ConnectionStyleManager::ConnectionStyle style = m_connectionStyleManager.getDefaultStyle();
+            std::vector<Reroute> reroutes = getReroutesForConnection(connection.id);
 
-            float minDist = FLT_MAX;
+            if (reroutes.empty()) {
+                ConnectionStyleManager::ConnectionStyle style = m_connectionStyleManager.getDefaultStyle();
 
-            switch (style) {
-                case ConnectionStyleManager::ConnectionStyle::Bezier: {
-                    const float distance = std::sqrt(std::pow(p2.x - p1.x, 2) + std::pow(p2.y - p1.y, 2));
-                    const float tension = m_connectionStyleManager.getConfig().curveTension;
-                    const float cpDistance = distance * tension;
+                switch (style) {
+                    case ConnectionStyleManager::ConnectionStyle::Bezier: {
+                        const float distance = std::sqrt(std::pow(p2.x - p1.x, 2) + std::pow(p2.y - p1.y, 2));
+                        const float tension = m_connectionStyleManager.getConfig().curveTension;
+                        const float cpDistance = distance * tension;
 
-                    ImVec2 cp1, cp2;
-                    if (startPin->isInput) {
-                        cp1 = ImVec2(p1.x, p1.y - cpDistance);
-                    } else {
-                        cp1 = ImVec2(p1.x, p1.y + cpDistance);
+                        ImVec2 cp1, cp2;
+                        if (startPin->isInput) {
+                            cp1 = ImVec2(p1.x, p1.y - cpDistance);
+                        } else {
+                            cp1 = ImVec2(p1.x, p1.y + cpDistance);
+                        }
+
+                        if (endPin->isInput) {
+                            cp2 = ImVec2(p2.x, p2.y - cpDistance);
+                        } else {
+                            cp2 = ImVec2(p2.x, p2.y + cpDistance);
+                        }
+
+                        drawList->AddCircle(cp1, 4.0f, IM_COL32(255, 255, 0, 255));
+                        drawList->AddCircle(cp2, 4.0f, IM_COL32(255, 255, 0, 255));
+
+                        const int steps = 20;
+                        ImVec2 prev = p1;
+                        for (int i = 1; i <= steps; ++i) {
+                            float t = i / (float) steps;
+                            float u = 1.0f - t;
+                            float w1 = u * u * u;
+                            float w2 = 3 * u * u * t;
+                            float w3 = 3 * u * t * t;
+                            float w4 = t * t * t;
+
+                            ImVec2 current(
+                                w1 * p1.x + w2 * cp1.x + w3 * cp2.x + w4 * p2.x,
+                                w1 * p1.y + w2 * cp1.y + w3 * cp2.y + w4 * p2.y
+                            );
+
+                            drawList->AddLine(prev, current, IM_COL32(0, 255, 255, 255), 2.0f);
+                            drawList->AddCircle(current, threshold, IM_COL32(255, 0, 255, 100));
+                            prev = current;
+                        }
+                        break;
                     }
 
-                    if (endPin->isInput) {
-                        cp2 = ImVec2(p2.x, p2.y - cpDistance);
-                    } else {
-                        cp2 = ImVec2(p2.x, p2.y + cpDistance);
-                    }
+                    case ConnectionStyleManager::ConnectionStyle::StraightLine: {
+                        drawList->AddLine(p1, p2, IM_COL32(0, 255, 255, 255), 3.0f);
 
-                    drawList->AddCircle(cp1, 4.0f, IM_COL32(255, 255, 0, 255));
-                    drawList->AddCircle(cp2, 4.0f, IM_COL32(255, 255, 0, 255));
-
-                    const int steps = 20;
-                    ImVec2 prev = p1;
-                    for (int i = 1; i <= steps; ++i) {
-                        float t = i / (float) steps;
-                        ImVec2 current = ImBezierCubicCalc(p1, cp1, cp2, p2, t);
-
-                        drawList->AddLine(prev, current, IM_COL32(0, 255, 255, 255), 2.0f);
-                        drawList->AddCircle(current, threshold, IM_COL32(255, 0, 255, 100));
-
-                        float dx = mousePos.x - current.x;
-                        float dy = mousePos.y - current.y;
-                        float dist = sqrt(dx * dx + dy * dy);
-                        minDist = std::min(minDist, dist);
-                        prev = current;
-                    }
-                    break;
-                }
-
-                case ConnectionStyleManager::ConnectionStyle::StraightLine: {
-                    drawList->AddLine(p1, p2, IM_COL32(0, 255, 255, 255), 3.0f);
-
-                    float dx = p2.x - p1.x;
-                    float dy = p2.y - p1.y;
-                    float length2 = dx * dx + dy * dy;
-
-                    if (length2 > 0.0001f) {
-                        float t = ((mousePos.x - p1.x) * dx + (mousePos.y - p1.y) * dy) / length2;
-                        t = std::max(0.0f, std::min(1.0f, t));
-
-                        ImVec2 closest = ImVec2(p1.x + t * dx, p1.y + t * dy);
-                        drawList->AddCircle(closest, threshold, IM_COL32(255, 0, 255, 100));
-
-                        dx = mousePos.x - closest.x;
-                        dy = mousePos.y - closest.y;
-                        minDist = sqrt(dx * dx + dy * dy);
-                    }
-                    break;
-                }
-
-                case ConnectionStyleManager::ConnectionStyle::AngleLine: {
-                    ImVec2 middle = ImVec2(p2.x, p1.y);
-                    drawList->AddLine(p1, middle, IM_COL32(0, 255, 255, 255), 3.0f);
-                    drawList->AddLine(middle, p2, IM_COL32(0, 255, 255, 255), 3.0f);
-                    drawList->AddCircle(middle, 4.0f, IM_COL32(255, 255, 0, 255));
-
-                    float dist1 = FLT_MAX, dist2 = FLT_MAX;
-
-                    float dx = middle.x - p1.x;
-                    float dy = middle.y - p1.y;
-                    float length2 = dx * dx + dy * dy;
-                    if (length2 > 0.0001f) {
-                        float t = ((mousePos.x - p1.x) * dx + (mousePos.y - p1.y) * dy) / length2;
-                        t = std::max(0.0f, std::min(1.0f, t));
-                        ImVec2 closest = ImVec2(p1.x + t * dx, p1.y + t * dy);
-                        drawList->AddCircle(closest, threshold, IM_COL32(255, 0, 255, 100));
-                        dx = mousePos.x - closest.x;
-                        dy = mousePos.y - closest.y;
-                        dist1 = sqrt(dx * dx + dy * dy);
-                    }
-
-                    dx = p2.x - middle.x;
-                    dy = p2.y - middle.y;
-                    length2 = dx * dx + dy * dy;
-                    if (length2 > 0.0001f) {
-                        float t = ((mousePos.x - middle.x) * dx + (mousePos.y - middle.y) * dy) / length2;
-                        t = std::max(0.0f, std::min(1.0f, t));
-                        ImVec2 closest = ImVec2(middle.x + t * dx, middle.y + t * dy);
-                        drawList->AddCircle(closest, threshold, IM_COL32(255, 0, 255, 100));
-                        dx = mousePos.x - closest.x;
-                        dy = mousePos.y - closest.y;
-                        dist2 = sqrt(dx * dx + dy * dy);
-                    }
-
-                    minDist = std::min(dist1, dist2);
-                    break;
-                }
-
-                case ConnectionStyleManager::ConnectionStyle::MetroLine: {
-                    float dx = p2.x - p1.x;
-                    float dy = p2.y - p1.y;
-
-                    ImVec2 middle1, middle2;
-                    if (std::abs(dx) > std::abs(dy)) {
-                        middle1 = ImVec2(p1.x + dx * 0.5f, p1.y);
-                        middle2 = ImVec2(p1.x + dx * 0.5f, p2.y);
-                    } else {
-                        middle1 = ImVec2(p1.x, p1.y + dy * 0.5f);
-                        middle2 = ImVec2(p2.x, p1.y + dy * 0.5f);
-                    }
-
-                    drawList->AddLine(p1, middle1, IM_COL32(0, 255, 255, 255), 3.0f);
-                    drawList->AddLine(middle1, middle2, IM_COL32(0, 255, 255, 255), 3.0f);
-                    drawList->AddLine(middle2, p2, IM_COL32(0, 255, 255, 255), 3.0f);
-                    drawList->AddCircle(middle1, 4.0f, IM_COL32(255, 255, 0, 255));
-                    drawList->AddCircle(middle2, 4.0f, IM_COL32(255, 255, 0, 255));
-
-                    std::vector<ImVec2> points = {p1, middle1, middle2, p2};
-                    minDist = FLT_MAX;
-
-                    for (size_t i = 0; i < points.size() - 1; ++i) {
-                        ImVec2 segStart = points[i];
-                        ImVec2 segEnd = points[i + 1];
-
-                        float dx = segEnd.x - segStart.x;
-                        float dy = segEnd.y - segStart.y;
+                        float dx = p2.x - p1.x;
+                        float dy = p2.y - p1.y;
                         float length2 = dx * dx + dy * dy;
 
                         if (length2 > 0.0001f) {
-                            float t = ((mousePos.x - segStart.x) * dx + (mousePos.y - segStart.y) * dy) / length2;
+                            float t = ((mousePos.x - p1.x) * dx + (mousePos.y - p1.y) * dy) / length2;
                             t = std::max(0.0f, std::min(1.0f, t));
-                            ImVec2 closest = ImVec2(segStart.x + t * dx, segStart.y + t * dy);
-                            drawList->AddCircle(closest, threshold, IM_COL32(255, 0, 255, 100));
 
-                            dx = mousePos.x - closest.x;
-                            dy = mousePos.y - closest.y;
-                            float dist = sqrt(dx * dx + dy * dy);
-                            minDist = std::min(minDist, dist);
+                            ImVec2 closest = ImVec2(p1.x + t * dx, p1.y + t * dy);
+                            drawList->AddCircle(closest, threshold, IM_COL32(255, 0, 255, 100));
                         }
+                        break;
                     }
-                    break;
+
+                    default:
+                        drawList->AddLine(p1, p2, IM_COL32(0, 255, 255, 255), 3.0f);
+                        break;
+                }
+            } else {
+                std::vector<ImVec2> pathPoints = getConnectionPathWithReroutes(connection, p1, p2);
+
+                ConnectionStyleManager::ConnectionStyle style = m_connectionStyleManager.getDefaultStyle();
+
+                for (size_t i = 0; i < pathPoints.size() - 1; i++) {
+                    ImVec2 segmentStart = pathPoints[i];
+                    ImVec2 segmentEnd = pathPoints[i + 1];
+
+                    ImU32 segmentColor = (i % 2 == 0) ? IM_COL32(0, 255, 255, 255) : IM_COL32(255, 255, 0, 255);
+
+                    switch (style) {
+                        case ConnectionStyleManager::ConnectionStyle::Bezier: {
+                            const float distance = std::sqrt(
+                                std::pow(segmentEnd.x - segmentStart.x, 2) + std::pow(
+                                    segmentEnd.y - segmentStart.y, 2));
+                            const float tension = m_connectionStyleManager.getConfig().curveTension;
+                            const float cpDistance = distance * tension * 0.5f;
+
+                            ImVec2 cp1 = ImVec2(segmentStart.x, segmentStart.y + cpDistance);
+                            ImVec2 cp2 = ImVec2(segmentEnd.x, segmentEnd.y - cpDistance);
+
+                            drawList->AddCircle(cp1, 3.0f, IM_COL32(255, 100, 100, 255));
+                            drawList->AddCircle(cp2, 3.0f, IM_COL32(255, 100, 100, 255));
+
+                            const int steps = 10;
+                            ImVec2 prev = segmentStart;
+                            for (int j = 1; j <= steps; ++j) {
+                                float t = j / (float) steps;
+                                float u = 1.0f - t;
+                                float w1 = u * u * u;
+                                float w2 = 3 * u * u * t;
+                                float w3 = 3 * u * t * t;
+                                float w4 = t * t * t;
+
+                                ImVec2 current(
+                                    w1 * segmentStart.x + w2 * cp1.x + w3 * cp2.x + w4 * segmentEnd.x,
+                                    w1 * segmentStart.y + w2 * cp1.y + w3 * cp2.y + w4 * segmentEnd.y
+                                );
+
+                                drawList->AddLine(prev, current, segmentColor, 2.0f);
+                                drawList->AddCircle(current, threshold, IM_COL32(255, 0, 255, 50));
+                                prev = current;
+                            }
+                            break;
+                        }
+
+                        case ConnectionStyleManager::ConnectionStyle::StraightLine: {
+                            drawList->AddLine(segmentStart, segmentEnd, segmentColor, 3.0f);
+
+                            float dx = segmentEnd.x - segmentStart.x;
+                            float dy = segmentEnd.y - segmentStart.y;
+                            float length2 = dx * dx + dy * dy;
+
+                            if (length2 > 0.0001f) {
+                                float t = ((mousePos.x - segmentStart.x) * dx + (mousePos.y - segmentStart.y) * dy) /
+                                          length2;
+                                t = std::max(0.0f, std::min(1.0f, t));
+
+                                ImVec2 closest = ImVec2(segmentStart.x + t * dx, segmentStart.y + t * dy);
+                                drawList->AddCircle(closest, threshold, IM_COL32(255, 0, 255, 100));
+                            }
+                            break;
+                        }
+
+                        default:
+                            drawList->AddLine(segmentStart, segmentEnd, segmentColor, 3.0f);
+                            break;
+                    }
+
+                    char segmentText[64];
+                    sprintf(segmentText, "S%zu", i);
+                    ImVec2 segmentMid = ImVec2((segmentStart.x + segmentEnd.x) * 0.5f,
+                                               (segmentStart.y + segmentEnd.y) * 0.5f);
+                    drawList->AddText(segmentMid, IM_COL32(255, 255, 255, 255), segmentText);
                 }
 
-                default: {
-                    drawList->AddLine(p1, p2, IM_COL32(0, 255, 255, 255), 3.0f);
-
-                    float dx = p2.x - p1.x;
-                    float dy = p2.y - p1.y;
-                    float length2 = dx * dx + dy * dy;
-
-                    if (length2 > 0.0001f) {
-                        float t = ((mousePos.x - p1.x) * dx + (mousePos.y - p1.y) * dy) / length2;
-                        t = std::max(0.0f, std::min(1.0f, t));
-
-                        ImVec2 closest = ImVec2(p1.x + t * dx, p1.y + t * dy);
-                        drawList->AddCircle(closest, threshold, IM_COL32(255, 0, 255, 100));
-
-                        dx = mousePos.x - closest.x;
-                        dy = mousePos.y - closest.y;
-                        minDist = sqrt(dx * dx + dy * dy);
-                    }
-                    break;
+                for (size_t i = 0; i < pathPoints.size(); i++) {
+                    ImU32 pointColor = (i == 0 || i == pathPoints.size() - 1)
+                                           ? IM_COL32(255, 255, 0, 255)
+                                           : IM_COL32(0, 255, 0, 255);
+                    drawList->AddCircle(pathPoints[i], 6.0f, pointColor);
                 }
             }
 
             drawList->AddCircle(p1, 6.0f, IM_COL32(255, 255, 0, 255));
             drawList->AddCircle(p2, 6.0f, IM_COL32(255, 255, 0, 255));
 
-            const char *styleNames[] = {"Bezier", "Straight", "Angle", "Metro", "Unknown"};
-            int styleIndex = std::min(static_cast<int>(style), 4);
+            float minDist = FLT_MAX;
+            if (reroutes.empty()) {
+                if (isPointNearLine(mousePos, p1, p2, threshold)) {
+                    float dx = p2.x - p1.x;
+                    float dy = p2.y - p1.y;
+                    float length2 = dx * dx + dy * dy;
+                    if (length2 > 0.0001f) {
+                        float t = ((mousePos.x - p1.x) * dx + (mousePos.y - p1.y) * dy) / length2;
+                        t = std::max(0.0f, std::min(1.0f, t));
+                        ImVec2 closest = ImVec2(p1.x + t * dx, p1.y + t * dy);
+                        dx = mousePos.x - closest.x;
+                        dy = mousePos.y - closest.y;
+                        minDist = sqrt(dx * dx + dy * dy);
+                    }
+                }
+            } else {
+                int insertIndex = 0;
+                minDist = getDistanceToConnection(connection, mousePos, canvasPos, insertIndex);
+            }
 
             char debugText[256];
-            sprintf(debugText, "Conn%d (%s): %.1fpx (%.1f)",
-                    connection.id, styleNames[styleIndex], minDist, threshold);
-            ImVec2 midPoint = ImVec2((p1.x + p2.x) * 0.5f, (p1.y + p2.y) * 0.5f);
-            drawList->AddText(midPoint, IM_COL32(255, 255, 255, 255), debugText);
+            sprintf(debugText, "Conn%d: %.1fpx (%.1f) %s reroutes:%zu",
+                    connection.id, minDist, threshold,
+                    minDist <= threshold ? "HIT" : "MISS",
+                    reroutes.size());
+            ImVec2 textPos = ImVec2((p1.x + p2.x) * 0.5f, (p1.y + p2.y) * 0.5f - 20);
+            drawList->AddText(textPos, IM_COL32(255, 255, 255, 255), debugText);
+        }
+
+        for (const auto &reroute: m_reroutes) {
+            const Connection *connection = getConnection(reroute.connectionId);
+            if (!connection) continue;
+
+            const Node *startNode = getNode(connection->startNodeId);
+            const Node *endNode = getNode(connection->endNodeId);
+            if (!startNode || !endNode) continue;
+            if (!isNodeInCurrentSubgraph(*startNode) || !isNodeInCurrentSubgraph(*endNode)) continue;
+
+            Vec2 rerouteScreenPos = canvasToScreen(reroute.position);
+            ImVec2 center = rerouteScreenPos.toImVec2();
+
+            float outerRadius = m_rerouteStyle.outerRadius * m_state.viewScale;
+            float innerRadius = m_rerouteStyle.innerRadius * m_state.viewScale;
+
+            drawList->AddCircle(center, outerRadius, IM_COL32(255, 255, 0, 150), 0, 2.0f);
+            drawList->AddCircle(center, innerRadius, IM_COL32(255, 100, 0, 150), 0, 2.0f);
+
+            ImVec2 mousePos = ImGui::GetMousePos();
+            float dx = mousePos.x - center.x;
+            float dy = mousePos.y - center.y;
+            float distance = sqrt(dx * dx + dy * dy);
+
+            RerouteHitZone hitZone = getRerouteHitZone(reroute, mousePos, canvasPos);
+            ImU32 textColor = IM_COL32(255, 255, 255, 255);
+            if (hitZone == RerouteHitZone::Inner) textColor = IM_COL32(255, 100, 0, 255);
+            else if (hitZone == RerouteHitZone::Outer) textColor = IM_COL32(255, 255, 0, 255);
+
+            char rerouteText[128];
+            sprintf(rerouteText, "R%d[%d] d:%.1f %s", reroute.id, reroute.index, distance,
+                    hitZone == RerouteHitZone::Inner ? "INNER" : hitZone == RerouteHitZone::Outer ? "OUTER" : "NONE");
+            drawList->AddText(ImVec2(center.x + 15, center.y - 10), textColor, rerouteText);
         }
 
         ImVec2 textPos = ImVec2(canvasPos.x + 10, canvasPos.y + 10);
@@ -1141,9 +1331,14 @@ namespace NodeEditorCore {
 
         textPos.y += 20;
         char buffer[128];
-        sprintf(buffer, "Hovered: Node %d, Pin %d, Conn %d, Group %d",
-                m_state.hoveredNodeId, m_state.hoveredPinId, m_state.hoveredConnectionId, m_state.hoveredGroupId);
+        sprintf(buffer, "Hovered: Node %d, Pin %d, Conn %d, Group %d, Reroute %d",
+                m_state.hoveredNodeId, m_state.hoveredPinId, m_state.hoveredConnectionId, m_state.hoveredGroupId,
+                m_hoveredRerouteId);
         drawList->AddText(textPos, IM_COL32(255, 255, 255, 255), buffer);
+
+        textPos.y += 20;
+        sprintf(buffer, "Total reroutes: %zu, Connections: %zu", m_reroutes.size(), m_state.connections.size());
+        drawList->AddText(textPos, IM_COL32(200, 200, 200, 255), buffer);
     }
 
     std::string NodeEditor::getInteractionModeName() const {

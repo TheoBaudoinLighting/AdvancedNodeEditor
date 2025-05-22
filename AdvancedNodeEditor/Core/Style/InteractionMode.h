@@ -11,7 +11,9 @@ namespace NodeEditorCore {
         DragConnection,
         DragGroup,
         ResizeGroup,
-        ContextMenu
+        ContextMenu,
+        DragReroute,
+        DragRerouteConnection
     };
 }
 

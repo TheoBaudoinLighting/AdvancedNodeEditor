@@ -71,7 +71,13 @@ namespace NodeEditorCore {
         Color startCol = getPinConnectionColor(*startPin);
         Color endCol = getPinConnectionColor(*endPin);
 
-        drawConnectionLine(drawList, p1, p2, connection, apiStartPin, apiEndPin, startCol, endCol);
+        std::vector<Reroute> reroutes = getReroutesForConnection(connection.id);
+
+        if (reroutes.empty()) {
+            drawConnectionLine(drawList, p1, p2, connection, apiStartPin, apiEndPin, startCol, endCol);
+        } else {
+            drawConnectionWithReroutes(drawList, connection, p1, p2, startCol, endCol);
+        }
 
         drawConnectionAnimation(drawList, p1, p2, connection, apiStartPin, apiEndPin, startCol, endCol);
     }
@@ -109,9 +115,14 @@ namespace NodeEditorCore {
 
         if (connAnimState.flowSpeed <= 0.0f) return;
 
-        std::vector<ImVec2> pathPoints = calculateAnimationPath(
-            p1, p2, startPin, endPin, connAnimState
-        );
+        std::vector<ImVec2> pathPoints;
+        std::vector<Reroute> reroutes = getReroutesForConnection(connection.id);
+
+        if (reroutes.empty()) {
+            pathPoints = calculateAnimationPath(p1, p2, startPin, endPin, connAnimState);
+        } else {
+            updateConnectionAnimationWithReroutes(connection, p1, p2, connAnimState, pathPoints);
+        }
 
         if (pathPoints.empty()) return;
 
