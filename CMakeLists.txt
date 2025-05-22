@@ -63,6 +63,7 @@ add_executable(AdvancedNodeEditor
         AdvancedNodeEditor/NodeEditorAPI.cpp
         AdvancedNodeEditor/NodeEditorAPI.h
         AdvancedNodeEditor/Rendering/NodeEditorDrawReroutes.cpp
+        AdvancedNodeEditor/Components/Utils/NodeEditorUtilities.cpp
 )
 
 # === FetchContent for ImGui and SDL2 ===

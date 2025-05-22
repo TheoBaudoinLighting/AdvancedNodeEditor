@@ -329,4 +329,177 @@ namespace NodeEditorCore {
             );
         }
     }
+
+    void NodeEditor::drawConnectionWithReroutes(ImDrawList *drawList, const Connection &connection,
+                                              const ImVec2 &p1, const ImVec2 &p2,
+                                              const Color &startCol, const Color &endCol) {
+        std::vector<Reroute> reroutes = getReroutesForConnection(connection.id);
+
+        if (reroutes.empty()) {
+            const Node* startNode = getNode(connection.startNodeId);
+            const Node* endNode = getNode(connection.endNodeId);
+            if (!startNode || !endNode) return;
+
+            const Pin* startPin = startNode->findPin(connection.startPinId);
+            const Pin* endPin = endNode->findPin(connection.endPinId);
+            if (!startPin || !endPin) return;
+
+            Pin apiStartPin;
+            apiStartPin.id = startPin->id;
+            apiStartPin.isInput = startPin->isInput;
+            apiStartPin.type = static_cast<PinType>(startPin->type);
+
+            Pin apiEndPin;
+            apiEndPin.id = endPin->id;
+            apiEndPin.isInput = endPin->isInput;
+            apiEndPin.type = static_cast<PinType>(endPin->type);
+
+            m_connectionStyleManager.drawConnection(
+                drawList, p1, p2,
+                apiStartPin.isInput, apiEndPin.isInput,
+                connection.selected, m_state.hoveredConnectionId == connection.id,
+                startCol, endCol, m_state.viewScale
+            );
+            return;
+        }
+
+        const Node* startNode = getNode(connection.startNodeId);
+        const Node* endNode = getNode(connection.endNodeId);
+        if (!startNode || !endNode) return;
+
+        const Pin* startPin = startNode->findPin(connection.startPinId);
+        const Pin* endPin = endNode->findPin(connection.endPinId);
+        if (!startPin || !endPin) return;
+
+        Pin apiStartPin;
+        apiStartPin.id = startPin->id;
+        apiStartPin.isInput = startPin->isInput;
+        apiStartPin.type = static_cast<PinType>(startPin->type);
+
+        Pin apiEndPin;
+        apiEndPin.id = endPin->id;
+        apiEndPin.isInput = endPin->isInput;
+        apiEndPin.type = static_cast<PinType>(endPin->type);
+
+        std::vector<ImVec2> pathPoints;
+        pathPoints.push_back(p1);
+
+        for (const auto& reroute : reroutes) {
+            Vec2 rerouteScreenPos = canvasToScreen(reroute.position);
+            pathPoints.push_back(rerouteScreenPos.toImVec2());
+        }
+
+        pathPoints.push_back(p2);
+
+        bool isSelected = connection.selected;
+        bool isHovered = m_state.hoveredConnectionId == connection.id;
+
+        for (size_t i = 0; i < pathPoints.size() - 1; i++) {
+            ImVec2 segmentStart = pathPoints[i];
+            ImVec2 segmentEnd = pathPoints[i + 1];
+
+            bool segmentStartInput, segmentEndInput;
+
+            if (i == 0) {
+                segmentStartInput = apiStartPin.isInput;
+            } else {
+                segmentStartInput = false;
+            }
+
+            if (i == pathPoints.size() - 2) {
+                segmentEndInput = apiEndPin.isInput;
+            } else {
+                segmentEndInput = true;
+            }
+
+            Color segmentStartCol = startCol;
+            Color segmentEndCol = endCol;
+
+            if (pathPoints.size() > 2) {
+                float t = static_cast<float>(i) / (pathPoints.size() - 1);
+                segmentStartCol = Color(
+                    startCol.r * (1.0f - t) + endCol.r * t,
+                    startCol.g * (1.0f - t) + endCol.g * t,
+                    startCol.b * (1.0f - t) + endCol.b * t,
+                    startCol.a * (1.0f - t) + endCol.a * t
+                );
+
+                t = static_cast<float>(i + 1) / (pathPoints.size() - 1);
+                segmentEndCol = Color(
+                    startCol.r * (1.0f - t) + endCol.r * t,
+                    startCol.g * (1.0f - t) + endCol.g * t,
+                    startCol.b * (1.0f - t) + endCol.b * t,
+                    startCol.a * (1.0f - t) + endCol.a * t
+                );
+            }
+
+            m_connectionStyleManager.drawConnection(
+                drawList, segmentStart, segmentEnd,
+                segmentStartInput, segmentEndInput,
+                isSelected, isHovered,
+                segmentStartCol, segmentEndCol, m_state.viewScale
+            );
+        }
+    }
+
+    void NodeEditor::updateConnectionAnimationWithReroutes(const Connection& connection, const ImVec2& p1, const ImVec2& p2,
+                                                          const ConnectionAnimationState& animState,
+                                                          std::vector<ImVec2>& particlePoints) const {
+        std::vector<ImVec2> pathPoints = getConnectionPathWithReroutes(connection, p1, p2);
+
+        if (pathPoints.size() < 2) return;
+
+        float totalLength = 0.0f;
+        std::vector<float> segmentLengths;
+
+        for (size_t i = 0; i < pathPoints.size() - 1; i++) {
+            float dx = pathPoints[i + 1].x - pathPoints[i].x;
+            float dy = pathPoints[i + 1].y - pathPoints[i].y;
+            float length = sqrt(dx * dx + dy * dy);
+            segmentLengths.push_back(length);
+            totalLength += length;
+        }
+
+        const int particleCount = 5;
+        particlePoints.clear();
+
+        for (int i = 0; i < particleCount; i++) {
+            float t = (animState.flowAnimation + (float)i / particleCount);
+            t = t - std::floor(t);
+
+            float targetDistance = t * totalLength;
+            float currentDistance = 0.0f;
+
+            for (size_t j = 0; j < segmentLengths.size(); j++) {
+                if (currentDistance + segmentLengths[j] >= targetDistance) {
+                    float segmentT = (targetDistance - currentDistance) / segmentLengths[j];
+
+                    ImVec2 particlePos = ImVec2(
+                        pathPoints[j].x + (pathPoints[j + 1].x - pathPoints[j].x) * segmentT,
+                        pathPoints[j].y + (pathPoints[j + 1].y - pathPoints[j].y) * segmentT
+                    );
+
+                    particlePoints.push_back(particlePos);
+                    break;
+                }
+                currentDistance += segmentLengths[j];
+            }
+        }
+    }
+
+    std::vector<ImVec2> NodeEditor::getConnectionPathWithReroutes(const Connection& connection, const ImVec2& p1, const ImVec2& p2) const {
+        std::vector<ImVec2> pathPoints;
+        std::vector<Reroute> reroutes = getReroutesForConnection(connection.id);
+
+        pathPoints.push_back(p1);
+
+        for (const auto& reroute : reroutes) {
+            Vec2 rerouteScreenPos = canvasToScreen(reroute.position);
+            pathPoints.push_back(rerouteScreenPos.toImVec2());
+        }
+
+        pathPoints.push_back(p2);
+
+        return pathPoints;
+    }
 }

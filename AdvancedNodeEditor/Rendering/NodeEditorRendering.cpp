@@ -58,6 +58,7 @@ namespace NodeEditorCore {
         drawGrid(drawList, canvasPos);
         drawGroups(drawList, canvasPos);
         drawConnections(drawList, canvasPos);
+        drawReroutes(drawList, canvasPos);
         drawNodes(drawList, canvasPos);
 
         if (m_state.interactionMode == InteractionMode::BoxSelect) {
@@ -446,6 +447,4 @@ namespace NodeEditorCore {
 
         m_minimapManager.setViewBounds(min, max);
     }
-
-    
 }

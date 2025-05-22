@@ -214,32 +214,5 @@ namespace NodeEditorCore {
         return (dx * dx + dy * dy) <= (threshold * threshold);
     }
 
-    bool NodeEditor::isPointNearCubicBezier(const ImVec2 &point, const ImVec2 &p1, const ImVec2 &p2, const ImVec2 &p3,
-                                            const ImVec2 &p4, float threshold) const {
-        const int steps = 10;
-        ImVec2 prev = p1;
 
-        for (int i = 1; i <= steps; ++i) {
-            float t = i / (float) steps;
-            float u = 1.0f - t;
-
-            float w1 = u * u * u;
-            float w2 = 3 * u * u * t;
-            float w3 = 3 * u * t * t;
-            float w4 = t * t * t;
-
-            ImVec2 current(
-                w1 * p1.x + w2 * p2.x + w3 * p3.x + w4 * p4.x,
-                w1 * p1.y + w2 * p2.y + w3 * p3.y + w4 * p4.y
-            );
-
-            if (isPointNearLine(point, prev, current, threshold)) {
-                return true;
-            }
-
-            prev = current;
-        }
-
-        return false;
-    }
 }

@@ -246,6 +246,19 @@ namespace NodeEditorCore {
 
         RerouteHitZone getRerouteHitZone(const Reroute& reroute, const ImVec2& mousePos, const ImVec2& canvasPos) const;
         int findRerouteAtPosition(const ImVec2& mousePos, const ImVec2& canvasPos, RerouteHitZone& hitZone) const;
+
+        ImVec2 evaluateBezierCubic(const ImVec2 &p0, const ImVec2 &p1, const ImVec2 &p2, const ImVec2 &p3,
+                                   float t) const;
+
+        float getDistanceToBezierCubic(const ImVec2 &point, const ImVec2 &p0, const ImVec2 &p1, const ImVec2 &p2,
+                                       const ImVec2 &p3) const;
+
+        float getDistanceToLineSegment(const ImVec2 &point, const ImVec2 &start, const ImVec2 &end) const;
+
+        std::pair<ImVec2, ImVec2> calculateBezierControlPoints(const ImVec2 &segStart, const ImVec2 &segEnd,
+                                                               bool segmentStartInput, bool segmentEndInput,
+                                                               float tension) const;
+
         float getDistanceToConnection(const Connection& connection, const ImVec2& mousePos, const ImVec2& canvasPos, int& insertIndex) const;
 
         void selectReroute(int rerouteId, bool append = false);
