@@ -77,6 +77,8 @@ public:
                      const UUID& endNodeId, const std::string& inputPinName);
     bool disconnectNodes(const UUID& connectionId);
 
+    UUID addRerouteToConnection(const UUID& connectionId, const Vec2& position);
+
     UUID createGroup(const std::string& name, const Vec2& position, const Vec2& size);
     void addNodeToGroup(const UUID& nodeId, const UUID& groupId);
     void removeNodeFromGroup(const UUID& nodeId, const UUID& groupId);

@@ -3,79 +3,186 @@
 
 namespace NodeEditorCore {
     void NodeEditor::drawDragConnection(ImDrawList *drawList, const ImVec2 &canvasPos) {
-    if (!m_state.connecting || m_state.connectingNodeId == -1 || m_state.connectingPinId == -1)
+    if (!m_state.connecting)
         return;
 
-    const Node *sourceNode = getNode(m_state.connectingNodeId);
-    if (!sourceNode) return;
-
-    const Pin *sourcePinInternal = sourceNode->findPin(m_state.connectingPinId);
-    if (!sourcePinInternal) return;
-
-    Pin apiPin;
-    apiPin.id = sourcePinInternal->id;
-    apiPin.name = sourcePinInternal->name;
-    apiPin.isInput = sourcePinInternal->isInput;
-    apiPin.type = static_cast<PinType>(sourcePinInternal->type);
-    apiPin.shape = static_cast<PinShape>(sourcePinInternal->shape);
-
-    ImVec2 p1 = getPinPos(*sourceNode, apiPin, canvasPos);
+    ImVec2 p1;
     ImVec2 p2;
-
     bool isEndInput = false;
+    bool isSourceInput = false;
 
-    if (m_state.magnetPinNodeId != -1) {
-        const Node *magnetNode = getNode(m_state.magnetPinNodeId);
-        if (!magnetNode) {
-        } else {
-            const Pin *magnetPinInternal = magnetNode->findPin(m_state.magnetPinId);
-            if (!magnetPinInternal) {
+    if (m_connectingFromReroute && m_connectingRerouteId != -1) {
+        Reroute* reroute = getReroute(m_connectingRerouteId);
+        if (!reroute) return;
+
+        Vec2 rerouteScreenPos = canvasToScreen(reroute->position);
+        p1 = rerouteScreenPos.toImVec2();
+
+        const Connection* originalConnection = getConnection(reroute->connectionId);
+        if (!originalConnection) return;
+
+        const Node* startNode = getNode(originalConnection->startNodeId);
+        if (!startNode) return;
+
+        const Pin* startPin = startNode->findPin(originalConnection->startPinId);
+        if (!startPin) return;
+
+        isSourceInput = false; 
+
+        if (m_state.magnetPinNodeId != -1) {
+            const Node* magnetNode = getNode(m_state.magnetPinNodeId);
+            if (!magnetNode) {
                 p2 = ImGui::GetMousePos();
             } else {
-                Pin magnetPin;
-                magnetPin.id = magnetPinInternal->id;
-                magnetPin.name = magnetPinInternal->name;
-                magnetPin.isInput = magnetPinInternal->isInput;
-                magnetPin.type = static_cast<PinType>(magnetPinInternal->type);
-                magnetPin.shape = static_cast<PinShape>(magnetPinInternal->shape);
-
-                p2 = getPinPos(*magnetNode, magnetPin, canvasPos);
-                isEndInput = magnetPinInternal->isInput;
-
-                Pin sourceApiPin;
-                sourceApiPin.id = sourcePinInternal->id;
-                sourceApiPin.name = sourcePinInternal->name;
-                sourceApiPin.isInput = sourcePinInternal->isInput;
-                sourceApiPin.type = static_cast<PinType>(sourcePinInternal->type);
-
-                Pin magnetApiPin;
-                magnetApiPin.id = magnetPinInternal->id;
-                magnetApiPin.name = magnetPinInternal->name;
-                magnetApiPin.isInput = magnetPinInternal->isInput;
-                magnetApiPin.type = static_cast<PinType>(magnetPinInternal->type);
-
-                if (sourcePinInternal->isInput != magnetPinInternal->isInput) {
-                    bool canConnect;
-                    if (sourcePinInternal->isInput) {
-                        canConnect = canCreateConnection(magnetApiPin, sourceApiPin);
-                    } else {
-                        canConnect = canCreateConnection(sourceApiPin, magnetApiPin);
-                    }
-
-                    m_state.canConnectToMagnetPin = canConnect;
+                const Pin* magnetPinInternal = magnetNode->findPin(m_state.magnetPinId);
+                if (!magnetPinInternal) {
+                    p2 = ImGui::GetMousePos();
                 } else {
-                    m_state.canConnectToMagnetPin = false;
+                    Pin magnetPin;
+                    magnetPin.id = magnetPinInternal->id;
+                    magnetPin.name = magnetPinInternal->name;
+                    magnetPin.isInput = magnetPinInternal->isInput;
+                    magnetPin.type = static_cast<PinType>(magnetPinInternal->type);
+                    magnetPin.shape = static_cast<PinShape>(magnetPinInternal->shape);
+
+                    p2 = getPinPos(*magnetNode, magnetPin, canvasPos);
+                    isEndInput = magnetPinInternal->isInput;
+
+                    Pin sourceApiPin;
+                    sourceApiPin.id = startPin->id;
+                    sourceApiPin.name = startPin->name;
+                    sourceApiPin.isInput = startPin->isInput;
+                    sourceApiPin.type = static_cast<PinType>(startPin->type);
+
+                    Pin magnetApiPin;
+                    magnetApiPin.id = magnetPinInternal->id;
+                    magnetApiPin.name = magnetPinInternal->name;
+                    magnetApiPin.isInput = magnetPinInternal->isInput;
+                    magnetApiPin.type = static_cast<PinType>(magnetPinInternal->type);
+
+                    if (magnetPinInternal->isInput) {
+                        m_state.canConnectToMagnetPin = canCreateConnection(sourceApiPin, magnetApiPin);
+                    } else {
+                        const Node* endNode = getNode(originalConnection->endNodeId);
+                        const Pin* endPin = endNode ? endNode->findPin(originalConnection->endPinId) : nullptr;
+                        
+                        if (endPin) {
+                            Pin endApiPin;
+                            endApiPin.id = endPin->id;
+                            endApiPin.name = endPin->name;
+                            endApiPin.isInput = endPin->isInput;
+                            endApiPin.type = static_cast<PinType>(endPin->type);
+                            
+                            m_state.canConnectToMagnetPin = canCreateConnection(magnetApiPin, endApiPin);
+                        } else {
+                            m_state.canConnectToMagnetPin = false;
+                        }
+                    }
+                }
+            }
+        } else {
+            p2 = ImGui::GetMousePos();
+        }
+    }
+    else if (m_state.connectingNodeId != -1 && m_state.connectingPinId != -1) {
+        const Node *sourceNode = getNode(m_state.connectingNodeId);
+        if (!sourceNode) return;
+
+        const Pin *sourcePinInternal = sourceNode->findPin(m_state.connectingPinId);
+        if (!sourcePinInternal) return;
+
+        Pin apiPin;
+        apiPin.id = sourcePinInternal->id;
+        apiPin.name = sourcePinInternal->name;
+        apiPin.isInput = sourcePinInternal->isInput;
+        apiPin.type = static_cast<PinType>(sourcePinInternal->type);
+        apiPin.shape = static_cast<PinShape>(sourcePinInternal->shape);
+
+        p1 = getPinPos(*sourceNode, apiPin, canvasPos);
+        isSourceInput = sourcePinInternal->isInput;
+
+        if (m_state.magnetPinNodeId != -1) {
+            const Node *magnetNode = getNode(m_state.magnetPinNodeId);
+            if (!magnetNode) {
+                p2 = ImGui::GetMousePos();
+            } else {
+                const Pin *magnetPinInternal = magnetNode->findPin(m_state.magnetPinId);
+                if (!magnetPinInternal) {
+                    p2 = ImGui::GetMousePos();
+                } else {
+                    Pin magnetPin;
+                    magnetPin.id = magnetPinInternal->id;
+                    magnetPin.name = magnetPinInternal->name;
+                    magnetPin.isInput = magnetPinInternal->isInput;
+                    magnetPin.type = static_cast<PinType>(magnetPinInternal->type);
+                    magnetPin.shape = static_cast<PinShape>(magnetPinInternal->shape);
+
+                    p2 = getPinPos(*magnetNode, magnetPin, canvasPos);
+                    isEndInput = magnetPinInternal->isInput;
+
+                    Pin sourceApiPin;
+                    sourceApiPin.id = sourcePinInternal->id;
+                    sourceApiPin.name = sourcePinInternal->name;
+                    sourceApiPin.isInput = sourcePinInternal->isInput;
+                    sourceApiPin.type = static_cast<PinType>(sourcePinInternal->type);
+
+                    Pin magnetApiPin;
+                    magnetApiPin.id = magnetPinInternal->id;
+                    magnetApiPin.name = magnetPinInternal->name;
+                    magnetApiPin.isInput = magnetPinInternal->isInput;
+                    magnetApiPin.type = static_cast<PinType>(magnetPinInternal->type);
+
+                    if (sourcePinInternal->isInput != magnetPinInternal->isInput) {
+                        bool canConnect;
+                        if (sourcePinInternal->isInput) {
+                            canConnect = canCreateConnection(magnetApiPin, sourceApiPin);
+                        } else {
+                            canConnect = canCreateConnection(sourceApiPin, magnetApiPin);
+                        }
+
+                        m_state.canConnectToMagnetPin = canConnect;
+                    } else {
+                        m_state.canConnectToMagnetPin = false;
+                    }
+                }
+            }
+        } else {
+            p2 = ImGui::GetMousePos();
+        }
+    } else {
+        return;
+    }
+
+    std::string pinTypeName = "Blue"; 
+    
+    if (m_connectingFromReroute && m_connectingRerouteId != -1) {
+        Reroute* reroute = getReroute(m_connectingRerouteId);
+        if (reroute) {
+            const Connection* originalConnection = getConnection(reroute->connectionId);
+            if (originalConnection) {
+                const Node* startNode = getNode(originalConnection->startNodeId);
+                if (startNode) {
+                    const Pin* startPin = startNode->findPin(originalConnection->startPinId);
+                    if (startPin) {
+                        pinTypeName = pinTypeToString(startPin->type);
+                    }
                 }
             }
         }
-    } else {
-        p2 = ImGui::GetMousePos();
+    } 
+    else if (m_state.connectingNodeId != -1 && m_state.connectingPinId != -1) {
+        const Node* sourceNode = getNode(m_state.connectingNodeId);
+        if (sourceNode) {
+            const Pin* sourcePinInternal = sourceNode->findPin(m_state.connectingPinId);
+            if (sourcePinInternal) {
+                pinTypeName = pinTypeToString(sourcePinInternal->type);
+            }
+        }
     }
 
-    std::string pinTypeName = pinTypeToString(sourcePinInternal->type);
     const internal::PinColors &pinColors = m_state.style.pinColors.count(pinTypeName)
-                                               ? m_state.style.pinColors.at(pinTypeName)
-                                               : m_state.style.pinColors.at("Default");
+                                           ? m_state.style.pinColors.at(pinTypeName)
+                                           : m_state.style.pinColors.at("Default");
 
     ImU32 dragColor;
     if (m_state.magnetPinNodeId != -1 && !m_state.canConnectToMagnetPin) {
@@ -97,7 +204,7 @@ namespace NodeEditorCore {
 
     ImVec2 cp1, cp2;
 
-    if (sourcePinInternal->isInput) {
+    if (isSourceInput) {
         cp1 = ImVec2(p1.x, p1.y - cpOffset);
     } else {
         cp1 = ImVec2(p1.x, p1.y + cpOffset);

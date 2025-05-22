@@ -393,43 +393,53 @@ namespace NodeEditorCore {
         return -1;
     }
 
-    UUID NodeEditorAPI::connectNodes(const UUID &startNodeId, const std::string &outputPinName,
-                                     const UUID &endNodeId, const std::string &inputPinName) {
+    UUID NodeEditorAPI::connectNodes(const UUID& startNodeId, const std::string& outputPinName,
+                                     const UUID& endNodeId, const std::string& inputPinName) {
+        int startNodeRealId = m_editor->getNodeId(startNodeId);
+        int endNodeRealId = m_editor->getNodeId(endNodeId);
+
+        if (startNodeRealId == -1 || endNodeRealId == -1) {
+            return "";
+        }
+
         int startPinId = findPinIdByName(startNodeId, outputPinName, false);
-        if (startPinId == -1) {
-            UUID pinUUID = addPinToNode(startNodeId, outputPinName, false, PinType::Blue);
-            Node *node = m_editor->getNodeByUUID(startNodeId);
-            if (node && !node->outputs.empty()) {
-                startPinId = node->outputs.back().id;
-            } else {
-                throw std::runtime_error("Failed to create output pin");
-            }
-        }
-
         int endPinId = findPinIdByName(endNodeId, inputPinName, true);
-        if (endPinId == -1) {
-            UUID pinUUID = addPinToNode(endNodeId, inputPinName, true, PinType::Blue);
-            Node *node = m_editor->getNodeByUUID(endNodeId);
-            if (node && !node->inputs.empty()) {
-                endPinId = node->inputs.back().id;
-            } else {
-                throw std::runtime_error("Failed to create input pin");
-            }
+
+        if (startPinId == -1 || endPinId == -1) {
+            return "";
         }
 
-        return m_editor->addConnectionWithUUIDByUUID(startNodeId,
-                                                     m_editor->getPinUUID(m_editor->getNodeId(startNodeId), startPinId),
-                                                     endNodeId,
-                                                     m_editor->getPinUUID(m_editor->getNodeId(endNodeId), endPinId));
+        UUID connectionUuid = m_editor->addConnectionWithUUID(startNodeRealId, startPinId, endNodeRealId, endPinId);
+        return connectionUuid;
     }
 
-    bool NodeEditorAPI::disconnectNodes(const UUID &connectionId) {
-        try {
-            m_editor->removeConnectionByUUID(connectionId);
-            return true;
-        } catch (...) {
+    UUID NodeEditorAPI::addRerouteToConnection(const UUID& connectionId, const Vec2& position) {
+        int connectionRealId = m_editor->getConnectionId(connectionId);
+        if (connectionRealId == -1) {
+            return "";
+        }
+        
+        int rerouteId = m_editor->addReroute(connectionRealId, position, -1);
+        if (rerouteId == -1) {
+            return "";
+        }
+        
+        const Reroute* reroute = m_editor->getReroute(rerouteId);
+        if (!reroute) {
+            return "";
+        }
+        
+        return reroute->uuid;
+    }
+
+    bool NodeEditorAPI::disconnectNodes(const UUID& connectionId) {
+        int connectionRealId = m_editor->getConnectionId(connectionId);
+        if (connectionRealId == -1) {
             return false;
         }
+
+        m_editor->removeConnection(connectionRealId);
+        return true;
     }
 
     UUID NodeEditorAPI::createGroup(const std::string &name, const Vec2 &position, const Vec2 &size) {

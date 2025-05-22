@@ -19,7 +19,6 @@ namespace NodeEditorCore {
         updateHoveredElements(mousePos);
         updateRerouteHover(mousePos, canvasPos);
 
-        // DEBUG TEMPORAIRE - Toujours affiché
         char debugText[256];
         sprintf(debugText, "Double-click: %s, HoveredConn: %d",
                 isMouseDoubleClicked ? "YES" : "NO", m_state.hoveredConnectionId);
@@ -206,30 +205,11 @@ namespace NodeEditorCore {
 
             if (isMouseReleased) {
                 if (m_state.interactionMode == InteractionMode::DragConnection) {
-                    if (m_state.magnetPinNodeId != -1 && m_state.magnetPinId != -1) {
-                        const Node *sourceNode = getNode(m_state.connectingNodeId);
-                        const Node *targetNode = getNode(m_state.magnetPinNodeId);
-
-                        if (sourceNode && targetNode) {
-                            const Pin *sourcePin = sourceNode->findPin(m_state.connectingPinId);
-                            const Pin *targetPin = targetNode->findPin(m_state.magnetPinId);
-
-                            if (sourcePin && targetPin) {
-                                int connectionId = -1;
-
-                                if (sourcePin->isInput) {
-                                    connectionId = addConnection(m_state.magnetPinNodeId, m_state.magnetPinId,
-                                                                 m_state.connectingNodeId, m_state.connectingPinId);
-                                } else {
-                                    connectionId = addConnection(m_state.connectingNodeId, m_state.connectingPinId,
-                                                                 m_state.magnetPinNodeId, m_state.magnetPinId);
-                                }
-                            }
-                        }
-                    }
+                    endCurrentInteraction();
                 }
-
-                endCurrentInteraction();
+                else if (m_state.interactionMode == InteractionMode::BoxSelect) {
+                    endCurrentInteraction();
+                }
             }
         }
 
@@ -282,8 +262,115 @@ namespace NodeEditorCore {
     }
 
     void NodeEditor::endCurrentInteraction() {
-        if (m_state.interactionMode == InteractionMode::DragConnection &&
-            m_state.magnetPinNodeId != -1 && m_state.magnetPinId != -1) {
+        if (m_state.interactionMode == InteractionMode::DragConnection) {
+            if (m_state.magnetPinNodeId != -1 && m_state.magnetPinId != -1) {
+                const Pin* magnetPin = getPin(m_state.magnetPinNodeId, m_state.magnetPinId);
+                
+                if (m_connectingFromReroute && m_connectingRerouteId != -1) {
+                    Reroute* reroute = getReroute(m_connectingRerouteId);
+                    if (reroute && magnetPin) {
+                        const Connection* originalConnection = getConnection(reroute->connectionId);
+                        if (originalConnection) {
+                            bool magnetPinIsInput = magnetPin->isInput;
+                            int newConnectionId = -1;
+                            
+                            if (magnetPinIsInput) {
+                                const Node* startNode = getNode(originalConnection->startNodeId);
+                                const Pin* startPin = startNode ? startNode->findPin(originalConnection->startPinId) : nullptr;
+                                
+                                if (startPin) {
+                                    Pin sourceApiPin;
+                                    sourceApiPin.id = startPin->id;
+                                    sourceApiPin.isInput = startPin->isInput;
+                                    sourceApiPin.type = static_cast<PinType>(startPin->type);
+                                    
+                                    Pin targetApiPin;
+                                    targetApiPin.id = magnetPin->id;
+                                    targetApiPin.isInput = magnetPin->isInput;
+                                    targetApiPin.type = static_cast<PinType>(magnetPin->type);
+                                    
+                                    if (canCreateConnection(sourceApiPin, targetApiPin)) {
+                                        newConnectionId = addConnection(
+                                            originalConnection->startNodeId, 
+                                            originalConnection->startPinId,
+                                            m_state.magnetPinNodeId, 
+                                            m_state.magnetPinId
+                                        );
+                                        
+                                        if (newConnectionId >= 0) {
+                                            addReroute(newConnectionId, reroute->position, 0);
+                                        }
+                                    }
+                                }
+                            } else {
+                                const Node* endNode = getNode(originalConnection->endNodeId);
+                                const Pin* endPin = endNode ? endNode->findPin(originalConnection->endPinId) : nullptr;
+                                
+                                if (endPin) {
+                                    Pin sourceApiPin;
+                                    sourceApiPin.id = magnetPin->id;
+                                    sourceApiPin.isInput = magnetPin->isInput;
+                                    sourceApiPin.type = static_cast<PinType>(magnetPin->type);
+                                    
+                                    Pin targetApiPin;
+                                    targetApiPin.id = endPin->id;
+                                    targetApiPin.isInput = endPin->isInput;
+                                    targetApiPin.type = static_cast<PinType>(endPin->type);
+                                    
+                                    if (canCreateConnection(sourceApiPin, targetApiPin)) {
+                                        newConnectionId = addConnection(
+                                            m_state.magnetPinNodeId, 
+                                            m_state.magnetPinId,
+                                            originalConnection->endNodeId, 
+                                            originalConnection->endPinId
+                                        );
+                                        
+                                        if (newConnectionId >= 0) {
+                                            addReroute(newConnectionId, reroute->position, 0);
+                                        }
+                                    }
+                                }
+                            }
+                            
+                            if (newConnectionId >= 0) {
+                                Connection* conn = getConnection(newConnectionId);
+                                if (conn) {
+                                    conn->isActive = true;
+                                    m_animationManager.activateConnectionFlow(newConnectionId, false, 3.0f);
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    const Node* sourceNode = getNode(m_state.connectingNodeId);
+                    const Node* targetNode = getNode(m_state.magnetPinNodeId);
+                    
+                    if (sourceNode && targetNode) {
+                        const Pin* sourcePin = sourceNode->findPin(m_state.connectingPinId);
+                        const Pin* targetPin = targetNode->findPin(m_state.magnetPinId);
+                        
+                        if (sourcePin && targetPin) {
+                            int connectionId = -1;
+                            
+                            if (sourcePin->isInput) {
+                                connectionId = addConnection(m_state.magnetPinNodeId, m_state.magnetPinId,
+                                                            m_state.connectingNodeId, m_state.connectingPinId);
+                            } else {
+                                connectionId = addConnection(m_state.connectingNodeId, m_state.connectingPinId,
+                                                            m_state.magnetPinNodeId, m_state.magnetPinId);
+                            }
+                            
+                            if (connectionId >= 0) {
+                                Connection* conn = getConnection(connectionId);
+                                if (conn) {
+                                    conn->isActive = true;
+                                    m_animationManager.activateConnectionFlow(connectionId, false, 3.0f);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
 
         m_state.interactionMode = InteractionMode::None;
@@ -740,19 +827,11 @@ namespace NodeEditorCore {
     }
 
     void NodeEditor::processConnectionCreation() {
-        if (!m_state.connecting || m_state.connectingNodeId == -1 || m_state.connectingPinId == -1)
+        if (!m_state.connecting)
             return;
 
         ImVec2 mousePos = ImGui::GetMousePos();
         ImDrawList *drawList = ImGui::GetWindowDrawList();
-
-        const Node *sourceNode = getNode(m_state.connectingNodeId);
-        if (!sourceNode) return;
-
-        const Pin *sourcePinInternal = sourceNode->findPin(m_state.connectingPinId);
-        if (!sourcePinInternal) return;
-
-        bool isSourceInput = sourcePinInternal->isInput;
 
         m_state.magnetPinNodeId = -1;
         m_state.magnetPinId = -1;
@@ -762,6 +841,49 @@ namespace NodeEditorCore {
 
         float closestDist = m_state.magnetThreshold * m_state.magnetThreshold;
 
+        bool isSourceInput = false;
+        Pin sourceApiPin;
+
+        if (m_connectingFromReroute && m_connectingRerouteId != -1) {
+            Reroute* reroute = getReroute(m_connectingRerouteId);
+            if (!reroute) return;
+
+            const Connection* originalConnection = getConnection(reroute->connectionId);
+            if (!originalConnection) return;
+
+            const Node* startNode = getNode(originalConnection->startNodeId);
+            if (!startNode) return;
+
+            const Pin* startPin = startNode->findPin(originalConnection->startPinId);
+            if (!startPin) return;
+
+            sourceApiPin.id = startPin->id;
+            sourceApiPin.name = startPin->name;
+            sourceApiPin.isInput = startPin->isInput;
+            sourceApiPin.type = static_cast<PinType>(startPin->type);
+            sourceApiPin.shape = static_cast<PinShape>(startPin->shape);
+
+            isSourceInput = false; 
+        }
+        else if (m_state.connectingNodeId != -1 && m_state.connectingPinId != -1) {
+            const Node *sourceNode = getNode(m_state.connectingNodeId);
+            if (!sourceNode) return;
+
+            const Pin *sourcePinInternal = sourceNode->findPin(m_state.connectingPinId);
+            if (!sourcePinInternal) return;
+
+            isSourceInput = sourcePinInternal->isInput;
+
+            sourceApiPin.id = sourcePinInternal->id;
+            sourceApiPin.name = sourcePinInternal->name;
+            sourceApiPin.isInput = sourcePinInternal->isInput;
+            sourceApiPin.type = static_cast<PinType>(sourcePinInternal->type);
+            sourceApiPin.shape = static_cast<PinShape>(sourcePinInternal->shape);
+        }
+        else {
+            return;
+        }
+
         drawList->AddText(ImVec2(10, 370), IM_COL32(255, 0, 0, 255),
                           ("Searching: " + std::string(isSourceInput ? "Output pins" : "Input pins") +
                            ", Nodes: " + std::to_string(m_state.nodes.size())).c_str());
@@ -769,10 +891,11 @@ namespace NodeEditorCore {
         int eligiblePins = 0;
 
         for (const auto &node: m_state.nodes) {
-            if (node.id == m_state.connectingNodeId || !isNodeInCurrentSubgraph(node))
+            if ((m_state.connectingNodeId != -1 && node.id == m_state.connectingNodeId) || !isNodeInCurrentSubgraph(node))
                 continue;
 
             const auto &pins = isSourceInput ? node.outputs : node.inputs;
+
             drawList->AddText(ImVec2(10, 390), IM_COL32(255, 0, 0, 255),
                               ("Node " + std::to_string(node.id) + " has " +
                                std::to_string(pins.size()) + " eligible pins").c_str());
@@ -796,13 +919,6 @@ namespace NodeEditorCore {
                 drawList->AddCircle(pinPos, std::sqrt(closestDist), IM_COL32(0, 255, 0, 100));
 
                 if (dist < closestDist) {
-                    Pin sourceApiPin;
-                    sourceApiPin.id = sourcePinInternal->id;
-                    sourceApiPin.name = sourcePinInternal->name;
-                    sourceApiPin.isInput = sourcePinInternal->isInput;
-                    sourceApiPin.type = static_cast<PinType>(sourcePinInternal->type);
-                    sourceApiPin.shape = static_cast<PinShape>(sourcePinInternal->shape);
-
                     bool canConnect = false;
 
                     if (isSourceInput && !pinInternal.isInput) {
