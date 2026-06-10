@@ -39,14 +39,19 @@ namespace NodeEditorCore {
 
         float getViewScale() const;
 
-        void setWindowSize(const Vec2& size);
+        void setWindowSize(const Vec2 &size);
+
         Vec2 getWindowSize() const;
 
-        void centerView(const Vec2& windowSize = Vec2(0.0f, 0.0f));
-        void centerOnNode(int nodeId, const Vec2& windowSize = Vec2(0.0f, 0.0f));
-        void centerOnNodes(const std::vector<int>& nodeIds, const Vec2& windowSize = Vec2(0.0f, 0.0f));
-        void zoomToFit(float padding = 50.0f, const Vec2& windowSize = Vec2(0.0f, 0.0f));
-        void zoomToFitSelected(float padding = 50.0f, const Vec2& windowSize = Vec2(0.0f, 0.0f));
+        void centerView(const Vec2 &windowSize = Vec2(0.0f, 0.0f));
+
+        void centerOnNode(int nodeId, const Vec2 &windowSize = Vec2(0.0f, 0.0f));
+
+        void centerOnNodes(const std::vector<int> &nodeIds, const Vec2 &windowSize = Vec2(0.0f, 0.0f));
+
+        void zoomToFit(float padding = 50.0f, const Vec2 &windowSize = Vec2(0.0f, 0.0f));
+
+        void zoomToFitSelected(float padding = 50.0f, const Vec2 &windowSize = Vec2(0.0f, 0.0f));
 
         void startViewTransition(const ViewState &targetState, float duration = 0.3f,
                                  ViewTransitionType type = ViewTransitionType::EaseInOut);
@@ -67,9 +72,17 @@ namespace NodeEditorCore {
 
         float getMaxZoom() const;
 
+        void setGraphBounds(const Vec2 &min, const Vec2 &max);
+
+        Vec2 getGraphBoundsMin() const { return m_boundsMin; }
+
+        Vec2 getGraphBoundsMax() const { return m_boundsMax; }
+
         void setBoundingBoxProvider(std::function<void(Vec2 &, Vec2 &)> provider);
-        void setNodeBoundingBoxProvider(std::function<void(int, Vec2&, Vec2&)> provider);
-        void setSelectedNodesBoundingBoxProvider(std::function<void(Vec2&, Vec2&)> provider);
+
+        void setNodeBoundingBoxProvider(std::function<void(int, Vec2 &, Vec2 &)> provider);
+
+        void setSelectedNodesBoundingBoxProvider(std::function<void(Vec2 &, Vec2 &)> provider);
 
     private:
         ViewState m_currentState;
@@ -82,17 +95,25 @@ namespace NodeEditorCore {
         float m_minZoom;
         float m_maxZoom;
 
+        Vec2 m_boundsMin;
+        Vec2 m_boundsMax;
+        static constexpr float k_boundsMargin = 200.0f;
+
         Vec2 m_windowSize;
 
         std::unordered_map<std::string, ViewState> m_storedStates;
 
         std::function<void(Vec2 &, Vec2 &)> m_boundingBoxProvider;
-        std::function<void(int, Vec2&, Vec2&)> m_nodeBoundingBoxProvider;
-        std::function<void(Vec2&, Vec2&)> m_selectedNodesBoundingBoxProvider;
+        std::function<void(int, Vec2 &, Vec2 &)> m_nodeBoundingBoxProvider;
+        std::function<void(Vec2 &, Vec2 &)> m_selectedNodesBoundingBoxProvider;
 
         float applyEasing(float t) const;
+
         ViewState interpolateStates(const ViewState &start, const ViewState &end, float t) const;
-        Vec2 getEffectiveWindowSize(const Vec2& providedSize) const;
+
+        Vec2 getEffectiveWindowSize(const Vec2 &providedSize) const;
+
+        Vec2 clampPosition(const Vec2 &pos, float scale) const;
     };
 }
 

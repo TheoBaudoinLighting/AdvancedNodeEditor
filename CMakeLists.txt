@@ -60,6 +60,7 @@ add_executable(AdvancedNodeEditor
         AdvancedNodeEditor/Utils/CommandManager.h
         AdvancedNodeEditor/Utils/TypedCommandRouter.h
         AdvancedNodeEditor/Utils/CommandDefinitions.h
+        AdvancedNodeEditor/Utils/NodeEditorLogging.h
         AdvancedNodeEditor/NodeEditorAPI.cpp
         AdvancedNodeEditor/NodeEditorAPI.h
         AdvancedNodeEditor/Rendering/NodeEditorDrawReroutes.cpp
@@ -97,6 +98,15 @@ else ()
             ${imgui_SOURCE_DIR}/backends
             ${imgui_SOURCE_DIR}/misc/cpp
     )
+
+    if (WIN32 AND CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+        # SDL 2.26.5 defines a Clang-only _m_prefetch shim that conflicts with newer LLVM.
+        set_source_files_properties(
+                ${imgui_SOURCE_DIR}/backends/imgui_impl_sdl2.cpp
+                ${imgui_SOURCE_DIR}/backends/imgui_impl_sdlrenderer2.cpp
+                PROPERTIES COMPILE_DEFINITIONS "__PRFCHWINTRIN_H"
+        )
+    endif ()
 endif ()
 
 # --- SDL2 ---
@@ -159,7 +169,7 @@ if (BUILD_TESTS)
             tests/editor/ViewTests.cpp
             tests/evaluation/EvaluationDebug_Tests.cpp
             tests/core/CommandRouterTests.cpp
-            tests/core/CommandManagertests.cpp
+            tests/core/CommandManagerTests.cpp
             tests/core/TypedCommandRouterTests.cpp
     )
 
@@ -170,6 +180,7 @@ if (BUILD_TESTS)
             AdvancedNodeEditor/Components/Node/NodeEditorComponents.cpp
             AdvancedNodeEditor/Components/Subgraph/NodeEditorSubgraphs.cpp
             AdvancedNodeEditor/Components/UUID/NodeEditorUuidOperations.cpp
+            AdvancedNodeEditor/Components/Utils/NodeEditorUtilities.cpp
 
             AdvancedNodeEditor/Core/Conversions/Conversions.cpp
             AdvancedNodeEditor/Core/Conversions/Conversions.h
@@ -204,6 +215,9 @@ if (BUILD_TESTS)
             AdvancedNodeEditor/Evaluation/NodeEditorEvaluation.cpp
             AdvancedNodeEditor/Evaluation/NodeEditorEvaluation.h
 
+            AdvancedNodeEditor/NodeEditorAPI.cpp
+            AdvancedNodeEditor/NodeEditorAPI.h
+
             AdvancedNodeEditor/Rendering/NodeEditorAnimationManager.cpp
             AdvancedNodeEditor/Rendering/NodeEditorAnimationManager.h
             AdvancedNodeEditor/Rendering/NodeEditorRendering.cpp
@@ -211,6 +225,7 @@ if (BUILD_TESTS)
             AdvancedNodeEditor/Rendering/NodeEditorDrawNodes.cpp
             AdvancedNodeEditor/Rendering/NodeEditorDrawConnections.cpp
             AdvancedNodeEditor/Rendering/NodeEditorDrawGroups.cpp
+            AdvancedNodeEditor/Rendering/NodeEditorDrawReroutes.cpp
             AdvancedNodeEditor/Rendering/NodeEditorUtilities.cpp
 
             AdvancedNodeEditor/Utils/CommandManager.cpp
@@ -218,6 +233,7 @@ if (BUILD_TESTS)
             AdvancedNodeEditor/Utils/CommandRouter.cpp
             AdvancedNodeEditor/Utils/CommandRouter.h
             AdvancedNodeEditor/Utils/CommandDefinitions.h
+            AdvancedNodeEditor/Utils/NodeEditorLogging.h
             AdvancedNodeEditor/Utils/TypedCommandRouter.h
             AdvancedNodeEditor/Utils/UuidGenerator.h
 

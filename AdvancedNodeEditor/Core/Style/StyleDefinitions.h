@@ -89,12 +89,26 @@ namespace NodeEditorCore {
         std::unordered_map<std::string, internal::PinColors> pinColors;
         internal::ConnectionColors connectionColors;
 
+        // Base values at 96 DPI (scale = 1.0). Multiply by DPI scale before use.
         float gridSpacing;
         float nodeRounding;
         float pinRadius;
         float connectionThickness;
+        Vec2  defaultNodeSize;   // canvas units for a new node
 
         NodeEditorStyle();
+
+        // Returns a copy of this style with all metric fields scaled by `dpiScale`.
+        NodeEditorStyle scaledForDpi(float dpiScale) const {
+            NodeEditorStyle s = *this;
+            s.gridSpacing        = gridSpacing        * dpiScale;
+            s.nodeRounding       = nodeRounding       * dpiScale;
+            s.pinRadius          = pinRadius          * dpiScale;
+            s.connectionThickness= connectionThickness* dpiScale;
+            s.defaultNodeSize    = Vec2(defaultNodeSize.x * dpiScale,
+                                       defaultNodeSize.y * dpiScale);
+            return s;
+        }
     };
 }
 

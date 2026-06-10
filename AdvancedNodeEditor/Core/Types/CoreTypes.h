@@ -9,6 +9,8 @@
 #include <unordered_set>
 #include <any>
 #include <algorithm>
+#include <array>
+#include <cmath>
 #include <memory>
 #include <imgui.h>
 #include "../../Utils/UuidGenerator.h"
@@ -61,6 +63,16 @@ namespace NodeEditorCore {
         static Vec2 fromImVec2(const ImVec2 &v) { return Vec2(v.x, v.y); }
     };
 
+    namespace Math {
+        inline constexpr float TWO_PI = 6.28318530717958647692f;
+
+        inline float distance(const Vec2 &a, const Vec2 &b) {
+            const float dx = b.x - a.x;
+            const float dy = b.y - a.y;
+            return std::sqrt(dx * dx + dy * dy);
+        }
+    }
+
     struct Color {
         float r, g, b, a;
 
@@ -94,6 +106,235 @@ namespace NodeEditorCore {
         Square,
         Triangle,
         Diamond
+    };
+
+    enum class DataType {
+        Void,
+        Bool,
+        Int,
+        Float,
+        String,
+        Vec2,
+        Vec3,
+        Vec4,
+        Mat3,
+        Mat4,
+        Quaternion,
+        Object,
+        Array,
+        HashMap,
+        Custom,
+        Flow,
+        ActorHandle
+    };
+
+    struct PinVisualStyle {
+        PinType type;
+        PinShape shape;
+        Color color;
+        Color hoverColor;
+        Color connectedColor;
+        const char *label;
+        const char *styleKey;
+    };
+
+    class PinStyleCatalog {
+    public:
+        static constexpr std::array<PinType, 11> PinTypes() {
+            return {{
+                PinType::Blue,
+                PinType::Red,
+                PinType::Green,
+                PinType::Yellow,
+                PinType::Purple,
+                PinType::Cyan,
+                PinType::Orange,
+                PinType::White,
+                PinType::Black,
+                PinType::Gray,
+                PinType::Custom
+            }};
+        }
+
+        static constexpr std::array<DataType, 17> DataTypes() {
+            return {{
+                DataType::Void,
+                DataType::Bool,
+                DataType::Int,
+                DataType::Float,
+                DataType::String,
+                DataType::Vec2,
+                DataType::Vec3,
+                DataType::Vec4,
+                DataType::Mat3,
+                DataType::Mat4,
+                DataType::Quaternion,
+                DataType::Object,
+                DataType::Array,
+                DataType::HashMap,
+                DataType::Custom,
+                DataType::Flow,
+                DataType::ActorHandle
+            }};
+        }
+
+        static bool HasPinType(PinType type) {
+            switch (type) {
+                case PinType::Blue:
+                case PinType::Red:
+                case PinType::Green:
+                case PinType::Yellow:
+                case PinType::Purple:
+                case PinType::Cyan:
+                case PinType::Orange:
+                case PinType::White:
+                case PinType::Black:
+                case PinType::Gray:
+                case PinType::Custom:
+                    return true;
+            }
+            return false;
+        }
+
+        static bool HasDataType(DataType type) {
+            switch (type) {
+                case DataType::Void:
+                case DataType::Bool:
+                case DataType::Int:
+                case DataType::Float:
+                case DataType::String:
+                case DataType::Vec2:
+                case DataType::Vec3:
+                case DataType::Vec4:
+                case DataType::Mat3:
+                case DataType::Mat4:
+                case DataType::Quaternion:
+                case DataType::Object:
+                case DataType::Array:
+                case DataType::HashMap:
+                case DataType::Custom:
+                case DataType::Flow:
+                case DataType::ActorHandle:
+                    return true;
+            }
+            return false;
+        }
+
+        static PinVisualStyle ForPinType(PinType type) {
+            switch (type) {
+                case PinType::Blue:
+                    return {type, PinShape::Circle, Color(0.2f, 0.4f, 0.9f),
+                            Color(0.3f, 0.5f, 1.0f), Color(0.4f, 0.6f, 1.0f), "float", "Blue"};
+                case PinType::Red:
+                    return {type, PinShape::Circle, Color(0.9f, 0.3f, 0.3f),
+                            Color(1.0f, 0.4f, 0.4f), Color(1.0f, 0.5f, 0.5f), "flow", "Red"};
+                case PinType::Green:
+                    return {type, PinShape::Circle, Color(0.3f, 0.8f, 0.3f),
+                            Color(0.4f, 0.9f, 0.4f), Color(0.5f, 1.0f, 0.5f), "int", "Green"};
+                case PinType::Yellow:
+                    return {type, PinShape::Circle, Color(0.95f, 0.95f, 0.3f),
+                            Color(1.0f, 1.0f, 0.4f), Color(1.0f, 1.0f, 0.5f), "bool", "Yellow"};
+                case PinType::Purple:
+                    return {type, PinShape::Circle, Color(0.8f, 0.3f, 0.8f),
+                            Color(0.9f, 0.4f, 0.9f), Color(1.0f, 0.5f, 1.0f), "object", "Purple"};
+                case PinType::Cyan:
+                    return {type, PinShape::Circle, Color(0.3f, 0.8f, 0.9f),
+                            Color(0.4f, 0.9f, 1.0f), Color(0.5f, 1.0f, 1.0f), "vector", "Cyan"};
+                case PinType::Orange:
+                    return {type, PinShape::Circle, Color(0.9f, 0.6f, 0.3f),
+                            Color(1.0f, 0.7f, 0.4f), Color(1.0f, 0.8f, 0.5f), "string", "Orange"};
+                case PinType::White:
+                    return {type, PinShape::Circle, Color(0.9f, 0.9f, 0.9f),
+                            Color(1.0f, 1.0f, 1.0f), Color(1.0f, 1.0f, 1.0f), "white", "White"};
+                case PinType::Black:
+                    return {type, PinShape::Circle, Color(0.2f, 0.2f, 0.2f),
+                            Color(0.3f, 0.3f, 0.3f), Color(0.4f, 0.4f, 0.4f), "black", "Black"};
+                case PinType::Gray:
+                    return {type, PinShape::Circle, Color(0.7f, 0.7f, 0.7f),
+                            Color(0.8f, 0.8f, 0.8f), Color(0.9f, 0.9f, 0.9f), "gray", "Gray"};
+                case PinType::Custom:
+                    return {type, PinShape::Circle, Color(0.7f, 0.7f, 0.7f),
+                            Color(0.8f, 0.8f, 0.8f), Color(0.9f, 0.9f, 0.9f), "custom", "Custom"};
+            }
+            return ForPinType(PinType::Custom);
+        }
+
+        static PinVisualStyle ForDataType(DataType type) {
+            PinVisualStyle style = ForPinType(PinType::Custom);
+            switch (type) {
+                case DataType::Void:
+                    style.label = "void";
+                    return style;
+                case DataType::Bool:
+                    style = ForPinType(PinType::Yellow);
+                    style.shape = PinShape::Diamond;
+                    style.label = "bool";
+                    return style;
+                case DataType::Int:
+                    style = ForPinType(PinType::Green);
+                    style.shape = PinShape::Square;
+                    style.label = "int";
+                    return style;
+                case DataType::Float:
+                    style = ForPinType(PinType::Blue);
+                    style.shape = PinShape::Square;
+                    style.label = "float";
+                    return style;
+                case DataType::String:
+                    style = ForPinType(PinType::Orange);
+                    style.label = "string";
+                    return style;
+                case DataType::Vec2:
+                    style = ForPinType(PinType::Cyan);
+                    style.shape = PinShape::Triangle;
+                    style.label = "vec2";
+                    return style;
+                case DataType::Vec3:
+                    style = ForPinType(PinType::Cyan);
+                    style.shape = PinShape::Triangle;
+                    style.label = "vec3";
+                    return style;
+                case DataType::Vec4:
+                    style = ForPinType(PinType::Cyan);
+                    style.shape = PinShape::Triangle;
+                    style.label = "vec4";
+                    return style;
+                case DataType::Mat3:
+                    style.label = "mat3";
+                    return style;
+                case DataType::Mat4:
+                    style.label = "mat4";
+                    return style;
+                case DataType::Quaternion:
+                    style.label = "quaternion";
+                    return style;
+                case DataType::Object:
+                    style = ForPinType(PinType::Purple);
+                    style.label = "object";
+                    return style;
+                case DataType::Array:
+                    style.label = "array";
+                    return style;
+                case DataType::HashMap:
+                    style.label = "hashmap";
+                    return style;
+                case DataType::Custom:
+                    style.label = "custom";
+                    return style;
+                case DataType::Flow:
+                    style = ForPinType(PinType::Red);
+                    style.label = "flow";
+                    return style;
+                case DataType::ActorHandle:
+                    style = ForPinType(PinType::Purple);
+                    style.shape = PinShape::Diamond;
+                    style.label = "actor";
+                    return style;
+            }
+
+            style.label = "unknown";
+            return style;
+        }
     };
 
     enum class GroupStyle {
@@ -304,30 +545,7 @@ namespace NodeEditorCore {
 
     private:
         void setColorByType() {
-            switch (type) {
-                case PinType::Blue: color = Color(0.2f, 0.4f, 0.9f);
-                    break;
-                case PinType::Red: color = Color(0.9f, 0.3f, 0.3f);
-                    break;
-                case PinType::Green: color = Color(0.3f, 0.8f, 0.3f);
-                    break;
-                case PinType::Yellow: color = Color(0.95f, 0.95f, 0.3f);
-                    break;
-                case PinType::Purple: color = Color(0.8f, 0.3f, 0.8f);
-                    break;
-                case PinType::Cyan: color = Color(0.3f, 0.8f, 0.9f);
-                    break;
-                case PinType::Orange: color = Color(0.9f, 0.6f, 0.3f);
-                    break;
-                case PinType::White: color = Color(0.9f, 0.9f, 0.9f);
-                    break;
-                case PinType::Black: color = Color(0.2f, 0.2f, 0.2f);
-                    break;
-                case PinType::Gray: color = Color(0.7f, 0.7f, 0.7f);
-                    break;
-                default: color = Color(0.7f, 0.7f, 0.7f);
-                    break;
-            }
+            color = PinStyleCatalog::ForPinType(type).color;
         }
     };
 
@@ -517,6 +735,7 @@ namespace NodeEditorCore {
     struct Reroute {
         int id;
         UUID uuid;
+        UUID knotUuid;
         int connectionId;
         Vec2 position;
         bool selected;
@@ -524,11 +743,16 @@ namespace NodeEditorCore {
         bool hoveredOuter;
         int index;
 
-        Reroute() : id(-1), connectionId(-1), position(0, 0), selected(false), hoveredInner(false), hoveredOuter(false), index(0) {}
+        Reroute() : id(-1), uuid(generateUUID()), knotUuid(uuid), connectionId(-1), position(0, 0),
+                    selected(false), hoveredInner(false), hoveredOuter(false), index(0) {
+        }
 
-        Reroute(int _id, int _connectionId, const Vec2& _position, int _index)
-            : id(_id), connectionId(_connectionId), position(_position), selected(false), hoveredInner(false), hoveredOuter(false), index(_index) {
-            uuid = generateUUID();
+        Reroute(int _id, int _connectionId, const Vec2 &_position, int _index,
+                const UUID &_uuid = "", const UUID &_knotUuid = "")
+            : id(_id), uuid(_uuid.empty() ? generateUUID() : _uuid),
+              knotUuid(_knotUuid.empty() ? uuid : _knotUuid),
+              connectionId(_connectionId), position(_position), selected(false), hoveredInner(false),
+              hoveredOuter(false), index(_index) {
         }
     };
 
@@ -617,6 +841,21 @@ namespace NodeEditorCore {
     };
 
     struct Subgraph {
+        struct InterfacePin {
+            UUID id;
+            std::string name;
+            bool isInput = true;
+            PinType type = PinType::Blue;
+            PinShape shape = PinShape::Circle;
+            Metadata metadata;
+
+            InterfacePin() : id(generateUUID()) {}
+
+            InterfacePin(const std::string &pinName, bool input, PinType pinType, PinShape pinShape = PinShape::Circle)
+                : id(generateUUID()), name(pinName), isInput(input), type(pinType), shape(pinShape) {
+            }
+        };
+
         int id;
         UUID uuid;
         std::string name;
@@ -626,6 +865,7 @@ namespace NodeEditorCore {
         std::vector<UUID> connectionUuids;
         std::vector<int> groupIds;
         std::vector<UUID> groupUuids;
+        std::vector<InterfacePin> interfacePins;
         std::vector<int> interfaceInputs;
         std::vector<int> interfaceOutputs;
         int parentSubgraphId;
@@ -748,6 +988,94 @@ namespace NodeEditorCore {
             return std::find(connectionUuids.begin(), connectionUuids.end(), connectionUuid) != connectionUuids.end();
         }
 
+        InterfacePin *findInterfacePin(const UUID &interfacePinId) {
+            for (auto &pin: interfacePins) {
+                if (pin.id == interfacePinId) {
+                    return &pin;
+                }
+            }
+            return nullptr;
+        }
+
+        const InterfacePin *findInterfacePin(const UUID &interfacePinId) const {
+            for (const auto &pin: interfacePins) {
+                if (pin.id == interfacePinId) {
+                    return &pin;
+                }
+            }
+            return nullptr;
+        }
+
+        InterfacePin *findInterfacePinByName(const std::string &pinName, bool input) {
+            for (auto &pin: interfacePins) {
+                if (pin.name == pinName && pin.isInput == input) {
+                    return &pin;
+                }
+            }
+            return nullptr;
+        }
+
+        const InterfacePin *findInterfacePinByName(const std::string &pinName, bool input) const {
+            for (const auto &pin: interfacePins) {
+                if (pin.name == pinName && pin.isInput == input) {
+                    return &pin;
+                }
+            }
+            return nullptr;
+        }
+
+        InterfacePin &upsertInterfacePin(const std::string &pinName, bool input, PinType pinType,
+                                         PinShape pinShape = PinShape::Circle) {
+            if (auto *existing = findInterfacePinByName(pinName, input)) {
+                existing->type = pinType;
+                existing->shape = pinShape;
+                return *existing;
+            }
+
+            interfacePins.emplace_back(pinName, input, pinType, pinShape);
+            return interfacePins.back();
+        }
+
+        void exposeInput(int nodeId, int pinId) {
+            const int interfaceId = (nodeId << 16) | pinId;
+            if (std::find(interfaceInputs.begin(), interfaceInputs.end(), interfaceId) == interfaceInputs.end()) {
+                interfaceInputs.push_back(interfaceId);
+            }
+        }
+
+        void exposeOutput(int nodeId, int pinId) {
+            const int interfaceId = (nodeId << 16) | pinId;
+            if (std::find(interfaceOutputs.begin(), interfaceOutputs.end(), interfaceId) == interfaceOutputs.end()) {
+                interfaceOutputs.push_back(interfaceId);
+            }
+        }
+
+        void unexposeInput(int nodeId, int pinId) {
+            const int interfaceId = (nodeId << 16) | pinId;
+            auto it = std::find(interfaceInputs.begin(), interfaceInputs.end(), interfaceId);
+            if (it != interfaceInputs.end()) {
+                interfaceInputs.erase(it);
+            }
+        }
+
+        void unexposeOutput(int nodeId, int pinId) {
+            const int interfaceId = (nodeId << 16) | pinId;
+            auto it = std::find(interfaceOutputs.begin(), interfaceOutputs.end(), interfaceId);
+            if (it != interfaceOutputs.end()) {
+                interfaceOutputs.erase(it);
+            }
+        }
+
+        bool isInputExposed(int nodeId, int pinId) const {
+            const int interfaceId = (nodeId << 16) | pinId;
+            return std::find(interfaceInputs.begin(), interfaceInputs.end(), interfaceId) != interfaceInputs.end();
+        }
+
+        bool isOutputExposed(int nodeId, int pinId) const {
+            const int interfaceId = (nodeId << 16) | pinId;
+            return std::find(interfaceOutputs.begin(), interfaceOutputs.end(), interfaceId) != interfaceOutputs.end();
+        }
+
         void addGroup(int groupId, const UUID &groupUuid = "") {
             if (!containsGroup(groupId)) {
                 groupIds.push_back(groupId);
@@ -785,46 +1113,6 @@ namespace NodeEditorCore {
 
         bool containsGroupUUID(const UUID &groupUuid) const {
             return std::find(groupUuids.begin(), groupUuids.end(), groupUuid) != groupUuids.end();
-        }
-
-        void exposeInput(int nodeId, int pinId) {
-            int interfaceId = (nodeId << 16) | pinId;
-            if (std::find(interfaceInputs.begin(), interfaceInputs.end(), interfaceId) == interfaceInputs.end()) {
-                interfaceInputs.push_back(interfaceId);
-            }
-        }
-
-        void exposeOutput(int nodeId, int pinId) {
-            int interfaceId = (nodeId << 16) | pinId;
-            if (std::find(interfaceOutputs.begin(), interfaceOutputs.end(), interfaceId) == interfaceOutputs.end()) {
-                interfaceOutputs.push_back(interfaceId);
-            }
-        }
-
-        void unexposeInput(int nodeId, int pinId) {
-            int interfaceId = (nodeId << 16) | pinId;
-            auto it = std::find(interfaceInputs.begin(), interfaceInputs.end(), interfaceId);
-            if (it != interfaceInputs.end()) {
-                interfaceInputs.erase(it);
-            }
-        }
-
-        void unexposeOutput(int nodeId, int pinId) {
-            int interfaceId = (nodeId << 16) | pinId;
-            auto it = std::find(interfaceOutputs.begin(), interfaceOutputs.end(), interfaceId);
-            if (it != interfaceOutputs.end()) {
-                interfaceOutputs.erase(it);
-            }
-        }
-
-        bool isInputExposed(int nodeId, int pinId) const {
-            int interfaceId = (nodeId << 16) | pinId;
-            return std::find(interfaceInputs.begin(), interfaceInputs.end(), interfaceId) != interfaceInputs.end();
-        }
-
-        bool isOutputExposed(int nodeId, int pinId) const {
-            int interfaceId = (nodeId << 16) | pinId;
-            return std::find(interfaceOutputs.begin(), interfaceOutputs.end(), interfaceId) != interfaceOutputs.end();
         }
 
         void addChildSubgraph(int subgraphId, const UUID &subgraphUuid = "") {
@@ -1030,6 +1318,33 @@ namespace NodeEditorCore {
         }
     };
 
+    struct SerializedSubgraphInterfacePin {
+        UUID id;
+        std::string name;
+        bool isInput = true;
+        PinType type = PinType::Blue;
+        PinShape shape = PinShape::Circle;
+        Metadata metadata;
+
+        SerializedSubgraphInterfacePin() = default;
+
+        SerializedSubgraphInterfacePin(const Subgraph::InterfacePin &pin)
+            : id(pin.id), name(pin.name), isInput(pin.isInput), type(pin.type), shape(pin.shape),
+              metadata(pin.metadata) {
+        }
+
+        Subgraph::InterfacePin toRuntime() const {
+            Subgraph::InterfacePin pin;
+            pin.id = id.empty() ? generateUUID() : id;
+            pin.name = name;
+            pin.isInput = isInput;
+            pin.type = type;
+            pin.shape = shape;
+            pin.metadata = metadata;
+            return pin;
+        }
+    };
+
     struct SerializedSubgraph {
         int id;
         UUID uuid;
@@ -1040,6 +1355,7 @@ namespace NodeEditorCore {
         std::vector<UUID> connectionUuids;
         std::vector<int> groupIds;
         std::vector<UUID> groupUuids;
+        std::vector<SerializedSubgraphInterfacePin> interfacePins;
         std::vector<int> interfaceInputs;
         std::vector<int> interfaceOutputs;
         int parentSubgraphId;
@@ -1069,6 +1385,9 @@ namespace NodeEditorCore {
               description(subgraph.description), category(subgraph.category),
               isTemplate(subgraph.isTemplate), iconSymbol(subgraph.iconSymbol),
               accentColor(subgraph.accentColor), metadata(subgraph.metadata) {
+            for (const auto &pin: subgraph.interfacePins) {
+                interfacePins.emplace_back(pin);
+            }
         }
     };
 

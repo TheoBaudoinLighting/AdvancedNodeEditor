@@ -1,9 +1,51 @@
 #include "../../Core/NodeEditor.h"
 #include "../../Core/Style/InteractionMode.h"
+#include "../../NodeEditorAPI.h"
+#include "../../Utils/NodeEditorLogging.h"
 #include <algorithm>
 #include <cfloat>
+#include <cmath>
+#include <iostream>
+#include <unordered_map>
+#include <unordered_set>
 
 namespace NodeEditorCore {
+    namespace {
+        constexpr const char *kRuntimeDataTypeMetadataKey = "nodeeditor.dataType";
+        constexpr const char *kRuntimeIsFlowMetadataKey = "nodeeditor.isFlow";
+
+        const UUID &rerouteKnotKey(const Reroute &reroute) {
+            return reroute.knotUuid.empty() ? reroute.uuid : reroute.knotUuid;
+        }
+
+        bool isRuntimeFlowPin(const Pin &pin) {
+            if (!pin.metadata.hasAttribute(kRuntimeDataTypeMetadataKey)) {
+                return false;
+            }
+            return pin.getMetadata<bool>(kRuntimeIsFlowMetadataKey, false);
+        }
+
+        bool isSamePinEndpoint(const Connection &connection, int nodeId, int pinId) {
+            return connection.startNodeId == nodeId && connection.startPinId == pinId;
+        }
+
+        struct KnotTarget {
+            int connectionId = -1;
+            int startNodeId = -1;
+            int startPinId = -1;
+            int endNodeId = -1;
+            int endPinId = -1;
+        };
+
+        constexpr float kNodeSnapGrid = 24.0f;
+        constexpr float kNodeSnapScreenThreshold = 10.0f;
+        constexpr float kNodeSnapScreenMaxDistance = 540.0f;
+
+        float snapToGrid(float value) {
+            return std::round(value / kNodeSnapGrid) * kNodeSnapGrid;
+        }
+    }
+
     void NodeEditor::processInteraction() {
         ImVec2 mousePos = ImGui::GetMousePos();
         ImVec2 canvasPos = ImGui::GetCursorScreenPos();
@@ -12,6 +54,7 @@ namespace NodeEditorCore {
 
         bool isMouseDoubleClicked = ImGui::IsMouseDoubleClicked(0);
         bool isMouseClicked = ImGui::IsMouseClicked(0);
+        bool isMouseRightClicked = ImGui::IsMouseClicked(1);
         bool isMouseReleased = ImGui::IsMouseReleased(0);
         bool isMouseDragging = ImGui::IsMouseDragging(0);
         bool isMiddleMousePressed = ImGui::IsMouseDown(2);
@@ -96,14 +139,18 @@ namespace NodeEditorCore {
             } else {
                 float dx = mousePos.x - m_state.dragOffset.x;
                 float dy = mousePos.y - m_state.dragOffset.y;
-                m_state.viewPosition.x += dx;
-                m_state.viewPosition.y += dy;
+                applyViewTransform(Vec2(m_state.viewPosition.x + dx, m_state.viewPosition.y + dy), m_state.viewScale);
                 m_state.dragOffset = Vec2(mousePos.x, mousePos.y);
             }
             return;
         } else if (m_state.dragging && !isMiddleMousePressed) {
             m_state.dragging = false;
             ImGui::SetMouseCursor(ImGuiMouseCursor_Arrow);
+        }
+
+        if (isMouseRightClicked) {
+            processContextMenu();
+            return;
         }
 
         if (isMouseClicked) {
@@ -132,6 +179,10 @@ namespace NodeEditorCore {
             } else if (m_state.hoveredNodeId >= 0) {
                 Node *node = getNode(m_state.hoveredNodeId);
                 if (node) {
+                    if (checkNodeButtonClick(m_state.hoveredNodeId, mousePos)) {
+                        return;
+                    }
+
                     bool isAlreadySelected = node->selected;
                     bool ctrlPressed = ImGui::GetIO().KeyCtrl;
 
@@ -206,8 +257,7 @@ namespace NodeEditorCore {
             if (isMouseReleased) {
                 if (m_state.interactionMode == InteractionMode::DragConnection) {
                     endCurrentInteraction();
-                }
-                else if (m_state.interactionMode == InteractionMode::BoxSelect) {
+                } else if (m_state.interactionMode == InteractionMode::BoxSelect) {
                     endCurrentInteraction();
                 }
             }
@@ -261,79 +311,413 @@ namespace NodeEditorCore {
         }
     }
 
+    bool NodeEditor::canConnectPinToReroute(int nodeId, int pinId, int rerouteId) const {
+        const Node *sourceNode = getNode(nodeId);
+        const Pin *sourcePin = sourceNode ? sourceNode->findPin(pinId) : nullptr;
+        const Reroute *reroute = getReroute(rerouteId);
+        if (!sourcePin || !reroute) return false;
+
+        const Connection *originalConnection = getConnection(reroute->connectionId);
+        if (!originalConnection) return false;
+
+        const Node *originalStartNode = getNode(originalConnection->startNodeId);
+        const Pin *originalStartPin = originalStartNode
+                                          ? originalStartNode->findPin(originalConnection->startPinId)
+                                          : nullptr;
+        if (!originalStartPin) return false;
+
+        auto canCreateOrReuseConnection = [&](int startNodeId, int startPinId,
+                                              int endNodeId, int endPinId,
+                                              const Pin &startPin, const Pin &endPin) {
+            if (doesConnectionExist(startNodeId, startPinId, endNodeId, endPinId)) {
+                return true;
+            }
+            return canCreateConnection(startPin, endPin);
+        };
+
+        const UUID knotUuid = rerouteKnotKey(*reroute);
+        std::unordered_set<int> testedConnections;
+        int knotConnectionCount = 0;
+        int flowTargetNodeId = -1;
+        int flowTargetPinId = -1;
+
+        for (const auto &member: m_reroutes) {
+            if (rerouteKnotKey(member) != knotUuid) continue;
+            if (!testedConnections.insert(member.connectionId).second) continue;
+
+            const Connection *memberConnection = getConnection(member.connectionId);
+            if (!memberConnection) continue;
+
+            const Node *targetNode = getNode(memberConnection->endNodeId);
+            const Pin *targetPin = targetNode ? targetNode->findPin(memberConnection->endPinId) : nullptr;
+            if (!targetPin) {
+                return false;
+            }
+
+            if (isRuntimeFlowPin(*originalStartPin)) {
+                if (flowTargetNodeId == -1) {
+                    flowTargetNodeId = memberConnection->endNodeId;
+                    flowTargetPinId = memberConnection->endPinId;
+                } else if (flowTargetNodeId != memberConnection->endNodeId ||
+                           flowTargetPinId != memberConnection->endPinId) {
+                    return false;
+                }
+            }
+
+            if (!sourcePin->isInput &&
+                !canCreateOrReuseConnection(
+                    nodeId,
+                    pinId,
+                    memberConnection->endNodeId,
+                    memberConnection->endPinId,
+                    *sourcePin,
+                    *targetPin)) {
+                return false;
+            }
+
+            if (sourcePin->isInput && isRuntimeFlowPin(*originalStartPin)) {
+                const Node *memberStartNode = getNode(memberConnection->startNodeId);
+                const Pin *memberStartPin = memberStartNode
+                                                ? memberStartNode->findPin(memberConnection->startPinId)
+                                                : nullptr;
+                if (!memberStartPin ||
+                    !canCreateOrReuseConnection(
+                        memberConnection->startNodeId,
+                        memberConnection->startPinId,
+                        nodeId,
+                        pinId,
+                        *memberStartPin,
+                        *sourcePin)) {
+                    return false;
+                }
+            }
+
+            ++knotConnectionCount;
+        }
+
+        if (sourcePin->isInput) {
+            if (!isRuntimeFlowPin(*originalStartPin) && !canCreateOrReuseConnection(
+                originalConnection->startNodeId,
+                originalConnection->startPinId,
+                nodeId,
+                pinId,
+                *originalStartPin,
+                *sourcePin)) {
+                return false;
+            }
+
+            return true;
+        }
+
+        if (knotConnectionCount == 0) return false;
+        if (!isRuntimeFlowPin(*sourcePin)) return true;
+
+        return flowTargetNodeId != -1 && flowTargetPinId != -1;
+    }
+
+    bool NodeEditor::connectPinToReroute(int nodeId, int pinId, int rerouteId) {
+        if (!canConnectPinToReroute(nodeId, pinId, rerouteId)) {
+            return false;
+        }
+
+        const Node *sourceNode = getNode(nodeId);
+        const Pin *sourcePin = sourceNode ? sourceNode->findPin(pinId) : nullptr;
+        const Reroute *reroute = getReroute(rerouteId);
+        if (!sourcePin || !reroute) return false;
+
+        const UUID knotUuid = rerouteKnotKey(*reroute);
+        const Vec2 knotPosition = reroute->position;
+
+        auto findConnection = [&](int startNodeId, int startPinId, int endNodeId, int endPinId) -> int {
+            for (const auto &connection: m_state.connections) {
+                if (connection.startNodeId == startNodeId &&
+                    connection.startPinId == startPinId &&
+                    connection.endNodeId == endNodeId &&
+                    connection.endPinId == endPinId) {
+                    return connection.id;
+                }
+            }
+            return -1;
+        };
+
+        auto connectionHasKnot = [&](int connectionId) {
+            for (const auto &member: m_reroutes) {
+                if (member.connectionId == connectionId && rerouteKnotKey(member) == knotUuid) {
+                    return true;
+                }
+            }
+            return false;
+        };
+
+        const Connection *originalConnection = getConnection(reroute->connectionId);
+        if (!originalConnection) return false;
+        const int originalStartNodeId = originalConnection->startNodeId;
+        const int originalStartPinId = originalConnection->startPinId;
+
+        const Node *originalStartNode = getNode(originalStartNodeId);
+        const Pin *originalStartPin = originalStartNode
+                                          ? originalStartNode->findPin(originalStartPinId)
+                                          : nullptr;
+        if (!originalStartPin) return false;
+
+        auto collectKnotConnectionIds = [&]() {
+            std::vector<int> connectionIds;
+            std::unordered_set<int> seen;
+            for (const auto &member: m_reroutes) {
+                if (rerouteKnotKey(member) != knotUuid) continue;
+                if (seen.insert(member.connectionId).second) {
+                    connectionIds.push_back(member.connectionId);
+                }
+            }
+            return connectionIds;
+        };
+
+        auto collectKnotTargets = [&]() {
+            std::vector<KnotTarget> targets;
+            for (int connectionId: collectKnotConnectionIds()) {
+                const Connection *memberConnection = getConnection(connectionId);
+                if (!memberConnection) continue;
+
+                targets.push_back(KnotTarget{
+                    memberConnection->id,
+                    memberConnection->startNodeId,
+                    memberConnection->startPinId,
+                    memberConnection->endNodeId,
+                    memberConnection->endPinId
+                });
+            }
+            return targets;
+        };
+
+        auto activateConnection = [&](int connectionId) {
+            if (Connection *connection = getConnection(connectionId)) {
+                connection->isActive = true;
+                m_animationManager.activateConnectionFlow(connectionId, false, 3.0f);
+            }
+        };
+
+        if (sourcePin->isInput) {
+            if (isRuntimeFlowPin(*originalStartPin)) {
+                if (originalConnection->endNodeId == nodeId && originalConnection->endPinId == pinId) {
+                    return true;
+                }
+
+                const std::vector<KnotTarget> oldConnections = collectKnotTargets();
+                if (oldConnections.empty()) return false;
+
+                std::unordered_set<int> oldConnectionIds;
+                for (const auto &oldConnection: oldConnections) {
+                    oldConnectionIds.insert(oldConnection.connectionId);
+                }
+
+                for (int oldConnectionId: oldConnectionIds) {
+                    removeConnection(oldConnectionId);
+                }
+
+                bool connectedAny = false;
+                std::unordered_set<std::string> desiredEndpoints;
+                for (const auto &oldConnection: oldConnections) {
+                    const std::string endpointKey =
+                        std::to_string(oldConnection.startNodeId) + ":" +
+                        std::to_string(oldConnection.startPinId) + "->" +
+                        std::to_string(nodeId) + ":" +
+                        std::to_string(pinId);
+                    if (!desiredEndpoints.insert(endpointKey).second) {
+                        continue;
+                    }
+
+                    int connectionId = addConnection(
+                        oldConnection.startNodeId,
+                        oldConnection.startPinId,
+                        nodeId,
+                        pinId
+                    );
+
+                    if (connectionId < 0) {
+                        connectionId = findConnection(
+                            oldConnection.startNodeId,
+                            oldConnection.startPinId,
+                            nodeId,
+                            pinId
+                        );
+                    }
+
+                    if (connectionId < 0) continue;
+                    if (!connectionHasKnot(connectionId)) {
+                        addReroute(connectionId, knotPosition, 0, "", knotUuid);
+                    }
+
+                    activateConnection(connectionId);
+                    connectedAny = true;
+                }
+
+                return connectedAny;
+            }
+
+            int connectionId = addConnection(
+                originalStartNodeId,
+                originalStartPinId,
+                nodeId,
+                pinId
+            );
+
+            if (connectionId < 0) {
+                connectionId = findConnection(
+                    originalStartNodeId,
+                    originalStartPinId,
+                    nodeId,
+                    pinId
+                );
+            }
+
+            if (connectionId < 0) return false;
+            if (!connectionHasKnot(connectionId)) {
+                addReroute(connectionId, knotPosition, 0, "", knotUuid);
+            }
+
+            activateConnection(connectionId);
+            return true;
+        }
+
+        if (isSamePinEndpoint(*originalConnection, nodeId, pinId)) {
+            return true;
+        }
+
+        if (isRuntimeFlowPin(*sourcePin)) {
+            const std::vector<KnotTarget> targets = collectKnotTargets();
+            if (targets.empty()) return false;
+
+            const KnotTarget &target = targets.front();
+            int connectionId = addConnection(nodeId, pinId, target.endNodeId, target.endPinId);
+            if (connectionId < 0) {
+                connectionId = findConnection(nodeId, pinId, target.endNodeId, target.endPinId);
+            }
+            if (connectionId < 0) return false;
+
+            if (!connectionHasKnot(connectionId)) {
+                addReroute(connectionId, knotPosition, 0, "", knotUuid);
+            }
+
+            activateConnection(connectionId);
+            return true;
+        }
+
+        std::vector<KnotTarget> targets;
+        const std::vector<int> oldConnectionIds = collectKnotConnectionIds();
+
+        for (int oldConnectionId: oldConnectionIds) {
+            const Connection *memberConnection = getConnection(oldConnectionId);
+            if (!memberConnection) continue;
+
+            targets.push_back(KnotTarget{
+                memberConnection->id,
+                memberConnection->startNodeId,
+                memberConnection->startPinId,
+                memberConnection->endNodeId,
+                memberConnection->endPinId
+            });
+        }
+
+        if (targets.empty()) return false;
+
+        for (int oldConnectionId: oldConnectionIds) {
+            removeConnection(oldConnectionId);
+        }
+
+        bool connectedAny = false;
+        for (const auto &target: targets) {
+            int connectionId = addConnection(nodeId, pinId, target.endNodeId, target.endPinId);
+            if (connectionId < 0) {
+                connectionId = findConnection(nodeId, pinId, target.endNodeId, target.endPinId);
+            }
+
+            if (connectionId < 0) continue;
+            if (!connectionHasKnot(connectionId)) {
+                addReroute(connectionId, knotPosition, 0, "", knotUuid);
+            }
+
+            if (Connection *connection = getConnection(connectionId)) {
+                connection->isActive = true;
+                m_animationManager.activateConnectionFlow(connectionId, false, 3.0f);
+            }
+            connectedAny = true;
+        }
+
+        return connectedAny;
+    }
+
     void NodeEditor::endCurrentInteraction() {
         if (m_state.interactionMode == InteractionMode::DragConnection) {
-            if (m_state.magnetPinNodeId != -1 && m_state.magnetPinId != -1) {
-                const Pin* magnetPin = getPin(m_state.magnetPinNodeId, m_state.magnetPinId);
-                
+            if (!m_connectingFromReroute &&
+                m_magnetRerouteId != -1 &&
+                m_canConnectToMagnetReroute &&
+                m_state.connectingNodeId != -1 &&
+                m_state.connectingPinId != -1) {
+                connectPinToReroute(m_state.connectingNodeId, m_state.connectingPinId, m_magnetRerouteId);
+            } else if (m_state.magnetPinNodeId != -1 && m_state.magnetPinId != -1) {
+                const Pin *magnetPin = getPin(m_state.magnetPinNodeId, m_state.magnetPinId);
+
                 if (m_connectingFromReroute && m_connectingRerouteId != -1) {
-                    Reroute* reroute = getReroute(m_connectingRerouteId);
+                    Reroute *reroute = getReroute(m_connectingRerouteId);
                     if (reroute && magnetPin) {
-                        const Connection* originalConnection = getConnection(reroute->connectionId);
+                        const Vec2 branchPosition = reroute->position;
+                        const UUID branchKnotUuid = reroute->knotUuid.empty() ? reroute->uuid : reroute->knotUuid;
+                        const Connection *originalConnection = getConnection(reroute->connectionId);
                         if (originalConnection) {
                             bool magnetPinIsInput = magnetPin->isInput;
                             int newConnectionId = -1;
-                            
+
                             if (magnetPinIsInput) {
-                                const Node* startNode = getNode(originalConnection->startNodeId);
-                                const Pin* startPin = startNode ? startNode->findPin(originalConnection->startPinId) : nullptr;
-                                
+                                const Node *startNode = getNode(originalConnection->startNodeId);
+                                const Pin *startPin = startNode
+                                                          ? startNode->findPin(originalConnection->startPinId)
+                                                          : nullptr;
+
                                 if (startPin) {
-                                    Pin sourceApiPin;
-                                    sourceApiPin.id = startPin->id;
-                                    sourceApiPin.isInput = startPin->isInput;
-                                    sourceApiPin.type = static_cast<PinType>(startPin->type);
-                                    
-                                    Pin targetApiPin;
-                                    targetApiPin.id = magnetPin->id;
-                                    targetApiPin.isInput = magnetPin->isInput;
-                                    targetApiPin.type = static_cast<PinType>(magnetPin->type);
-                                    
-                                    if (canCreateConnection(sourceApiPin, targetApiPin)) {
+                                    if (canCreateConnection(*startPin, *magnetPin)) {
                                         newConnectionId = addConnection(
-                                            originalConnection->startNodeId, 
+                                            originalConnection->startNodeId,
                                             originalConnection->startPinId,
-                                            m_state.magnetPinNodeId, 
+                                            m_state.magnetPinNodeId,
                                             m_state.magnetPinId
                                         );
-                                        
+
                                         if (newConnectionId >= 0) {
-                                            addReroute(newConnectionId, reroute->position, 0);
+                                            addReroute(newConnectionId, branchPosition, 0, "", branchKnotUuid);
                                         }
                                     }
                                 }
                             } else {
-                                const Node* endNode = getNode(originalConnection->endNodeId);
-                                const Pin* endPin = endNode ? endNode->findPin(originalConnection->endPinId) : nullptr;
-                                
-                                if (endPin) {
-                                    Pin sourceApiPin;
-                                    sourceApiPin.id = magnetPin->id;
-                                    sourceApiPin.isInput = magnetPin->isInput;
-                                    sourceApiPin.type = static_cast<PinType>(magnetPin->type);
-                                    
-                                    Pin targetApiPin;
-                                    targetApiPin.id = endPin->id;
-                                    targetApiPin.isInput = endPin->isInput;
-                                    targetApiPin.type = static_cast<PinType>(endPin->type);
-                                    
-                                    if (canCreateConnection(sourceApiPin, targetApiPin)) {
+                                const Node *endNode = getNode(originalConnection->endNodeId);
+                                const Pin *endPin = endNode ? endNode->findPin(originalConnection->endPinId) : nullptr;
+                                const Node *startNode = getNode(originalConnection->startNodeId);
+                                const Pin *startPin = startNode
+                                                          ? startNode->findPin(originalConnection->startPinId)
+                                                          : nullptr;
+                                const bool sameSourceAsOriginal =
+                                    originalConnection->startNodeId == m_state.magnetPinNodeId &&
+                                    originalConnection->startPinId == m_state.magnetPinId;
+                                const bool canAttachSourceToKnot =
+                                    sameSourceAsOriginal || (startPin && isRuntimeFlowPin(*startPin));
+
+                                if (endPin && canAttachSourceToKnot) {
+                                    if (canCreateConnection(*magnetPin, *endPin)) {
                                         newConnectionId = addConnection(
-                                            m_state.magnetPinNodeId, 
+                                            m_state.magnetPinNodeId,
                                             m_state.magnetPinId,
-                                            originalConnection->endNodeId, 
+                                            originalConnection->endNodeId,
                                             originalConnection->endPinId
                                         );
-                                        
+
                                         if (newConnectionId >= 0) {
-                                            addReroute(newConnectionId, reroute->position, 0);
+                                            addReroute(newConnectionId, branchPosition, 0, "", branchKnotUuid);
                                         }
                                     }
                                 }
                             }
-                            
+
                             if (newConnectionId >= 0) {
-                                Connection* conn = getConnection(newConnectionId);
+                                Connection *conn = getConnection(newConnectionId);
                                 if (conn) {
                                     conn->isActive = true;
                                     m_animationManager.activateConnectionFlow(newConnectionId, false, 3.0f);
@@ -342,26 +726,26 @@ namespace NodeEditorCore {
                         }
                     }
                 } else {
-                    const Node* sourceNode = getNode(m_state.connectingNodeId);
-                    const Node* targetNode = getNode(m_state.magnetPinNodeId);
-                    
+                    const Node *sourceNode = getNode(m_state.connectingNodeId);
+                    const Node *targetNode = getNode(m_state.magnetPinNodeId);
+
                     if (sourceNode && targetNode) {
-                        const Pin* sourcePin = sourceNode->findPin(m_state.connectingPinId);
-                        const Pin* targetPin = targetNode->findPin(m_state.magnetPinId);
-                        
+                        const Pin *sourcePin = sourceNode->findPin(m_state.connectingPinId);
+                        const Pin *targetPin = targetNode->findPin(m_state.magnetPinId);
+
                         if (sourcePin && targetPin) {
                             int connectionId = -1;
-                            
+
                             if (sourcePin->isInput) {
                                 connectionId = addConnection(m_state.magnetPinNodeId, m_state.magnetPinId,
-                                                            m_state.connectingNodeId, m_state.connectingPinId);
+                                                             m_state.connectingNodeId, m_state.connectingPinId);
                             } else {
                                 connectionId = addConnection(m_state.connectingNodeId, m_state.connectingPinId,
-                                                            m_state.magnetPinNodeId, m_state.magnetPinId);
+                                                             m_state.magnetPinNodeId, m_state.magnetPinId);
                             }
-                            
+
                             if (connectionId >= 0) {
-                                Connection* conn = getConnection(connectionId);
+                                Connection *conn = getConnection(connectionId);
                                 if (conn) {
                                     conn->isActive = true;
                                     m_animationManager.activateConnectionFlow(connectionId, false, 3.0f);
@@ -389,6 +773,8 @@ namespace NodeEditorCore {
         m_state.boxSelecting = false;
 
         m_activeRerouteId = -1;
+        m_magnetRerouteId = -1;
+        m_canConnectToMagnetReroute = false;
         m_connectingFromReroute = false;
         m_connectingRerouteId = -1;
 
@@ -396,6 +782,13 @@ namespace NodeEditorCore {
     }
 
     void NodeEditor::processDeleteKeyPress() {
+        std::vector<int> nodesToRemove;
+        for (const auto &node: m_state.nodes) {
+            if (node.selected) {
+                nodesToRemove.push_back(node.id);
+            }
+        }
+
         std::vector<int> reroutesToRemove;
         for (const auto &reroute: m_reroutes) {
             if (reroute.selected) {
@@ -408,8 +801,15 @@ namespace NodeEditorCore {
         }
 
         std::vector<int> connectionsToRemove;
-        for (const auto &connection: m_state.connections) {
+        const auto existingConnections = m_state.connections;
+        for (const auto &connection: existingConnections) {
             if (connection.selected) {
+                const bool incidentToSelectedNode =
+                    std::find(nodesToRemove.begin(), nodesToRemove.end(), connection.startNodeId) != nodesToRemove.end() ||
+                    std::find(nodesToRemove.begin(), nodesToRemove.end(), connection.endNodeId) != nodesToRemove.end();
+                if (incidentToSelectedNode) {
+                    continue;
+                }
                 connectionsToRemove.push_back(connection.id);
             }
         }
@@ -418,16 +818,34 @@ namespace NodeEditorCore {
             removeConnection(id);
         }
 
-        std::vector<int> nodesToRemove;
-        for (const auto &node: m_state.nodes) {
-            if (node.selected) {
-                nodesToRemove.push_back(node.id);
+        for (int id: nodesToRemove) {
+            requestDeleteNode(id);
+        }
+    }
+
+    bool NodeEditor::requestDeleteNode(int nodeId) {
+        const Node *node = getNode(nodeId);
+        if (!node) {
+            return false;
+        }
+
+        if (node->isProtected) {
+            LOG_WARN("NodeEditor::requestDeleteNode - node {} is protected", nodeId);
+            return false;
+        }
+
+        for (const auto &subgraphPair: m_subgraphs) {
+            const int inputNodeId = subgraphPair.second->metadata.getAttribute<int>("inputNodeId", -1);
+            const int outputNodeId = subgraphPair.second->metadata.getAttribute<int>("outputNodeId", -1);
+
+            if (nodeId == inputNodeId || nodeId == outputNodeId) {
+                LOG_WARN("NodeEditor::requestDeleteNode - node {} is a protected subgraph boundary", nodeId);
+                return false;
             }
         }
 
-        for (int id: nodesToRemove) {
-            removeNode(id);
-        }
+        removeNode(nodeId);
+        return true;
     }
 
     void NodeEditor::processNodeDragging() {
@@ -436,6 +854,8 @@ namespace NodeEditorCore {
         ImVec2 mousePos = ImGui::GetMousePos();
         Vec2 mouseDelta = Vec2(mousePos.x - m_state.dragStart.x, mousePos.y - m_state.dragStart.y);
         Vec2 scaledDelta = Vec2(mouseDelta.x / m_state.viewScale, mouseDelta.y / m_state.viewScale);
+        m_nodeSnapGuideVertical = false;
+        m_nodeSnapGuideHorizontal = false;
 
         bool needsRefresh = false;
         for (auto &node: m_state.nodes) {
@@ -453,11 +873,116 @@ namespace NodeEditorCore {
             }
         }
 
+        Vec2 snappedDelta = scaledDelta;
+        if (!ImGui::GetIO().KeyAlt &&
+            !m_state.draggedNodePositions.empty() &&
+            (m_nodeSnapEnabled || m_gridSnapEnabled)) {
+            float selectedMinX = FLT_MAX;
+            float selectedMinY = FLT_MAX;
+            float selectedMaxX = -FLT_MAX;
+            float selectedMaxY = -FLT_MAX;
+            bool hasSelectionBounds = false;
+
+            for (const auto &node: m_state.nodes) {
+                if (!node.selected || !isNodeInCurrentSubgraph(node)) continue;
+                auto it = m_state.draggedNodePositions.find(node.id);
+                if (it == m_state.draggedNodePositions.end()) continue;
+
+                selectedMinX = std::min(selectedMinX, it->second.x);
+                selectedMinY = std::min(selectedMinY, it->second.y);
+                selectedMaxX = std::max(selectedMaxX, it->second.x + node.size.x);
+                selectedMaxY = std::max(selectedMaxY, it->second.y + node.size.y);
+                hasSelectionBounds = true;
+            }
+
+            if (hasSelectionBounds) {
+                const float snapThreshold = std::max(4.0f, kNodeSnapScreenThreshold / std::max(m_state.viewScale, 0.01f));
+                const float maxNodeSnapDistance =
+                        kNodeSnapScreenMaxDistance / std::max(m_state.viewScale, 0.01f);
+                const Vec2 selectedCenter((selectedMinX + selectedMaxX) * 0.5f,
+                                          (selectedMinY + selectedMaxY) * 0.5f);
+                float nodeSnapX = 0.0f;
+                float nodeSnapY = 0.0f;
+                Vec2 targetCenter;
+                Vec2 guideSourceCenter;
+                Vec2 guideTargetCenter;
+                bool snappedX = false;
+                bool snappedY = false;
+
+                if (m_nodeSnapEnabled) {
+                    const Vec2 movedCenter = selectedCenter + snappedDelta;
+                    float closestDistanceSq = maxNodeSnapDistance * maxNodeSnapDistance;
+                    bool hasClosestNode = false;
+
+                    for (const auto &node: m_state.nodes) {
+                        if (node.selected || !isNodeInCurrentSubgraph(node)) continue;
+
+                        const Vec2 candidateCenter(node.position.x + node.size.x * 0.5f,
+                                                   node.position.y + node.size.y * 0.5f);
+                        const float distanceX = candidateCenter.x - movedCenter.x;
+                        const float distanceY = candidateCenter.y - movedCenter.y;
+                        const float distanceSq = distanceX * distanceX + distanceY * distanceY;
+                        if (distanceSq < closestDistanceSq) {
+                            closestDistanceSq = distanceSq;
+                            targetCenter = candidateCenter;
+                            hasClosestNode = true;
+                        }
+                    }
+
+                    if (hasClosestNode) {
+                        const Vec2 movedCenter = selectedCenter + snappedDelta;
+                        const float offsetX = targetCenter.x - movedCenter.x;
+                        const float offsetY = targetCenter.y - movedCenter.y;
+                        const bool canSnapX = std::abs(offsetX) <= snapThreshold;
+                        const bool canSnapY = std::abs(offsetY) <= snapThreshold;
+
+                        if (canSnapX && (!canSnapY || std::abs(offsetX) <= std::abs(offsetY))) {
+                            nodeSnapX = offsetX;
+                            snappedX = true;
+                            guideTargetCenter = targetCenter;
+                            guideSourceCenter = Vec2(movedCenter.x + offsetX, movedCenter.y);
+                        } else if (canSnapY) {
+                            nodeSnapY = offsetY;
+                            snappedY = true;
+                            guideTargetCenter = targetCenter;
+                            guideSourceCenter = Vec2(movedCenter.x, movedCenter.y + offsetY);
+                        }
+                    }
+                }
+
+                if (snappedX) {
+                    snappedDelta.x += nodeSnapX;
+                    m_nodeSnapGuideVertical = m_nodeSnapEnabled;
+                    m_nodeSnapGuideSourceCenter = guideSourceCenter;
+                    m_nodeSnapGuideTargetCenter = guideTargetCenter;
+                } else if (m_gridSnapEnabled) {
+                    const float movedLeft = selectedMinX + snappedDelta.x;
+                    const float gridOffset = snapToGrid(movedLeft) - movedLeft;
+                    if (std::abs(gridOffset) <= snapThreshold * 0.7f) {
+                        snappedDelta.x += gridOffset;
+                    }
+                }
+
+                if (snappedY) {
+                    snappedDelta.y += nodeSnapY;
+                    m_nodeSnapGuideHorizontal = m_nodeSnapEnabled;
+                    m_nodeSnapGuideSourceCenter = guideSourceCenter;
+                    m_nodeSnapGuideTargetCenter = guideTargetCenter;
+                } else if (m_gridSnapEnabled) {
+                    const float movedTop = selectedMinY + snappedDelta.y;
+                    const float gridOffset = snapToGrid(movedTop) - movedTop;
+                    if (std::abs(gridOffset) <= snapThreshold * 0.7f) {
+                        snappedDelta.y += gridOffset;
+                    }
+                }
+            }
+        }
+
         for (auto &node: m_state.nodes) {
             if (node.selected) {
                 auto it = m_state.draggedNodePositions.find(node.id);
                 if (it != m_state.draggedNodePositions.end()) {
-                    node.position = it->second + scaledDelta;
+                    node.position = it->second + snappedDelta;
                 }
             }
         }
@@ -480,6 +1005,8 @@ namespace NodeEditorCore {
         m_state.activeNodeId = nodeId;
         m_state.activeNodeUuid = node->uuid;
         m_state.dragStart = Vec2(mousePos.x, mousePos.y);
+        m_nodeSnapGuideVertical = false;
+        m_nodeSnapGuideHorizontal = false;
 
         if (!node->selected) {
             selectNode(nodeId, ImGui::GetIO().KeyCtrl);
@@ -576,14 +1103,7 @@ namespace NodeEditorCore {
             bool pinHovered = false;
 
             for (const auto &pin: node.inputs) {
-                Pin apiPin;
-                apiPin.id = pin.id;
-                apiPin.name = pin.name;
-                apiPin.isInput = pin.isInput;
-                apiPin.type = static_cast<PinType>(pin.type);
-                apiPin.shape = static_cast<PinShape>(pin.shape);
-
-                if (isPinHovered(node, apiPin, canvasPos)) {
+                if (isPinHovered(node, pin, canvasPos)) {
                     m_state.hoveredNodeId = node.id;
                     m_state.hoveredNodeUuid = node.uuid;
                     m_state.hoveredPinId = pin.id;
@@ -596,14 +1116,7 @@ namespace NodeEditorCore {
             if (pinHovered) break;
 
             for (const auto &pin: node.outputs) {
-                Pin apiPin;
-                apiPin.id = pin.id;
-                apiPin.name = pin.name;
-                apiPin.isInput = pin.isInput;
-                apiPin.type = static_cast<PinType>(pin.type);
-                apiPin.shape = static_cast<PinShape>(pin.shape);
-
-                if (isPinHovered(node, apiPin, canvasPos)) {
+                if (isPinHovered(node, pin, canvasPos)) {
                     m_state.hoveredNodeId = node.id;
                     m_state.hoveredNodeUuid = node.uuid;
                     m_state.hoveredPinId = pin.id;
@@ -715,6 +1228,7 @@ namespace NodeEditorCore {
 
         m_state.interactionMode = InteractionMode::ContextMenu;
         m_state.contextMenuPos = Vec2::fromImVec2(mousePos);
+        m_state.contextMenuShouldOpen = true;
 
         m_state.contextMenuNodeId = -1;
         m_state.contextMenuPinId = -1;
@@ -734,6 +1248,13 @@ namespace NodeEditorCore {
     }
 
     void NodeEditor::drawContextMenu(ImDrawList *drawList) {
+        if (m_state.contextMenuShouldOpen) {
+            ImVec2 popupPos = ImVec2(m_state.contextMenuPos.x, m_state.contextMenuPos.y);
+            ImGui::SetNextWindowPos(popupPos);
+            ImGui::OpenPopup("NodeEditorContextMenu");
+            m_state.contextMenuShouldOpen = false;
+        }
+
         if (ImGui::BeginPopup("NodeEditorContextMenu")) {
             if (m_state.contextMenuNodeId != -1) {
                 Node *node = getNode(m_state.contextMenuNodeId);
@@ -742,7 +1263,7 @@ namespace NodeEditorCore {
                     ImGui::Separator();
 
                     if (ImGui::MenuItem("Delete Node")) {
-                        removeNode(m_state.contextMenuNodeId);
+                        requestDeleteNode(m_state.contextMenuNodeId);
                         ImGui::CloseCurrentPopup();
                     }
 
@@ -782,6 +1303,67 @@ namespace NodeEditorCore {
                 ImGui::Text("Canvas");
                 ImGui::Separator();
 
+                if (ImGui::BeginMenu("Create Node")) {
+                    Vec2 canvasPos = screenToCanvas(m_state.contextMenuPos);
+
+                    std::map<std::string, std::vector<std::string>> nodesByCategory;
+                    for (const auto &[typeName, info]: m_registeredNodeTypes) {
+                        const std::string category = info.category.empty() ? "Nodes" : info.category;
+                        nodesByCategory[category].push_back(typeName);
+                    }
+
+                    for (auto &[category, typeNames]: nodesByCategory) {
+                        std::sort(typeNames.begin(), typeNames.end());
+                        if (ImGui::BeginMenu(category.c_str())) {
+                            for (const auto &typeName: typeNames) {
+                                std::string displayName = typeName;
+                                std::string description;
+                                if (m_parentAPI) {
+                                    if (const auto *definition = m_parentAPI->getNodeDefinition(typeName)) {
+                                        if (!definition->name.empty()) {
+                                            displayName = definition->name;
+                                        }
+                                        description = definition->description;
+                                    }
+                                }
+
+                                ImGui::PushID(typeName.c_str());
+                                if (ImGui::MenuItem(displayName.c_str())) {
+                                    if (Node *node = createNodeOfType(typeName, canvasPos)) {
+                                        selectNode(node->id, false);
+                                    }
+                                    ImGui::CloseCurrentPopup();
+                                }
+
+                                if (!description.empty() && ImGui::IsItemHovered()) {
+                                    ImGui::SetTooltip("%s", description.c_str());
+                                }
+                                ImGui::PopID();
+                            }
+                            ImGui::EndMenu();
+                        }
+                    }
+
+                    if (nodesByCategory.empty()) {
+                        ImGui::TextDisabled("No node types registered");
+                        ImGui::Separator();
+
+                        if (ImGui::MenuItem("Generic Node")) {
+                            if (m_parentAPI) {
+                                NodeEditorCore::UUID nodeId = m_parentAPI->createNode("Generic", "New Node", canvasPos);
+                                if (!nodeId.empty()) {
+                                    selectNodeByUUID(nodeId, false);
+                                }
+                            }
+                            ImGui::CloseCurrentPopup();
+                        }
+                    }
+
+                    ImGui::EndMenu();
+                }
+
+                ImGui::Separator();
+
                 if (ImGui::MenuItem("Add Group")) {
                     Vec2 canvasPos = screenToCanvas(m_state.contextMenuPos);
                     addGroup("New Group", canvasPos, Vec2(200.0f, 150.0f));
@@ -793,8 +1375,45 @@ namespace NodeEditorCore {
                     ImGui::CloseCurrentPopup();
                 }
 
-                if (ImGui::MenuItem("Toggle Debug Mode")) {
+                if (ImGui::MenuItem("Zoom Adjusted")) {
+                    zoomToFit();
+                    ImGui::CloseCurrentPopup();
+                }
+
+                ImGui::Separator();
+
+                if (ImGui::BeginMenu("Magnetism")) {
+                    if (ImGui::MenuItem("Node to Node", nullptr, m_nodeSnapEnabled)) {
+                        m_nodeSnapEnabled = !m_nodeSnapEnabled;
+                    }
+                    if (ImGui::IsItemHovered()) {
+                        ImGui::SetTooltip("Align dragged nodes from center to the closest visible node center");
+                    }
+
+                    if (ImGui::MenuItem("Grid", nullptr, m_gridSnapEnabled)) {
+                        m_gridSnapEnabled = !m_gridSnapEnabled;
+                    }
+                    if (ImGui::IsItemHovered()) {
+                        ImGui::SetTooltip("Snap dragged nodes to the editor grid");
+                    }
+
+                    ImGui::EndMenu();
+                }
+
+                ImGui::Separator();
+
+                if (ImGui::MenuItem("Mode Debug")) {
                     m_debugMode = !m_debugMode;
+                    ImGui::CloseCurrentPopup();
+                }
+
+                if (ImGui::MenuItem("Show Minimap", nullptr, m_minimapEnabled)) {
+                    enableMinimap(!m_minimapEnabled);
+                    ImGui::CloseCurrentPopup();
+                }
+
+                if (ImGui::MenuItem("Select All")) {
+                    selectAllNodes();
                     ImGui::CloseCurrentPopup();
                 }
             }
@@ -805,25 +1424,10 @@ namespace NodeEditorCore {
                 endCurrentInteraction();
             }
         }
-
-        ImVec2 popupPos = ImVec2(m_state.contextMenuPos.x, m_state.contextMenuPos.y);
-        ImGui::SetNextWindowPos(popupPos);
-        ImGui::OpenPopup("NodeEditorContextMenu");
     }
 
-    bool NodeEditor::isPinHovered(const Node &node, const Pin &pin, const ImVec2 &canvasPos) {
-        ImVec2 pinPos = getPinPos(node, pin, canvasPos);
-
-        ImVec2 mousePos = ImGui::GetMousePos();
-
-        float pinRadius = m_state.style.pinRadius * m_state.viewScale;
-
-        float clickableRadius = pinRadius * 3.0f;
-
-        float dx = mousePos.x - pinPos.x;
-        float dy = mousePos.y - pinPos.y;
-
-        return (dx * dx + dy * dy) <= (clickableRadius * clickableRadius);
+    bool NodeEditor::isPinHovered(const Node &node, const Pin &pin, const ImVec2 &canvasPos) const {
+        return isPointInPinHitArea(ImGui::GetMousePos(), getPinPos(node, pin, canvasPos));
     }
 
     void NodeEditor::processConnectionCreation() {
@@ -838,6 +1442,8 @@ namespace NodeEditorCore {
         m_state.magnetPinNodeUuid = "";
         m_state.magnetPinUuid = "";
         m_state.canConnectToMagnetPin = false;
+        m_magnetRerouteId = -1;
+        m_canConnectToMagnetReroute = false;
 
         float closestDist = m_state.magnetThreshold * m_state.magnetThreshold;
 
@@ -845,27 +1451,22 @@ namespace NodeEditorCore {
         Pin sourceApiPin;
 
         if (m_connectingFromReroute && m_connectingRerouteId != -1) {
-            Reroute* reroute = getReroute(m_connectingRerouteId);
+            Reroute *reroute = getReroute(m_connectingRerouteId);
             if (!reroute) return;
 
-            const Connection* originalConnection = getConnection(reroute->connectionId);
+            const Connection *originalConnection = getConnection(reroute->connectionId);
             if (!originalConnection) return;
 
-            const Node* startNode = getNode(originalConnection->startNodeId);
+            const Node *startNode = getNode(originalConnection->startNodeId);
             if (!startNode) return;
 
-            const Pin* startPin = startNode->findPin(originalConnection->startPinId);
+            const Pin *startPin = startNode->findPin(originalConnection->startPinId);
             if (!startPin) return;
 
-            sourceApiPin.id = startPin->id;
-            sourceApiPin.name = startPin->name;
-            sourceApiPin.isInput = startPin->isInput;
-            sourceApiPin.type = static_cast<PinType>(startPin->type);
-            sourceApiPin.shape = static_cast<PinShape>(startPin->shape);
+            sourceApiPin = *startPin;
 
-            isSourceInput = false; 
-        }
-        else if (m_state.connectingNodeId != -1 && m_state.connectingPinId != -1) {
+            isSourceInput = false;
+        } else if (m_state.connectingNodeId != -1 && m_state.connectingPinId != -1) {
             const Node *sourceNode = getNode(m_state.connectingNodeId);
             if (!sourceNode) return;
 
@@ -874,13 +1475,8 @@ namespace NodeEditorCore {
 
             isSourceInput = sourcePinInternal->isInput;
 
-            sourceApiPin.id = sourcePinInternal->id;
-            sourceApiPin.name = sourcePinInternal->name;
-            sourceApiPin.isInput = sourcePinInternal->isInput;
-            sourceApiPin.type = static_cast<PinType>(sourcePinInternal->type);
-            sourceApiPin.shape = static_cast<PinShape>(sourcePinInternal->shape);
-        }
-        else {
+            sourceApiPin = *sourcePinInternal;
+        } else {
             return;
         }
 
@@ -891,7 +1487,8 @@ namespace NodeEditorCore {
         int eligiblePins = 0;
 
         for (const auto &node: m_state.nodes) {
-            if ((m_state.connectingNodeId != -1 && node.id == m_state.connectingNodeId) || !isNodeInCurrentSubgraph(node))
+            if ((m_state.connectingNodeId != -1 && node.id == m_state.connectingNodeId) || !
+                isNodeInCurrentSubgraph(node))
                 continue;
 
             const auto &pins = isSourceInput ? node.outputs : node.inputs;
@@ -903,14 +1500,7 @@ namespace NodeEditorCore {
             for (const auto &pinInternal: pins) {
                 eligiblePins++;
 
-                Pin apiPin;
-                apiPin.id = pinInternal.id;
-                apiPin.name = pinInternal.name;
-                apiPin.isInput = pinInternal.isInput;
-                apiPin.type = static_cast<PinType>(pinInternal.type);
-                apiPin.shape = static_cast<PinShape>(pinInternal.shape);
-
-                ImVec2 pinPos = getPinPos(node, apiPin, ImGui::GetWindowPos());
+                ImVec2 pinPos = getPinPos(node, pinInternal, ImGui::GetWindowPos());
 
                 float dx = mousePos.x - pinPos.x;
                 float dy = mousePos.y - pinPos.y;
@@ -922,9 +1512,9 @@ namespace NodeEditorCore {
                     bool canConnect = false;
 
                     if (isSourceInput && !pinInternal.isInput) {
-                        canConnect = canCreateConnection(apiPin, sourceApiPin);
+                        canConnect = canCreateConnection(pinInternal, sourceApiPin);
                     } else if (!isSourceInput && pinInternal.isInput) {
-                        canConnect = canCreateConnection(sourceApiPin, apiPin);
+                        canConnect = canCreateConnection(sourceApiPin, pinInternal);
                     }
 
                     drawList->AddText(pinPos, canConnect ? IM_COL32(0, 255, 0, 255) : IM_COL32(255, 0, 0, 255),
@@ -944,6 +1534,58 @@ namespace NodeEditorCore {
             }
         }
 
+        if (!m_connectingFromReroute &&
+            m_state.connectingNodeId != -1 &&
+            m_state.connectingPinId != -1) {
+            std::unordered_set<UUID, UUIDHash> testedKnots;
+            const float rerouteThreshold = std::max(
+                m_state.magnetThreshold,
+                m_rerouteStyle.outerRadius * m_state.viewScale * 2.5f);
+            const float rerouteThresholdSquared = rerouteThreshold * rerouteThreshold;
+
+            for (const auto &reroute: m_reroutes) {
+                const UUID &knotUuid = rerouteKnotKey(reroute);
+                if (!testedKnots.insert(knotUuid).second) continue;
+
+                const Connection *connection = getConnection(reroute.connectionId);
+                if (!connection) continue;
+
+                const Node *startNode = getNode(connection->startNodeId);
+                const Node *endNode = getNode(connection->endNodeId);
+                if (!startNode || !endNode) continue;
+                if (!isNodeInCurrentSubgraph(*startNode) || !isNodeInCurrentSubgraph(*endNode)) continue;
+
+                Vec2 rerouteScreenPos = canvasToScreen(reroute.position);
+                const float dx = mousePos.x - rerouteScreenPos.x;
+                const float dy = mousePos.y - rerouteScreenPos.y;
+                const float dist = dx * dx + dy * dy;
+
+                if (dist >= closestDist || dist > rerouteThresholdSquared) continue;
+                if (!canConnectPinToReroute(m_state.connectingNodeId, m_state.connectingPinId, reroute.id)) continue;
+
+                m_magnetRerouteId = reroute.id;
+                m_canConnectToMagnetReroute = true;
+                m_state.magnetPinNodeId = -1;
+                m_state.magnetPinId = -1;
+                m_state.magnetPinNodeUuid = "";
+                m_state.magnetPinUuid = "";
+                m_state.canConnectToMagnetPin = false;
+                closestDist = dist;
+            }
+
+            if (m_magnetRerouteId != -1) {
+                const Reroute *magnetReroute = getReroute(m_magnetRerouteId);
+                if (magnetReroute) {
+                    const UUID knotUuid = rerouteKnotKey(*magnetReroute);
+                    for (auto &member: m_reroutes) {
+                        if (rerouteKnotKey(member) == knotUuid) {
+                            member.hoveredOuter = true;
+                        }
+                    }
+                }
+            }
+        }
+
         drawList->AddText(ImVec2(10, 410), IM_COL32(255, 0, 0, 255),
                           ("Eligible pins found: " + std::to_string(eligiblePins)).c_str());
 
@@ -954,12 +1596,36 @@ namespace NodeEditorCore {
     }
 
     ImVec2 NodeEditor::getPinPos(const Node &node, const Pin &pin, const ImVec2 &canvasPos) const {
+        (void) canvasPos;
+
         ImVec2 nodePos = canvasToScreen(node.position).toImVec2();
 
         ImVec2 nodeSize = Vec2(node.size.x * m_state.viewScale, node.size.y * m_state.viewScale).toImVec2();
 
-        float pinSpacing = 25.0f * m_state.viewScale;
-        float leftMargin = 20.0f * m_state.viewScale;
+        const float pinSpacing = 25.0f * m_state.viewScale;
+        const float nominalLeftMargin = 20.0f * m_state.viewScale;
+        const float pinInset = getPinVisualRadius();
+        const float sidePadding = 3.0f * m_state.viewScale;
+        const float leftBound = nodePos.x + pinInset + sidePadding;
+        const float rightBound = nodePos.x + nodeSize.x - pinInset - sidePadding;
+
+        auto calculatePinX = [&](int pinIndex, size_t pinCount, float laneRightBound) {
+            const float laneLeft = leftBound;
+            const float laneRight = std::max(laneLeft, laneRightBound);
+            const float nominalStart = std::clamp(nodePos.x + nominalLeftMargin, laneLeft, laneRight);
+
+            if (pinCount <= 1) {
+                return nominalStart;
+            }
+
+            const float nominalLast = nominalStart + static_cast<float>(pinCount - 1) * pinSpacing;
+            if (nominalLast <= laneRight) {
+                return nominalStart + static_cast<float>(pinIndex) * pinSpacing;
+            }
+
+            const float t = static_cast<float>(pinIndex) / static_cast<float>(pinCount - 1);
+            return laneLeft + (laneRight - laneLeft) * t;
+        };
 
         if (pin.isInput) {
             int pinIndex = -1;
@@ -972,7 +1638,14 @@ namespace NodeEditorCore {
 
             if (pinIndex < 0) return ImVec2(0, 0);
 
-            float pinX = nodePos.x + leftMargin + pinIndex * pinSpacing;
+            float inputRightBound = rightBound;
+            if (nodeHasHeaderButtons(node)) {
+                const NodeHeaderButtonLayout buttonLayout = getNodeHeaderButtonLayout(nodePos, nodeSize);
+                inputRightBound = std::min(
+                    rightBound,
+                    buttonLayout.disableMin.x - pinInset - sidePadding);
+            }
+            const float pinX = calculatePinX(pinIndex, node.inputs.size(), inputRightBound);
 
             return ImVec2(pinX, nodePos.y);
         } else {
@@ -986,7 +1659,7 @@ namespace NodeEditorCore {
 
             if (pinIndex < 0) return ImVec2(0, 0);
 
-            float pinX = nodePos.x + leftMargin + pinIndex * pinSpacing;
+            const float pinX = calculatePinX(pinIndex, node.outputs.size(), rightBound);
 
             return ImVec2(pinX, nodePos.y + nodeSize.y);
         }
@@ -1059,7 +1732,7 @@ namespace NodeEditorCore {
             }
         } else {
             std::vector<ImVec2> pathPoints = getConnectionPathWithReroutesForDetection(connection, canvasPos);
-            
+
             for (size_t i = 0; i < pathPoints.size() - 1; i++) {
                 ImVec2 segmentStart = pathPoints[i];
                 ImVec2 segmentEnd = pathPoints[i + 1];
@@ -1085,7 +1758,8 @@ namespace NodeEditorCore {
 
                 switch (style) {
                     case ConnectionStyleManager::ConnectionStyle::Bezier: {
-                        auto [cp1, cp2] = calculateBezierControlPoints(segmentStart, segmentEnd, segmentStartInput, segmentEndInput, tension);
+                        auto [cp1, cp2] = calculateBezierControlPoints(segmentStart, segmentEnd, segmentStartInput,
+                                                                       segmentEndInput, tension);
                         segmentDistance = getDistanceToBezierCubic(mousePos, segmentStart, cp1, cp2, segmentEnd);
                         break;
                     }
@@ -1142,15 +1816,8 @@ namespace NodeEditorCore {
             );
 
             for (const auto &pin: node.inputs) {
-                Pin apiPin;
-                apiPin.id = pin.id;
-                apiPin.name = pin.name;
-                apiPin.isInput = pin.isInput;
-                apiPin.type = static_cast<PinType>(pin.type);
-                apiPin.shape = static_cast<PinShape>(pin.shape);
-
-                ImVec2 pinPos = getPinPos(node, apiPin, canvasPos);
-                float radius = m_state.style.pinRadius * m_state.viewScale * 2.0f;
+                ImVec2 pinPos = getPinPos(node, pin, canvasPos);
+                float radius = getPinHitRadius();
 
                 drawList->AddCircle(
                     pinPos,
@@ -1161,15 +1828,8 @@ namespace NodeEditorCore {
             }
 
             for (const auto &pin: node.outputs) {
-                Pin apiPin;
-                apiPin.id = pin.id;
-                apiPin.name = pin.name;
-                apiPin.isInput = pin.isInput;
-                apiPin.type = static_cast<PinType>(pin.type);
-                apiPin.shape = static_cast<PinShape>(pin.shape);
-
-                ImVec2 pinPos = getPinPos(node, apiPin, canvasPos);
-                float radius = m_state.style.pinRadius * m_state.viewScale * 2.0f;
+                ImVec2 pinPos = getPinPos(node, pin, canvasPos);
+                float radius = getPinHitRadius();
 
                 drawList->AddCircle(
                     pinPos,
@@ -1195,7 +1855,7 @@ namespace NodeEditorCore {
             ImVec2 mousePos = ImGui::GetMousePos();
 
             float threshold = std::max(8.0f, 12.0f * m_state.viewScale);
-            
+
             std::vector<ImVec2> pathPoints = getConnectionPathWithReroutesForDetection(connection, canvasPos);
 
             if (pathPoints.size() < 2) continue;
@@ -1225,7 +1885,8 @@ namespace NodeEditorCore {
 
                 switch (style) {
                     case ConnectionStyleManager::ConnectionStyle::Bezier: {
-                        auto [cp1, cp2] = calculateBezierControlPoints(segmentStart, segmentEnd, segmentStartInput, segmentEndInput, tension);
+                        auto [cp1, cp2] = calculateBezierControlPoints(segmentStart, segmentEnd, segmentStartInput,
+                                                                       segmentEndInput, tension);
 
                         drawList->AddCircle(cp1, 4.0f, IM_COL32(255, 255, 0, 255));
                         drawList->AddCircle(cp2, 4.0f, IM_COL32(255, 255, 0, 255));
@@ -1254,13 +1915,14 @@ namespace NodeEditorCore {
 
                     case ConnectionStyleManager::ConnectionStyle::StraightLine: {
                         drawList->AddLine(segmentStart, segmentEnd, segmentColor, 3.0f);
-                        
+
                         float dx = segmentEnd.x - segmentStart.x;
                         float dy = segmentEnd.y - segmentStart.y;
                         float length2 = dx * dx + dy * dy;
 
                         if (length2 > 0.0001f) {
-                            float t = ((mousePos.x - segmentStart.x) * dx + (mousePos.y - segmentStart.y) * dy) / length2;
+                            float t = ((mousePos.x - segmentStart.x) * dx + (mousePos.y - segmentStart.y) * dy) /
+                                      length2;
                             t = std::max(0.0f, std::min(1.0f, t));
 
                             ImVec2 closest = ImVec2(segmentStart.x + t * dx, segmentStart.y + t * dy);
@@ -1315,8 +1977,8 @@ namespace NodeEditorCore {
 
             for (size_t i = 0; i < pathPoints.size(); i++) {
                 ImU32 pointColor = (i == 0 || i == pathPoints.size() - 1)
-                                    ? IM_COL32(255, 255, 0, 255)
-                                    : IM_COL32(0, 255, 0, 255);
+                                       ? IM_COL32(255, 255, 0, 255)
+                                       : IM_COL32(0, 255, 0, 255);
                 drawList->AddCircle(pathPoints[i], 6.0f, pointColor);
             }
 
@@ -1328,8 +1990,8 @@ namespace NodeEditorCore {
                     connection.id, minDist, threshold,
                     minDist <= threshold ? "HIT" : "MISS",
                     pathPoints.size() - 2);
-            ImVec2 textPos = ImVec2((pathPoints.front().x + pathPoints.back().x) * 0.5f, 
-                                   (pathPoints.front().y + pathPoints.back().y) * 0.5f - 20);
+            ImVec2 textPos = ImVec2((pathPoints.front().x + pathPoints.back().x) * 0.5f,
+                                    (pathPoints.front().y + pathPoints.back().y) * 0.5f - 20);
             drawList->AddText(textPos, IM_COL32(255, 255, 255, 255), debugText);
         }
 
@@ -1354,7 +2016,9 @@ namespace NodeEditorCore {
             ImVec2 mousePos = ImGui::GetMousePos();
             float dx = mousePos.x - center.x;
             float dy = mousePos.y - center.y;
-            float distance = sqrt(dx * dx + dy * dy);
+            float distance = Math::distance(
+            Vec2(mousePos.x, mousePos.y),
+            Vec2(center.x, center.y));
 
             RerouteHitZone hitZone = getRerouteHitZone(reroute, mousePos, canvasPos);
             ImU32 textColor = IM_COL32(255, 255, 255, 255);
@@ -1403,8 +2067,6 @@ namespace NodeEditorCore {
 
         if (std::abs(zoom) < 0.01f) return;
 
-        Vec2 canvasPos = screenToCanvas(Vec2(mousePos.x, mousePos.y));
-
         float zoomFactor = 1.1f;
         float newScale = m_state.viewScale;
 
@@ -1414,41 +2076,166 @@ namespace NodeEditorCore {
             newScale /= zoomFactor;
         }
 
-        newScale = std::max(0.1f, std::min(newScale, 3.0f));
+        newScale = std::max(m_viewManager.getMinZoom(), std::min(newScale, m_viewManager.getMaxZoom()));
 
         float scaleRatio = newScale / m_state.viewScale;
+        float localMouseX = mousePos.x - m_state.canvasPos.x;
+        float localMouseY = mousePos.y - m_state.canvasPos.y;
         Vec2 newViewPos = Vec2(
-            mousePos.x - (mousePos.x - m_state.viewPosition.x) * scaleRatio,
-            mousePos.y - (mousePos.y - m_state.viewPosition.y) * scaleRatio
+            localMouseX - (localMouseX - m_state.viewPosition.x) * scaleRatio,
+            localMouseY - (localMouseY - m_state.viewPosition.y) * scaleRatio
         );
 
-        m_state.viewScale = newScale;
-        m_state.viewPosition = newViewPos;
-
-        m_viewManager.setViewScale(newScale);
-        m_viewManager.setViewPosition(newViewPos);
+        applyViewTransform(newViewPos, newScale);
     }
 
     void NodeEditor::duplicateNode(int nodeId) {
         const Node *srcNode = getNode(nodeId);
         if (!srcNode) return;
 
-        Vec2 offset(20.0f, 20.0f);
-        Vec2 newPos = srcNode->position + offset;
-
-        int newNodeId = addNode(srcNode->name + " (copy)", srcNode->type, newPos);
-        Node *newNode = getNode(newNodeId);
-        if (!newNode) return;
-
-        newNode->iconSymbol = srcNode->iconSymbol;
-        newNode->labelPosition = srcNode->labelPosition;
-
-        for (const auto &pin: srcNode->inputs) {
-            addPin(newNodeId, pin.name, true, pin.type, pin.shape);
+        std::vector<int> nodesToDuplicate;
+        if (srcNode->selected) {
+            nodesToDuplicate = getSelectedNodes();
+        }
+        if (nodesToDuplicate.empty()) {
+            nodesToDuplicate.push_back(nodeId);
         }
 
-        for (const auto &pin: srcNode->outputs) {
-            addPin(newNodeId, pin.name, false, pin.type, pin.shape);
+        std::unordered_map<int, int> duplicatedNodeIds;
+        std::map<std::pair<int, int>, int> duplicatedPinIds;
+        const Vec2 offset(20.0f, 20.0f);
+
+        deselectAllNodes();
+
+        for (int sourceNodeId: nodesToDuplicate) {
+            const Node *source = getNode(sourceNodeId);
+            if (!source || source->isProtected) {
+                continue;
+            }
+
+            const int duplicateId = addNode(source->name + " (copy)", source->type, source->position + offset);
+            Node *duplicate = getNode(duplicateId);
+            if (!duplicate) {
+                continue;
+            }
+
+            duplicate->size = source->size;
+            duplicate->iconSymbol = source->iconSymbol;
+            duplicate->disabled = source->disabled;
+            duplicate->isTemplate = source->isTemplate;
+            duplicate->labelPosition = source->labelPosition;
+            duplicate->metadata = source->metadata;
+            duplicate->isCurrentFlag = false;
+            duplicate->isProtected = false;
+
+            for (const auto &pin: source->inputs) {
+                const int duplicatePinId = addPin(duplicateId, pin.name, true, pin.type, pin.shape);
+                duplicatedPinIds[{sourceNodeId, pin.id}] = duplicatePinId;
+                if (Pin *duplicatePin = getPin(duplicateId, duplicatePinId)) {
+                    duplicatePin->label = pin.label;
+                    duplicatePin->color = pin.color;
+                    duplicatePin->metadata = pin.metadata;
+                    duplicatePin->connected = false;
+                }
+            }
+
+            for (const auto &pin: source->outputs) {
+                const int duplicatePinId = addPin(duplicateId, pin.name, false, pin.type, pin.shape);
+                duplicatedPinIds[{sourceNodeId, pin.id}] = duplicatePinId;
+                if (Pin *duplicatePin = getPin(duplicateId, duplicatePinId)) {
+                    duplicatePin->label = pin.label;
+                    duplicatePin->color = pin.color;
+                    duplicatePin->metadata = pin.metadata;
+                    duplicatePin->connected = false;
+                }
+            }
+
+            duplicatedNodeIds[sourceNodeId] = duplicateId;
+            selectNode(duplicateId, true);
         }
+
+        for (const auto &connection: m_state.connections) {
+            auto startNodeIt = duplicatedNodeIds.find(connection.startNodeId);
+            auto endNodeIt = duplicatedNodeIds.find(connection.endNodeId);
+            if (startNodeIt == duplicatedNodeIds.end() || endNodeIt == duplicatedNodeIds.end()) {
+                continue;
+            }
+
+            auto startPinIt = duplicatedPinIds.find({connection.startNodeId, connection.startPinId});
+            auto endPinIt = duplicatedPinIds.find({connection.endNodeId, connection.endPinId});
+            if (startPinIt == duplicatedPinIds.end() || endPinIt == duplicatedPinIds.end()) {
+                continue;
+            }
+
+            const int duplicateConnectionId = addConnection(
+                startNodeIt->second,
+                startPinIt->second,
+                endNodeIt->second,
+                endPinIt->second);
+
+            if (Connection *duplicateConnection = getConnection(duplicateConnectionId)) {
+                duplicateConnection->metadata = connection.metadata;
+            }
+        }
+    }
+
+    bool NodeEditor::checkNodeButtonClick(int nodeId, const ImVec2 &mousePos) {
+        const Node *node = getNode(nodeId);
+        if (!node) return false;
+
+        if (!nodeHasHeaderButtons(*node)) return false;
+
+        ImVec2 nodePos = canvasToScreen(node->position).toImVec2();
+        ImVec2 nodeSize = Vec2(node->size.x * m_state.viewScale, node->size.y * m_state.viewScale).toImVec2();
+
+        const NodeHeaderButtonLayout buttonLayout = getNodeHeaderButtonLayout(nodePos, nodeSize);
+
+        if (mousePos.x >= buttonLayout.disableMin.x && mousePos.x <= buttonLayout.disableMax.x &&
+            mousePos.y >= buttonLayout.disableMin.y && mousePos.y <= buttonLayout.disableMax.y) {
+            toggleNodeDisabled(nodeId);
+            return true;
+        }
+
+        if (mousePos.x >= buttonLayout.templateMin.x && mousePos.x <= buttonLayout.templateMax.x &&
+            mousePos.y >= buttonLayout.templateMin.y && mousePos.y <= buttonLayout.templateMax.y) {
+            toggleNodeTemplate(nodeId);
+            return true;
+        }
+
+        if (mousePos.x >= buttonLayout.flagMin.x && mousePos.x <= buttonLayout.flagMax.x &&
+            mousePos.y >= buttonLayout.flagMin.y && mousePos.y <= buttonLayout.flagMax.y) {
+            setNodeAsComputationOutput(nodeId);
+            return true;
+        }
+
+        return false;
+    }
+
+    void NodeEditor::toggleNodeDisabled(int nodeId) {
+        Node *node = getNode(nodeId);
+        if (!node) return;
+
+        node->disabled = !node->disabled;
+    }
+
+    void NodeEditor::toggleNodeTemplate(int nodeId) {
+        Node *node = getNode(nodeId);
+        if (!node) return;
+
+        node->isTemplate = !node->isTemplate;
+    }
+
+    void NodeEditor::setNodeAsComputationOutput(int nodeId) {
+        Node *node = getNode(nodeId);
+        if (!node) return;
+
+        const bool nextFlagState = !node->isCurrentFlag;
+        for (auto &nodeState: m_state.nodes) {
+            if (nodeState.id != nodeId) {
+                nodeState.isCurrentFlag = false;
+            }
+        }
+
+        node->isCurrentFlag = nextFlagState;
     }
 }

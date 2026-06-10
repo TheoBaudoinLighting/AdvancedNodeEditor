@@ -91,7 +91,9 @@ namespace NodeEditorCore {
         ImDrawList *drawList, const ImVec2 &start, const ImVec2 &end,
         bool isStartInput, bool isEndInput,
         bool selected, bool hovered, const Color &startCol, const Color &endCol, float scale) {
-        const float distance = std::sqrt(std::pow(end.x - start.x, 2) + std::pow(end.y - start.y, 2));
+        const float distance = Math::distance(
+            Vec2(start.x, start.y),
+            Vec2(end.x, end.y));
         const float tension = m_config.curveTension;
         const float cpDistance = distance * tension;
 
@@ -455,8 +457,8 @@ namespace NodeEditorCore {
                 ImVec2 dir1 = ImVec2(points[i].x - points[i - 1].x, points[i].y - points[i - 1].y);
                 ImVec2 dir2 = ImVec2(points[i + 1].x - points[i].x, points[i + 1].y - points[i].y);
 
-                float len1 = std::sqrt(dir1.x * dir1.x + dir1.y * dir1.y);
-                float len2 = std::sqrt(dir2.x * dir2.x + dir2.y * dir2.y);
+                        float len1 = Math::distance(Vec2(0, 0), Vec2(dir1.x, dir1.y));
+        float len2 = Math::distance(Vec2(0, 0), Vec2(dir2.x, dir2.y));
 
                 if (len1 < 0.0001f || len2 < 0.0001f) continue;
 

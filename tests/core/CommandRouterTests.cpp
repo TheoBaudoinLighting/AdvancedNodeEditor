@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 #include "../../AdvancedNodeEditor/Utils/CommandRouter.h"
 #include "../../AdvancedNodeEditor/Utils/CommandDefinitions.h"
+#include <algorithm>
 #include <string>
 #include <vector>
 #include <sstream>

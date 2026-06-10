@@ -9,23 +9,25 @@
 namespace NodeEditorCore {
     ViewManager::ViewManager()
         : m_currentState(Vec2(0.0f, 0.0f), 1.0f)
-        , m_targetState(Vec2(0.0f, 0.0f), 1.0f)
-        , m_transitionDuration(0.0f)
-        , m_transitionElapsed(0.0f)
-        , m_transitionType(ViewTransitionType::Instant)
-        , m_transitioning(false)
-        , m_minZoom(0.1f)
-        , m_maxZoom(10.0f)
-        , m_windowSize(1280.0f, 720.0f)
-        , m_boundingBoxProvider(nullptr)
-        , m_nodeBoundingBoxProvider(nullptr)
-        , m_selectedNodesBoundingBoxProvider(nullptr) {
+          , m_targetState(Vec2(0.0f, 0.0f), 1.0f)
+          , m_transitionDuration(0.0f)
+          , m_transitionElapsed(0.0f)
+          , m_transitionType(ViewTransitionType::Instant)
+          , m_transitioning(false)
+          , m_minZoom(0.1f)
+          , m_maxZoom(10.0f)
+          , m_boundsMin(-5000.0f, -5000.0f)
+          , m_boundsMax(5000.0f, 5000.0f)
+          , m_windowSize(1280.0f, 720.0f)
+          , m_boundingBoxProvider(nullptr)
+          , m_nodeBoundingBoxProvider(nullptr)
+          , m_selectedNodesBoundingBoxProvider(nullptr) {
     }
 
     ViewManager::~ViewManager() = default;
 
     void ViewManager::setViewPosition(const Vec2 &position) {
-        m_currentState.position = position;
+        m_currentState.position = clampPosition(position, m_currentState.scale);
         m_transitioning = false;
     }
 
@@ -43,7 +45,7 @@ namespace NodeEditorCore {
         return m_currentState.scale;
     }
 
-    void ViewManager::setWindowSize(const Vec2& size) {
+    void ViewManager::setWindowSize(const Vec2 &size) {
         if (size.x > 0 && size.y > 0) {
             m_windowSize = size;
         }
@@ -53,7 +55,7 @@ namespace NodeEditorCore {
         return m_windowSize;
     }
 
-    Vec2 ViewManager::getEffectiveWindowSize(const Vec2& providedSize) const {
+    Vec2 ViewManager::getEffectiveWindowSize(const Vec2 &providedSize) const {
         if (providedSize.x > 0 && providedSize.y > 0) {
             return providedSize;
         }
@@ -65,7 +67,7 @@ namespace NodeEditorCore {
         return Vec2(1280, 720);
     }
 
-    void ViewManager::centerView(const Vec2& windowSize) {
+    void ViewManager::centerView(const Vec2 &windowSize) {
         if (!m_boundingBoxProvider) return;
 
         Vec2 min(std::numeric_limits<float>::max(), std::numeric_limits<float>::max());
@@ -93,7 +95,7 @@ namespace NodeEditorCore {
         setViewPosition(newPosition);
     }
 
-    void ViewManager::centerOnNode(int nodeId, const Vec2& windowSize) {
+    void ViewManager::centerOnNode(int nodeId, const Vec2 &windowSize) {
         if (!m_nodeBoundingBoxProvider) return;
 
         Vec2 min(std::numeric_limits<float>::max(), std::numeric_limits<float>::max());
@@ -120,13 +122,13 @@ namespace NodeEditorCore {
         setViewPosition(newPosition);
     }
 
-    void ViewManager::centerOnNodes(const std::vector<int> &nodeIds, const Vec2& windowSize) {
+    void ViewManager::centerOnNodes(const std::vector<int> &nodeIds, const Vec2 &windowSize) {
         if (!m_nodeBoundingBoxProvider || nodeIds.empty()) return;
 
         Vec2 min(std::numeric_limits<float>::max(), std::numeric_limits<float>::max());
         Vec2 max(-std::numeric_limits<float>::max(), -std::numeric_limits<float>::max());
 
-        for (int nodeId : nodeIds) {
+        for (int nodeId: nodeIds) {
             Vec2 nodeMin, nodeMax;
             m_nodeBoundingBoxProvider(nodeId, nodeMin, nodeMax);
 
@@ -157,7 +159,7 @@ namespace NodeEditorCore {
         setViewPosition(newPosition);
     }
 
-    void ViewManager::zoomToFit(float padding, const Vec2& windowSize) {
+    void ViewManager::zoomToFit(float padding, const Vec2 &windowSize) {
         if (!m_boundingBoxProvider) return;
 
         Vec2 min(std::numeric_limits<float>::max(), std::numeric_limits<float>::max());
@@ -196,7 +198,7 @@ namespace NodeEditorCore {
         startViewTransition(targetState);
     }
 
-    void ViewManager::zoomToFitSelected(float padding, const Vec2& windowSize) {
+    void ViewManager::zoomToFitSelected(float padding, const Vec2 &windowSize) {
         if (!m_selectedNodesBoundingBoxProvider) return;
 
         Vec2 min(std::numeric_limits<float>::max(), std::numeric_limits<float>::max());
@@ -236,6 +238,7 @@ namespace NodeEditorCore {
 
     void ViewManager::startViewTransition(const ViewState &targetState, float duration, ViewTransitionType type) {
         m_targetState = targetState;
+        m_targetState.position = clampPosition(targetState.position, targetState.scale);
         m_transitionDuration = duration;
         m_transitionElapsed = 0.0f;
         m_transitionType = type;
@@ -300,11 +303,11 @@ namespace NodeEditorCore {
         m_boundingBoxProvider = provider;
     }
 
-    void ViewManager::setNodeBoundingBoxProvider(std::function<void(int, Vec2&, Vec2&)> provider) {
+    void ViewManager::setNodeBoundingBoxProvider(std::function<void(int, Vec2 &, Vec2 &)> provider) {
         m_nodeBoundingBoxProvider = provider;
     }
 
-    void ViewManager::setSelectedNodesBoundingBoxProvider(std::function<void(Vec2&, Vec2&)> provider) {
+    void ViewManager::setSelectedNodesBoundingBoxProvider(std::function<void(Vec2 &, Vec2 &)> provider) {
         m_selectedNodesBoundingBoxProvider = provider;
     }
 
@@ -329,6 +332,25 @@ namespace NodeEditorCore {
         result.position.x = start.position.x + (end.position.x - start.position.x) * t;
         result.position.y = start.position.y + (end.position.y - start.position.y) * t;
         result.scale = start.scale + (end.scale - start.scale) * t;
+        return result;
+    }
+
+    void ViewManager::setGraphBounds(const Vec2 &min, const Vec2 &max) {
+        m_boundsMin = min;
+        m_boundsMax = max;
+        m_currentState.position = clampPosition(m_currentState.position, m_currentState.scale);
+    }
+
+    Vec2 ViewManager::clampPosition(const Vec2 &pos, float scale) const {
+        // Garantit qu'au moins k_boundsMargin unités graph restent visibles depuis chaque bord
+        float minX = -(m_boundsMax.x - k_boundsMargin) * scale;
+        float maxX =  m_windowSize.x - (m_boundsMin.x + k_boundsMargin) * scale;
+        float minY = -(m_boundsMax.y - k_boundsMargin) * scale;
+        float maxY =  m_windowSize.y - (m_boundsMin.y + k_boundsMargin) * scale;
+
+        Vec2 result;
+        result.x = (minX <= maxX) ? std::max(minX, std::min(pos.x, maxX)) : pos.x;
+        result.y = (minY <= maxY) ? std::max(minY, std::min(pos.y, maxY)) : pos.y;
         return result;
     }
 }

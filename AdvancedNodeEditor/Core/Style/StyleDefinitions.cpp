@@ -18,7 +18,8 @@ namespace NodeEditorCore {
         : gridSpacing(16.0f)
           , nodeRounding(4.0f)
           , pinRadius(3.3f)
-          , connectionThickness(2.5f) {
+          , connectionThickness(2.5f)
+          , defaultNodeSize(140.0f, 28.0f) {
         uiColors.background = Color(0.15f, 0.15f, 0.17f, 1.00f);
         uiColors.grid = Color(0.23f, 0.23f, 0.26f, 0.314f);
         uiColors.selection = Color(0.70f, 0.80f, 1.00f, 0.392f);
@@ -86,46 +87,18 @@ namespace NodeEditorCore {
         defaultColors.glow = Color(0.300f, 0.300f, 0.300f, 0.235f);
         nodeColors["Default"] = defaultColors;
 
-        internal::PinColors blueColors;
-        blueColors.base = Color(0.2f, 0.4f, 0.9f, 1.0f);
-        blueColors.hover = Color(0.3f, 0.5f, 1.0f, 1.0f);
-        blueColors.connected = Color(0.4f, 0.6f, 1.0f, 1.0f);
-        pinColors["Blue"] = blueColors;
+        auto addPinColors = [this](const PinVisualStyle &presentation, const std::string &key) {
+            internal::PinColors colors;
+            colors.base = presentation.color;
+            colors.hover = presentation.hoverColor;
+            colors.connected = presentation.connectedColor;
+            pinColors[key] = colors;
+        };
 
-        internal::PinColors redColors;
-        redColors.base = Color(0.9f, 0.3f, 0.3f, 1.0f);
-        redColors.hover = Color(1.0f, 0.4f, 0.4f, 1.0f);
-        redColors.connected = Color(1.0f, 0.5f, 0.5f, 1.0f);
-        pinColors["Red"] = redColors;
-
-        internal::PinColors greenColors;
-        greenColors.base = Color(0.3f, 0.8f, 0.3f, 1.0f);
-        greenColors.hover = Color(0.4f, 0.9f, 0.4f, 1.0f);
-        greenColors.connected = Color(0.5f, 1.0f, 0.5f, 1.0f);
-        pinColors["Green"] = greenColors;
-
-        internal::PinColors yellowColor;
-        yellowColor.base = Color(0.95f, 0.95f, 0.3f, 1.0f);
-        yellowColor.hover = Color(1.0f, 1.0f, 0.4f, 1.0f);
-        yellowColor.connected = Color(1.0f, 1.0f, 0.5f, 1.0f);
-        pinColors["Yellow"] = yellowColor;
-
-        internal::PinColors purpleColors;
-        purpleColors.base = Color(0.8f, 0.3f, 0.8f, 1.0f);
-        purpleColors.hover = Color(0.9f, 0.4f, 0.9f, 1.0f);
-        purpleColors.connected = Color(1.0f, 0.5f, 1.0f, 1.0f);
-        pinColors["Purple"] = purpleColors;
-
-        internal::PinColors cyanColors;
-        cyanColors.base = Color(0.3f, 0.8f, 0.9f, 1.0f);
-        cyanColors.hover = Color(0.4f, 0.9f, 1.0f, 1.0f);
-        cyanColors.connected = Color(0.5f, 1.0f, 1.0f, 1.0f);
-        pinColors["Cyan"] = cyanColors;
-
-        internal::PinColors orangeColors;
-        orangeColors.base = Color(0.9f, 0.6f, 0.3f, 1.0f);
-        orangeColors.hover = Color(1.0f, 0.7f, 0.4f, 1.0f);
-        orangeColors.connected = Color(1.0f, 0.8f, 0.5f, 1.0f);
-        pinColors["Orange"] = orangeColors;
+        for (const PinType pinType: PinStyleCatalog::PinTypes()) {
+            const PinVisualStyle presentation = PinStyleCatalog::ForPinType(pinType);
+            addPinColors(presentation, presentation.styleKey);
+        }
+        addPinColors(PinStyleCatalog::ForPinType(PinType::Custom), "Default");
     }
 }

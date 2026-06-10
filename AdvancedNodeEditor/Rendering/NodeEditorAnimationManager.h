@@ -29,23 +29,30 @@ namespace NodeEditorCore {
     class AnimationManager {
     public:
         AnimationManager() = default;
+
         ~AnimationManager() = default;
 
         void update(float deltaTime);
 
-        NodeAnimationState& getNodeAnimationState(int nodeId);
-        ConnectionAnimationState& getConnectionAnimationState(int connectionId);
+        NodeAnimationState &getNodeAnimationState(int nodeId);
+
+        ConnectionAnimationState &getConnectionAnimationState(int connectionId);
 
         void setNodeHovered(int nodeId, bool hovered);
+
         void setNodeExecuting(int nodeId, bool executing);
-        void setNodeTargetPosition(int nodeId, const Vec2& position);
+
+        void setNodeTargetPosition(int nodeId, const Vec2 &position);
+
         void setNodeJustConnected(int nodeId, int pinType);
 
         void activateConnectionFlow(int connectionId, bool infinite = true, float duration = 3.0f);
+
         void deactivateConnectionFlow(int connectionId);
 
-        void updateNodePositions(std::vector<Node>& nodes, float deltaTime);
-        void updateConnectionFlows(std::vector<Connection>& connections, float deltaTime);
+        void updateNodePositions(std::vector<Node> &nodes, float deltaTime);
+
+        void updateConnectionFlows(std::vector<Connection> &connections, float deltaTime);
 
     private:
         std::unordered_map<int, NodeAnimationState> m_nodeAnimations;

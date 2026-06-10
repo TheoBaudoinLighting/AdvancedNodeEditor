@@ -2,6 +2,102 @@
 #include <algorithm>
 
 namespace NodeEditorCore {
+    namespace {
+        constexpr const char *kInterfacePinIdKey = "interfacePinId";
+
+        Pin *FindModelPinByInterfaceId(NodeEditorModel::Node *node, const UUID &interfacePinId, bool input) {
+            if (!node) return nullptr;
+            auto &pins = input ? node->inputs : node->outputs;
+            for (auto &pin: pins) {
+                if (pin.metadata.getAttribute<UUID>(kInterfacePinIdKey, "") == interfacePinId) {
+                    return &pin;
+                }
+            }
+            return nullptr;
+        }
+
+        Pin *FindModelPinByName(NodeEditorModel::Node *node, const std::string &name, bool input) {
+            if (!node) return nullptr;
+            auto &pins = input ? node->inputs : node->outputs;
+            for (auto &pin: pins) {
+                if (pin.name == name) {
+                    return &pin;
+                }
+            }
+            return nullptr;
+        }
+
+        bool ContainsInterfacePin(const std::vector<Subgraph::InterfacePin> &pins,
+                                  const UUID &interfacePinId,
+                                  const std::string &name,
+                                  bool input) {
+            for (const auto &pin: pins) {
+                if (pin.isInput != input) {
+                    continue;
+                }
+
+                if ((!interfacePinId.empty() && pin.id == interfacePinId) || pin.name == name) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        void UpsertModelProjectedPin(NodeEditorModel &model,
+                                     NodeEditorModel::Node *node,
+                                     const Subgraph::InterfacePin &interfacePin,
+                                     bool nodePinIsInput) {
+            if (!node) return;
+
+            Pin *pin = FindModelPinByInterfaceId(node, interfacePin.id, nodePinIsInput);
+            if (!pin) {
+                pin = FindModelPinByName(node, interfacePin.name, nodePinIsInput);
+            }
+
+            if (!pin) {
+                const int pinId = model.addPin(node->id, interfacePin.name, nodePinIsInput,
+                                               interfacePin.type, interfacePin.shape);
+                pin = model.getPin(node->id, pinId);
+            }
+
+            if (pin) {
+                pin->name = interfacePin.name;
+                pin->label = interfacePin.name;
+                pin->type = interfacePin.type;
+                pin->shape = interfacePin.shape;
+                pin->color = PinStyleCatalog::ForPinType(interfacePin.type).color;
+                pin->metadata.setAttribute(kInterfacePinIdKey, interfacePin.id);
+            }
+        }
+
+        void SyncModelNodePinsToInterface(NodeEditorModel &model,
+                                          NodeEditorModel::Node *node,
+                                          const Subgraph &subgraph,
+                                          bool interfaceInputPins,
+                                          bool nodePinIsInput) {
+            if (!node) return;
+
+            std::vector<int> pinsToRemove;
+            auto &pins = nodePinIsInput ? node->inputs : node->outputs;
+            for (const auto &pin: pins) {
+                const UUID interfacePinId = pin.metadata.getAttribute<UUID>(kInterfacePinIdKey, "");
+                if (!ContainsInterfacePin(subgraph.interfacePins, interfacePinId, pin.name, interfaceInputPins)) {
+                    pinsToRemove.push_back(pin.id);
+                }
+            }
+
+            for (int pinId: pinsToRemove) {
+                model.removePin(node->id, pinId);
+            }
+
+            for (const auto &interfacePin: subgraph.interfacePins) {
+                if (interfacePin.isInput == interfaceInputPins) {
+                    UpsertModelProjectedPin(model, node, interfacePin, nodePinIsInput);
+                }
+            }
+        }
+    }
+
     NodeEditorModel::NodeEditorModel()
         : m_nextNodeId(1), m_nextPinId(1), m_nextConnectionId(1), m_nextGroupId(1), m_nextSubgraphId(1) {
     }
@@ -25,6 +121,7 @@ namespace NodeEditorCore {
         node->labelPosition = NodeLabelPosition::Right;
         node->isSubgraph = false;
         node->subgraphId = -1;
+        node->isProtected = false;
 
         m_nodes.push_back(node);
 
@@ -40,6 +137,10 @@ namespace NodeEditorCore {
                                [nodeId](const std::shared_ptr<Node> &node) { return node->id == nodeId; });
 
         if (it != m_nodes.end()) {
+            if ((*it)->isProtected) {
+                return;
+            }
+
             m_connections.erase(
                 std::remove_if(m_connections.begin(), m_connections.end(),
                                [nodeId](const std::shared_ptr<Connection> &conn) {
@@ -330,6 +431,26 @@ namespace NodeEditorCore {
 
         m_subgraphs[subgraphId] = subgraph;
 
+        const int inputNodeId = addNode("Graph Inputs", "GraphInputNode", Vec2(100.0f, 200.0f));
+        const int outputNodeId = addNode("Graph Outputs", "GraphOutputNode", Vec2(500.0f, 200.0f));
+
+        if (auto *inputNode = getNode(inputNodeId)) {
+            inputNode->isProtected = true;
+            inputNode->subgraphId = subgraphId;
+            inputNode->metadata.setAttribute("subgraphId", subgraphId);
+        }
+        if (auto *outputNode = getNode(outputNodeId)) {
+            outputNode->isProtected = true;
+            outputNode->subgraphId = subgraphId;
+            outputNode->metadata.setAttribute("subgraphId", subgraphId);
+        }
+
+        subgraph->addNode(inputNodeId);
+        subgraph->addNode(outputNodeId);
+        subgraph->metadata.setAttribute("inputNodeId", inputNodeId);
+        subgraph->metadata.setAttribute("outputNodeId", outputNodeId);
+        syncSubgraphBoundaryNodesFromInterface(subgraphId);
+
         return subgraphId;
     }
 
@@ -365,6 +486,7 @@ namespace NodeEditorCore {
                                                                const Vec2 &position) {
         Subgraph *subgraph = getSubgraph(subgraphId);
         if (!subgraph) return nullptr;
+        syncSubgraphBoundaryNodesFromInterface(subgraphId);
 
         int nodeId = m_nextNodeId++;
         auto node = std::make_shared<Node>();
@@ -382,8 +504,11 @@ namespace NodeEditorCore {
         node->labelPosition = NodeLabelPosition::Right;
         node->isSubgraph = true;
         node->subgraphId = subgraphId;
+        node->isProtected = false;
 
         m_nodes.push_back(node);
+        SyncModelNodePinsToInterface(*this, node.get(), *subgraph, true, true);
+        SyncModelNodePinsToInterface(*this, node.get(), *subgraph, false, false);
 
         Event event(EventType::NodeCreated);
         event.setData("nodeId", nodeId);
@@ -392,6 +517,34 @@ namespace NodeEditorCore {
         dispatchEvent(event);
 
         return node.get();
+    }
+
+    void NodeEditorModel::syncSubgraphBoundaryNodesFromInterface(int subgraphId) {
+        Subgraph *subgraph = getSubgraph(subgraphId);
+        if (!subgraph) return;
+
+        const int inputNodeId = subgraph->metadata.getAttribute<int>("inputNodeId", -1);
+        const int outputNodeId = subgraph->metadata.getAttribute<int>("outputNodeId", -1);
+        Node *inputNode = getNode(inputNodeId);
+        Node *outputNode = getNode(outputNodeId);
+
+        if (inputNode) {
+            inputNode->name = "Graph Inputs";
+            inputNode->type = "GraphInputNode";
+            inputNode->isProtected = true;
+            inputNode->subgraphId = subgraphId;
+            inputNode->metadata.setAttribute("subgraphId", subgraphId);
+        }
+        if (outputNode) {
+            outputNode->name = "Graph Outputs";
+            outputNode->type = "GraphOutputNode";
+            outputNode->isProtected = true;
+            outputNode->subgraphId = subgraphId;
+            outputNode->metadata.setAttribute("subgraphId", subgraphId);
+        }
+
+        SyncModelNodePinsToInterface(*this, inputNode, *subgraph, true, false);
+        SyncModelNodePinsToInterface(*this, outputNode, *subgraph, false, true);
     }
 
     void NodeEditorModel::selectNode(int nodeId, bool append) {
@@ -536,6 +689,7 @@ namespace NodeEditorCore {
 
         if (!node || !subgraph) return;
 
+        node->subgraphId = subgraphId;
         node->metadata.setAttribute("subgraphId", subgraphId);
 
         subgraph->addNode(nodeId);

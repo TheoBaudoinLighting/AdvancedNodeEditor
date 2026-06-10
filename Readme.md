@@ -2,11 +2,10 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![C++20](https://img.shields.io/badge/C%2B%2B-20-blue.svg)](https://isocpp.org/)
-[![Version](https://img.shields.io/badge/version-1.0.0-green.svg)](https://github.com/yourorg/nodeeditor/releases)
-[![Documentation](https://img.shields.io/badge/docs-latest-brightgreen.svg)](https://yourorg.github.io/nodeeditor/)
+[![Version](https://img.shields.io/badge/version-1.0.0-green.svg)](https://github.com/TheoBaudoinLighting/AdvancedNodeEditor/releases)
 [![Downloads](https://img.shields.io/github/downloads/TheoBaudoinLighting/AdvancedNodeEditor/total?style=flat-square)](https://github.com/TheoBaudoinLighting/AdvancedNodeEditor/releases)
 
-A modern, robust C++20 framework for creating interactive graphical node editors with hierarchical subgraph support, real-time evaluation, and intuitive user interface.
+A modern C++20 framework for creating interactive graphical node editors with hierarchical subgraph support, real-time evaluation, and a customizable ImGui interface.
 
 ## Features
 
@@ -17,6 +16,7 @@ A modern, robust C++20 framework for creating interactive graphical node editors
 - **Modern Interface**: Interactive view with zoom, pan, and automatic centering
 - **Visual Groups**: Logical organization of nodes into groups
 - **Connection Rerouting**: Redirection points for complex connections
+- **Parameter Metadata**: Optional node parameter descriptors for editor-side controls
 - **Event System**: Real-time event notifications via callbacks
 - **Clean API**: Intuitive interface for seamless integration
 
@@ -28,22 +28,26 @@ A modern, robust C++20 framework for creating interactive graphical node editors
 ### Prerequisites
 
 - C++20 compatible compiler (GCC 10+, Clang 10+, MSVC 2019+)
-- CMake 3.16+
-- Rendering system dependencies (ImGui, OpenGL, etc.)
+- CMake 3.31+
+- OpenGL support
+- ImGui, SDL2, and GoogleTest are fetched by CMake by default
 
 ### Build
 
 ```bash
-mkdir build
-cd build
-cmake ..
-make -j$(nproc)
+cmake -S . -B cmake-build-debug -DBUILD_TESTS=ON "-DCMAKE_POLICY_VERSION_MINIMUM=3.5"
+cmake --build cmake-build-debug --target AdvancedNodeEditor
+cmake --build cmake-build-debug --target node_editor_tests
+ctest --test-dir cmake-build-debug --output-on-failure
 ```
+
+On Windows, the demo executable is generated as `cmake-build-debug/AdvancedNodeEditor.exe`
+or in the build directory selected with `-B`.
 
 ### Integration
 
 ```cpp
-#include "NodeEditorAPI.h"
+#include "AdvancedNodeEditor/NodeEditorAPI.h"
 using namespace NodeEditorCore;
 ```
 
@@ -66,8 +70,8 @@ mathNode.name = "Addition";
 mathNode.category = "Math";
 mathNode.description = "Adds two numeric values";
 mathNode.iconSymbol = "+";
-mathNode.inputs = {{"A", PinType::Float}, {"B", PinType::Float}};
-mathNode.outputs = {{"Result", PinType::Float}};
+mathNode.inputs = {{"A", PinType::Blue}, {"B", PinType::Blue}};
+mathNode.outputs = {{"Result", PinType::Green}};
 
 editor.registerNodeType(mathNode);
 ```
@@ -112,6 +116,7 @@ while (running) {
 - `centerView()` - Centers view on all nodes
 - `centerOnNode(nodeId)` - Centers view on specific node
 - `zoomToFit(padding)` - Fits all nodes in view
+- `zoomToFitSelected(padding)` - Fits selected nodes in view
 - `setViewPosition(position)` - Sets view position
 - `setViewScale(scale)` - Sets zoom level
 
@@ -128,13 +133,16 @@ while (running) {
 - `evaluateGraph(outputNodeId)` - Evaluates graph
 - `setConstantValue(nodeId, value)` - Sets constant value
 - `getConstantValue(nodeId)` - Gets constant value
+- `setPersistentOutputValue(nodeId, outputName, value)` - Stores a named output value
 
 ### Event Callbacks
 
-- `setNodeCreatedCallback(callback)` - Node creation callback
-- `setNodeRemovedCallback(callback)` - Node removal callback
-- `setConnectionCreatedCallback(callback)` - Connection creation callback
-- `setConnectionRemovedCallback(callback)` - Connection removal callback
+- `addNodeCreatedListener(callback)` - Node creation listener
+- `addNodeRemovedListener(callback)` - Node removal listener
+- `addConnectionCreatedListener(callback)` - Connection creation listener
+- `addConnectionRemovedListener(callback)` - Connection removal listener
+- `removeNodeCreatedListener(handle)` - Removes a registered node listener
+- `removeConnectionCreatedListener(handle)` - Removes a registered connection listener
 
 ## Data Types
 
@@ -142,6 +150,14 @@ while (running) {
 
 ```cpp
 struct NodeDefinition {
+    struct ParameterDescriptor {
+        std::string name;                    // Stable parameter id
+        std::string label;                   // Display label
+        ParameterType type;                  // Float, Int, Bool, String, Vec3, File, Color, Enum
+        std::any defaultValue;               // Optional default value
+        std::string drivenPin;               // Optional pin controlled by this parameter
+    };
+
     std::string type;                                             // Unique node type
     std::string name;                                             // Display name
     std::string category;                                         // Organization category
@@ -149,6 +165,7 @@ struct NodeDefinition {
     std::string iconSymbol;                                       // Display icon
     std::vector<std::pair<std::string, PinType>> inputs;         // Input pins
     std::vector<std::pair<std::string, PinType>> outputs;        // Output pins
+    std::vector<ParameterDescriptor> parameters;                  // Optional UI parameters
 };
 ```
 
@@ -204,11 +221,11 @@ editor.addNodeToGroup(nodeB, groupId);
 ### Event Handling
 
 ```cpp
-editor.setNodeCreatedCallback([](const UUID& nodeId) {
+ListenerHandle nodeCreated = editor.addNodeCreatedListener([](const UUID& nodeId) {
     std::cout << "Node created: " << nodeId << std::endl;
 });
 
-editor.setConnectionCreatedCallback([](const UUID& connectionId) {
+ListenerHandle connectionCreated = editor.addConnectionCreatedListener([](const UUID& connectionId) {
     std::cout << "Connection created: " << connectionId << std::endl;
 });
 ```
@@ -299,16 +316,11 @@ SOFTWARE.***
 
 ## Links
 
-(in progress -> links are now place holder sorry)
-- [Complete API Documentation](docs/API.md)
-- [Getting Started Guide](docs/GETTING_STARTED.md)
-- [Examples](examples/)
-- [Changelog](CHANGELOG.md)
+- [Repository](https://github.com/TheoBaudoinLighting/AdvancedNodeEditor)
+- [Releases](https://github.com/TheoBaudoinLighting/AdvancedNodeEditor/releases)
+- [Demo source](exemple/main_exemple.cpp)
+- [Tests](tests/)
 
 ---
 
 **Advanced Node Editor Framework** - Build powerful and intuitive node editors with C++20
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.

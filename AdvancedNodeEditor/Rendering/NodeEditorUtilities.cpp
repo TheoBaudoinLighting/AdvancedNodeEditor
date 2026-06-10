@@ -1,22 +1,84 @@
 #include "../Core/NodeEditor.h"
 #include <algorithm>
 
+namespace {
+    constexpr float kPinVisualRadiusScale = 1.2f;
+    constexpr float kPinHoverEffectRadiusScale = 1.9f;
+    constexpr float kPinHitRadiusScale = 3.0f;
+}
+
 namespace NodeEditorCore {
     std::string NodeEditor::pinTypeToString(PinType type) const {
-        switch (type) {
-            case PinType::Blue: return "Blue";
-            case PinType::Red: return "Red";
-            case PinType::Green: return "Green";
-            case PinType::Yellow: return "Yellow";
-            case PinType::Purple: return "Purple";
-            case PinType::Cyan: return "Cyan";
-            case PinType::Orange: return "Orange";
-            case PinType::White: return "White";
-            case PinType::Black: return "Black";
-            case PinType::Gray: return "Gray";
-            case PinType::Custom: return "Custom";
-            default: return "Default";
+        if (PinStyleCatalog::HasPinType(type)) {
+            return PinStyleCatalog::ForPinType(type).styleKey;
         }
+        return "Default";
+    }
+
+    float NodeEditor::getNodeHeaderHeight() const {
+        return 14.0f * m_state.viewScale;
+    }
+
+    NodeEditor::NodeHeaderButtonLayout NodeEditor::getNodeHeaderButtonLayout(const ImVec2 &nodePos,
+                                                                             const ImVec2 &nodeSize) const {
+        const float headerHeight = getNodeHeaderHeight();
+        const float buttonWidth = headerHeight * 0.75f;
+        const float buttonHeight = headerHeight;
+        const float separatorWidth = 1.0f * m_state.viewScale;
+        const float rightSideX = nodePos.x + nodeSize.x - 3.0f * buttonWidth - 2.0f * separatorWidth;
+
+        NodeHeaderButtonLayout layout{};
+        layout.rightSideX = rightSideX;
+        layout.buttonWidth = buttonWidth;
+        layout.buttonHeight = buttonHeight;
+        layout.separatorWidth = separatorWidth;
+
+        layout.disableMin = ImVec2(rightSideX, nodePos.y);
+        layout.disableMax = ImVec2(rightSideX + buttonWidth, nodePos.y + buttonHeight);
+
+        layout.templateMin = ImVec2(rightSideX + buttonWidth + separatorWidth, nodePos.y);
+        layout.templateMax = ImVec2(rightSideX + 2.0f * buttonWidth + separatorWidth, nodePos.y + buttonHeight);
+
+        layout.flagMin = ImVec2(rightSideX + 2.0f * buttonWidth + 2.0f * separatorWidth, nodePos.y);
+        layout.flagMax = ImVec2(rightSideX + 3.0f * buttonWidth + 2.0f * separatorWidth, nodePos.y + buttonHeight);
+
+        return layout;
+    }
+
+    bool NodeEditor::nodeHasHeaderButtons(const Node &node) const {
+        if (node.type == "GraphInputNode" || node.type == "GraphOutputNode" ||
+            node.type == "Input" || node.type == "Output") {
+            return false;
+        }
+
+        if (m_state.currentSubgraphId >= 0) {
+            const Subgraph *subgraph = getSubgraph(m_state.currentSubgraphId);
+            if (subgraph) {
+                const int inputNodeId = subgraph->metadata.getAttribute<int>("inputNodeId", -1);
+                const int outputNodeId = subgraph->metadata.getAttribute<int>("outputNodeId", -1);
+                if (node.id == inputNodeId || node.id == outputNodeId) {
+                    return false;
+                }
+            }
+        }
+
+        return true;
+    }
+
+    float NodeEditor::getPinVisualRadius() const {
+        return m_state.style.pinRadius * m_state.viewScale * kPinVisualRadiusScale;
+    }
+
+    float NodeEditor::getPinHitRadius() const {
+        return m_state.style.pinRadius * m_state.viewScale * kPinHitRadiusScale;
+    }
+
+    bool NodeEditor::isPointInPinHitArea(const ImVec2 &point, const ImVec2 &pinPos) const {
+        const float hitRadius = getPinHitRadius();
+        const float dx = point.x - pinPos.x;
+        const float dy = point.y - pinPos.y;
+
+        return (dx * dx + dy * dy) <= (hitRadius * hitRadius);
     }
 
     ImU32 NodeEditor::ImLerpColor(ImU32 col_a, ImU32 col_b, float t) {
@@ -51,7 +113,7 @@ namespace NodeEditorCore {
         if (isHovered) {
             ImU32 hoverEffectColor = IM_COL32(255, 255, 255, 100);
 
-            float hoverRadius = radius * 1.9f;
+            float hoverRadius = radius * kPinHoverEffectRadiusScale;
 
             switch (shape) {
                 case PinShape::Square:

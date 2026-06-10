@@ -1,7 +1,20 @@
 #include "../../Core/NodeEditor.h"
+#include "../../Utils/NodeEditorLogging.h"
 #include <algorithm>
 
 namespace NodeEditorCore {
+    namespace {
+        constexpr const char *kRuntimeDataTypeMetadataKey = "nodeeditor.dataType";
+        constexpr const char *kRuntimeIsFlowMetadataKey = "nodeeditor.isFlow";
+
+        bool IsRuntimeFlowPin(const Pin &pin) {
+            if (!pin.metadata.hasAttribute(kRuntimeDataTypeMetadataKey)) {
+                return false;
+            }
+            return pin.getMetadata<bool>(kRuntimeIsFlowMetadataKey, false);
+        }
+    }
+
     void NodeEditor::removeConnection(int connectionId) {
         removeAllReroutesFromConnection(connectionId);
 
@@ -10,15 +23,14 @@ namespace NodeEditorCore {
 
         if (it != m_state.connections.end()) {
             UUID connectionUuid = it->uuid;
-
-            if (m_state.connectionRemovedCallback) {
-                m_state.connectionRemovedCallback(connectionId, connectionUuid);
-            }
-
             m_state.connections.erase(it);
             updateConnectionUuidMap();
 
             refreshPinConnectionStates();
+
+            if (!m_callbacksSuppressed) {
+                m_state.connectionRemovedListeners.emit(connectionId, connectionUuid);
+            }
         }
     }
 
@@ -116,18 +128,10 @@ namespace NodeEditorCore {
         const Pin &inputPin = startPin.isInput ? startPin : endPin;
 
         if (m_state.canConnectCallback) {
-            bool result = m_state.canConnectCallback(outputPin, inputPin);
-            if (!result) {
-                return false;
-            }
+            return m_state.canConnectCallback(outputPin, inputPin);
         }
 
-        bool typeCompatible =
-                static_cast<PinType>(outputPin.type) == static_cast<PinType>(inputPin.type) ||
-                static_cast<PinType>(outputPin.type) == PinType::Blue ||
-                static_cast<PinType>(inputPin.type) == PinType::Blue;
-
-        return typeCompatible;
+        return static_cast<PinType>(outputPin.type) == static_cast<PinType>(inputPin.type);
     }
 
     int NodeEditor::addConnection(int startNodeId, int startPinId, int endNodeId, int endPinId, const UUID &uuid) {
@@ -159,6 +163,34 @@ namespace NodeEditorCore {
             return -1;
         }
 
+        const bool isFlowConnection = IsRuntimeFlowPin(*startPinInternal);
+
+        if (isFlowConnection) {
+            // Flow output: only one outgoing connection allowed — replace if exists
+            auto existingOutputConnection = std::find_if(
+                m_state.connections.begin(), m_state.connections.end(),
+                [&](const Connection &conn) {
+                    return conn.startNodeId == startNodeId &&
+                           (conn.startPinId == startPinId || conn.startPinUuid == startPinInternal->uuid);
+                });
+            if (existingOutputConnection != m_state.connections.end()) {
+                LOG_DEBUG("Replaced existing flow output connection");
+                removeConnection(existingOutputConnection->id);
+            }
+        } else {
+            // Non-flow input: only one incoming connection allowed — replace if exists
+            auto existingInputConnection = std::find_if(
+                m_state.connections.begin(), m_state.connections.end(),
+                [&](const Connection &conn) {
+                    return conn.endNodeId == endNodeId &&
+                           (conn.endPinId == endPinId || conn.endPinUuid == endPinInternal->uuid);
+                });
+            if (existingInputConnection != m_state.connections.end()) {
+                LOG_DEBUG("Replaced existing input connection");
+                removeConnection(existingInputConnection->id);
+            }
+        }
+
         Pin startPin, endPin;
 
         startPin.id = startPinInternal->id;
@@ -175,7 +207,7 @@ namespace NodeEditorCore {
         endPin.type = static_cast<PinType>(endPinInternal->type);
         endPin.shape = static_cast<PinShape>(endPinInternal->shape);
 
-        if (!canCreateConnection(startPin, endPin)) {
+        if (!m_callbacksSuppressed && !canCreateConnection(startPin, endPin)) {
             return -1;
         }
 
@@ -193,10 +225,9 @@ namespace NodeEditorCore {
 
         if (startNode->getSubgraphId() == endNode->getSubgraphId() && startNode->getSubgraphId() >= 0) {
             commonSubgraphId = startNode->getSubgraphId();
-        }
-        else if (m_state.currentSubgraphId >= 0 &&
-                 isNodeInSubgraph(*startNode, m_state.currentSubgraphId) &&
-                 isNodeInSubgraph(*endNode, m_state.currentSubgraphId)) {
+        } else if (m_state.currentSubgraphId >= 0 &&
+                   isNodeInSubgraph(*startNode, m_state.currentSubgraphId) &&
+                   isNodeInSubgraph(*endNode, m_state.currentSubgraphId)) {
             commonSubgraphId = m_state.currentSubgraphId;
         }
 
@@ -212,8 +243,8 @@ namespace NodeEditorCore {
 
         updateConnectionUuidMap();
 
-        if (m_state.connectionCreatedCallback) {
-            m_state.connectionCreatedCallback(connectionId, connection.uuid);
+        if (!m_callbacksSuppressed) {
+            m_state.connectionCreatedListeners.emit(connectionId, connection.uuid);
         }
 
         if (commonSubgraphId >= 0) {
@@ -362,7 +393,7 @@ namespace NodeEditorCore {
     }
 
     void NodeEditor::deselectAllConnections() {
-        for (auto &connection : m_state.connections) {
+        for (auto &connection: m_state.connections) {
             connection.selected = false;
         }
     }
@@ -387,14 +418,14 @@ namespace NodeEditorCore {
         int startPinId = -1;
         int endPinId = -1;
 
-        for (const auto &pin : startNode->outputs) {
+        for (const auto &pin: startNode->outputs) {
             if (pin.uuid == startPinUuid) {
                 startPinId = pin.id;
                 break;
             }
         }
 
-        for (const auto &pin : endNode->inputs) {
+        for (const auto &pin: endNode->inputs) {
             if (pin.uuid == endPinUuid) {
                 endPinId = pin.id;
                 break;
@@ -402,12 +433,12 @@ namespace NodeEditorCore {
         }
 
         if (startPinId == -1 || endPinId == -1) {
-            for (const auto &pin : startNode->inputs) {
+            for (const auto &pin: startNode->inputs) {
                 if (pin.uuid == startPinUuid) {
                     return -1;
                 }
             }
-            for (const auto &pin : endNode->outputs) {
+            for (const auto &pin: endNode->outputs) {
                 if (pin.uuid == endPinUuid) {
                     return -1;
                 }

@@ -3,6 +3,145 @@
 #include <set>
 
 namespace NodeEditorCore {
+    namespace {
+        constexpr const char *kInterfacePinIdKey = "interfacePinId";
+
+        bool IsLegacyFlowPin(const Pin &pin) {
+            return pin.name == "flow";
+        }
+
+        Pin *FindPinByInterfaceId(Node *node, const UUID &interfacePinId, bool input) {
+            if (!node) return nullptr;
+            auto &pins = input ? node->inputs : node->outputs;
+            for (auto &pin: pins) {
+                if (pin.metadata.getAttribute<UUID>(kInterfacePinIdKey, "") == interfacePinId) {
+                    return &pin;
+                }
+            }
+            return nullptr;
+        }
+
+        Pin *FindPinByName(Node *node, const std::string &name, bool input) {
+            if (!node) return nullptr;
+            auto &pins = input ? node->inputs : node->outputs;
+            for (auto &pin: pins) {
+                if (pin.name == name) {
+                    return &pin;
+                }
+            }
+            return nullptr;
+        }
+
+        bool ContainsInterfacePin(const std::vector<Subgraph::InterfacePin> &pins,
+                                  const UUID &interfacePinId,
+                                  const std::string &name,
+                                  bool input) {
+            for (const auto &pin: pins) {
+                if (pin.isInput != input) {
+                    continue;
+                }
+
+                if ((!interfacePinId.empty() && pin.id == interfacePinId) || pin.name == name) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        void UpsertLegacyInterfacePin(NodeEditor &editor,
+                                      Subgraph &subgraph,
+                                      int encodedInterfaceId) {
+            const int nodeId = encodedInterfaceId >> 16;
+            const int pinId = encodedInterfaceId & 0xFFFF;
+            Node *node = editor.getNode(nodeId);
+            Pin *pin = node ? node->findPin(pinId) : nullptr;
+            if (!pin || IsLegacyFlowPin(*pin)) {
+                return;
+            }
+
+            const bool interfaceInput = !pin->isInput;
+            auto &interfacePin = subgraph.upsertInterfacePin(pin->name, interfaceInput, pin->type, pin->shape);
+            interfacePin.metadata = pin->metadata;
+        }
+
+        void NormalizeLegacyInterfacePins(NodeEditor &editor, Subgraph &subgraph) {
+            for (int encodedInterfaceId: subgraph.interfaceInputs) {
+                UpsertLegacyInterfacePin(editor, subgraph, encodedInterfaceId);
+            }
+            for (int encodedInterfaceId: subgraph.interfaceOutputs) {
+                UpsertLegacyInterfacePin(editor, subgraph, encodedInterfaceId);
+            }
+        }
+
+        void RemovePinAndConnections(NodeEditor &editor, int nodeId, int pinId) {
+            std::vector<int> connectionsToRemove;
+            for (const auto &connection: editor.getConnections()) {
+                if ((connection.startNodeId == nodeId && connection.startPinId == pinId) ||
+                    (connection.endNodeId == nodeId && connection.endPinId == pinId)) {
+                    connectionsToRemove.push_back(connection.id);
+                }
+            }
+
+            for (int connectionId: connectionsToRemove) {
+                editor.removeConnection(connectionId);
+            }
+            editor.removePin(nodeId, pinId);
+        }
+
+        void UpsertProjectedPin(NodeEditor &editor,
+                                Node *node,
+                                const Subgraph::InterfacePin &interfacePin,
+                                bool nodePinIsInput) {
+            if (!node) return;
+
+            Pin *pin = FindPinByInterfaceId(node, interfacePin.id, nodePinIsInput);
+            if (!pin) {
+                pin = FindPinByName(node, interfacePin.name, nodePinIsInput);
+            }
+
+            if (!pin) {
+                const int pinId = editor.addPin(node->id, interfacePin.name, nodePinIsInput,
+                                                interfacePin.type, interfacePin.shape);
+                pin = node->findPin(pinId);
+            }
+
+            if (pin) {
+                pin->name = interfacePin.name;
+                pin->type = interfacePin.type;
+                pin->shape = interfacePin.shape;
+                pin->color = PinStyleCatalog::ForPinType(interfacePin.type).color;
+                pin->metadata.setAttribute(kInterfacePinIdKey, interfacePin.id);
+            }
+        }
+
+        void SyncNodePinsToInterface(NodeEditor &editor,
+                                     Node *node,
+                                     const Subgraph &subgraph,
+                                     bool interfaceInputPins,
+                                     bool nodePinIsInput) {
+            if (!node) return;
+
+            std::vector<int> pinsToRemove;
+            auto &pins = nodePinIsInput ? node->inputs : node->outputs;
+            for (const auto &pin: pins) {
+                const UUID interfacePinId = pin.metadata.getAttribute<UUID>(kInterfacePinIdKey, "");
+                if (!ContainsInterfacePin(subgraph.interfacePins, interfacePinId, pin.name, interfaceInputPins)) {
+                    pinsToRemove.push_back(pin.id);
+                }
+            }
+
+            for (int pinId: pinsToRemove) {
+                RemovePinAndConnections(editor, node->id, pinId);
+            }
+
+            for (const auto &interfacePin: subgraph.interfacePins) {
+                if (interfacePin.isInput == interfaceInputPins) {
+                    UpsertProjectedPin(editor, node, interfacePin, nodePinIsInput);
+                }
+            }
+        }
+    }
+
     void NodeEditor::updateAllSubgraphs() {
         if (m_isSynchronizing) return;
         m_isSynchronizing = true;
@@ -10,15 +149,16 @@ namespace NodeEditorCore {
         try {
             std::set<int> subgraphsToUpdate;
 
-            for (const auto& pair : m_subgraphs) {
+            for (const auto &pair: m_subgraphs) {
                 subgraphsToUpdate.insert(pair.first);
             }
 
-            for (int subgraphId : subgraphsToUpdate) {
+            for (int subgraphId: subgraphsToUpdate) {
                 try {
+                    syncSubgraphBoundaryNodesFromInterface(subgraphId);
                     updateSubgraphInstances(subgraphId);
 
-                    for (auto& node : m_state.nodes) {
+                    for (auto &node: m_state.nodes) {
                         if (node.isSubgraph && node.subgraphId == subgraphId) {
                             try {
                                 synchronizeSubgraphConnections(subgraphId, node.id);
@@ -49,20 +189,18 @@ namespace NodeEditorCore {
             Vec2 inputPos(100.0f, 200.0f);
             Vec2 outputPos(500.0f, 200.0f);
 
-            int inputNodeId = addNode("Input", "Input", inputPos);
-            int outputNodeId = addNode("Output", "Output", outputPos);
+            int inputNodeId = addNode("Graph Inputs", "GraphInputNode", inputPos);
+            int outputNodeId = addNode("Graph Outputs", "GraphOutputNode", outputPos);
 
             Node *inputNode = getNode(inputNodeId);
             Node *outputNode = getNode(outputNodeId);
 
             if (inputNode) {
                 inputNode->isProtected = true;
-                addPin(inputNodeId, "flow", false, PinType::Blue);
             }
 
             if (outputNode) {
                 outputNode->isProtected = true;
-                addPin(outputNodeId, "flow", true, PinType::Blue);
             }
 
             addNodeToSubgraph(inputNodeId, subgraphId);
@@ -70,6 +208,7 @@ namespace NodeEditorCore {
 
             subgraph->metadata.setAttribute("inputNodeId", inputNodeId);
             subgraph->metadata.setAttribute("outputNodeId", outputNodeId);
+            syncSubgraphBoundaryNodesFromInterface(subgraphId);
         }
 
         return subgraphId;
@@ -163,33 +302,56 @@ namespace NodeEditorCore {
     void NodeEditor::updateSubgraphNodePins(Node *subgraphNode, Subgraph *subgraph) {
         if (!subgraphNode || !subgraph) return;
 
+        SyncNodePinsToInterface(*this, subgraphNode, *subgraph, true, true);
+        SyncNodePinsToInterface(*this, subgraphNode, *subgraph, false, false);
+    }
+
+    void NodeEditor::syncSubgraphBoundaryNodesFromInterface(int subgraphId) {
+        Subgraph *subgraph = getSubgraph(subgraphId);
+        if (!subgraph) return;
+
         int inputNodeId = subgraph->metadata.getAttribute<int>("inputNodeId", -1);
         int outputNodeId = subgraph->metadata.getAttribute<int>("outputNodeId", -1);
-
         Node *inputNode = getNode(inputNodeId);
         Node *outputNode = getNode(outputNodeId);
 
-        if (!inputNode || !outputNode) return;
-
-        std::unordered_set<std::string> existingInputPins, existingOutputPins;
-        for (const auto &pin: subgraphNode->inputs) {
-            existingInputPins.insert(pin.name);
-        }
-        for (const auto &pin: subgraphNode->outputs) {
-            existingOutputPins.insert(pin.name);
+        if (inputNode) {
+            inputNode->type = "GraphInputNode";
+            inputNode->name = "Graph Inputs";
+            inputNode->isProtected = true;
         }
 
-        for (const auto &pin: inputNode->outputs) {
-            if (existingInputPins.find(pin.name) == existingInputPins.end()) {
-                addPin(subgraphNode->id, pin.name, true, static_cast<PinType>(pin.type));
+        if (outputNode) {
+            outputNode->type = "GraphOutputNode";
+            outputNode->name = "Graph Outputs";
+            outputNode->isProtected = true;
+        }
+
+        if (subgraph->interfacePins.empty()) {
+            NormalizeLegacyInterfacePins(*this, *subgraph);
+        }
+
+        if (subgraph->interfacePins.empty()) {
+            if (inputNode) {
+                for (const auto &pin: inputNode->outputs) {
+                    if (!IsLegacyFlowPin(pin)) {
+                        auto &interfacePin = subgraph->upsertInterfacePin(pin.name, true, pin.type, pin.shape);
+                        interfacePin.metadata = pin.metadata;
+                    }
+                }
+            }
+            if (outputNode) {
+                for (const auto &pin: outputNode->inputs) {
+                    if (!IsLegacyFlowPin(pin)) {
+                        auto &interfacePin = subgraph->upsertInterfacePin(pin.name, false, pin.type, pin.shape);
+                        interfacePin.metadata = pin.metadata;
+                    }
+                }
             }
         }
 
-        for (const auto &pin: outputNode->inputs) {
-            if (existingOutputPins.find(pin.name) == existingOutputPins.end()) {
-                addPin(subgraphNode->id, pin.name, false, static_cast<PinType>(pin.type));
-            }
-        }
+        SyncNodePinsToInterface(*this, inputNode, *subgraph, true, false);
+        SyncNodePinsToInterface(*this, outputNode, *subgraph, false, true);
     }
 
     Node *NodeEditor::createSubgraphNode(int subgraphId, const std::string &name, const Vec2 &position,
@@ -210,29 +372,8 @@ namespace NodeEditorCore {
         node->subgraphId = subgraphId;
         node->subgraphUuid = subgraph->uuid;
 
-        int inputNodeId = subgraph->metadata.getAttribute<int>("inputNodeId", -1);
-        int outputNodeId = subgraph->metadata.getAttribute<int>("outputNodeId", -1);
-
-        Node *inputNode = getNode(inputNodeId);
-        Node *outputNode = getNode(outputNodeId);
-
-        if (inputNode) {
-            for (const auto &pin: inputNode->outputs) {
-                int newPinId = addPin(node->id, pin.name, true, static_cast<PinType>(pin.type));
-
-                int interfaceId = (inputNodeId << 16) | pin.id;
-                subgraph->interfaceInputs.push_back(interfaceId);
-            }
-        }
-
-        if (outputNode) {
-            for (const auto &pin: outputNode->inputs) {
-                int newPinId = addPin(node->id, pin.name, false, static_cast<PinType>(pin.type));
-
-                int interfaceId = (outputNodeId << 16) | pin.id;
-                subgraph->interfaceOutputs.push_back(interfaceId);
-            }
-        }
+        syncSubgraphBoundaryNodesFromInterface(subgraphId);
+        updateSubgraphNodePins(node, subgraph);
 
         return node;
     }
@@ -402,11 +543,7 @@ namespace NodeEditorCore {
         if (it == m_subgraphs.end()) return;
 
         Subgraph *subgraph = it->second.get();
-        m_state.viewPosition = subgraph->viewPosition;
-        m_state.viewScale = subgraph->viewScale;
-
-        m_viewManager.setViewPosition(m_state.viewPosition);
-        m_viewManager.setViewScale(m_state.viewScale);
+        applyViewTransform(subgraph->viewPosition, subgraph->viewScale);
     }
 
     void NodeEditor::setCurrentSubgraphId(int subgraphId) {
@@ -415,6 +552,51 @@ namespace NodeEditorCore {
 
     int NodeEditor::getCurrentSubgraphId() const {
         return m_state.currentSubgraphId;
+    }
+
+    std::vector<int> NodeEditor::getCurrentSubgraphPath() const {
+        std::vector<int> path;
+        std::stack<int> stackCopy = m_subgraphStack;
+
+        while (!stackCopy.empty()) {
+            const int subgraphId = stackCopy.top();
+            stackCopy.pop();
+            if (subgraphId >= 0 && getSubgraph(subgraphId)) {
+                path.push_back(subgraphId);
+            }
+        }
+        std::reverse(path.begin(), path.end());
+
+        if (m_state.currentSubgraphId >= 0 && getSubgraph(m_state.currentSubgraphId)) {
+            path.push_back(m_state.currentSubgraphId);
+        }
+
+        return path;
+    }
+
+    std::string NodeEditor::getSubgraphDisplayName(int subgraphId) const {
+        const Subgraph *subgraph = getSubgraph(subgraphId);
+        if (!subgraph) return "";
+        return subgraph->name.empty() ? "Subgraph" : subgraph->name;
+    }
+
+    bool NodeEditor::navigateToSubgraphInCurrentPath(int subgraphId) {
+        if (subgraphId < 0) {
+            bool changed = false;
+            while (m_state.currentSubgraphId >= 0) {
+                if (!exitSubgraph()) break;
+                changed = true;
+            }
+            return changed;
+        }
+
+        bool changed = false;
+        while (m_state.currentSubgraphId >= 0 && m_state.currentSubgraphId != subgraphId) {
+            if (!exitSubgraph()) break;
+            changed = true;
+        }
+
+        return m_state.currentSubgraphId == subgraphId && changed;
     }
 
     bool NodeEditor::isNodeInCurrentSubgraph(const Node &node) const {
@@ -537,42 +719,28 @@ namespace NodeEditorCore {
         Subgraph *subgraph = getSubgraph(subgraphId);
         if (!subgraph) return -1;
 
-        int inputNodeId = subgraph->metadata.getAttribute<int>("inputNodeId", -1);
-        if (inputNodeId == -1) return -1;
-
-        Node *inputNode = getNode(inputNodeId);
-        if (!inputNode) return -1;
-
-        int pinId = addPin(inputNodeId, name, false, type);
-        if (pinId == -1) return -1;
-
-        int interfaceId = (inputNodeId << 16) | pinId;
-        subgraph->interfaceInputs.push_back(interfaceId);
-
+        auto &interfacePin = subgraph->upsertInterfacePin(name, true, type);
+        syncSubgraphBoundaryNodesFromInterface(subgraphId);
         updateSubgraphInstances(subgraphId);
 
-        return pinId;
+        int inputNodeId = subgraph->metadata.getAttribute<int>("inputNodeId", -1);
+        Node *inputNode = getNode(inputNodeId);
+        Pin *pin = FindPinByInterfaceId(inputNode, interfacePin.id, false);
+        return pin ? pin->id : -1;
     }
 
     int NodeEditor::addOutputPinToSubgraph(int subgraphId, const std::string &name, PinType type) {
         Subgraph *subgraph = getSubgraph(subgraphId);
         if (!subgraph) return -1;
 
-        int outputNodeId = subgraph->metadata.getAttribute<int>("outputNodeId", -1);
-        if (outputNodeId == -1) return -1;
-
-        Node *outputNode = getNode(outputNodeId);
-        if (!outputNode) return -1;
-
-        int pinId = addPin(outputNodeId, name, true, type);
-        if (pinId == -1) return -1;
-
-        int interfaceId = (outputNodeId << 16) | pinId;
-        subgraph->interfaceOutputs.push_back(interfaceId);
-
+        auto &interfacePin = subgraph->upsertInterfacePin(name, false, type);
+        syncSubgraphBoundaryNodesFromInterface(subgraphId);
         updateSubgraphInstances(subgraphId);
 
-        return pinId;
+        int outputNodeId = subgraph->metadata.getAttribute<int>("outputNodeId", -1);
+        Node *outputNode = getNode(outputNodeId);
+        Pin *pin = FindPinByInterfaceId(outputNode, interfacePin.id, true);
+        return pin ? pin->id : -1;
     }
 
     void NodeEditor::synchronizeSubgraphConnections(int subgraphId, int subgraphNodeId) {
@@ -740,7 +908,10 @@ namespace NodeEditorCore {
     }
 
     void NodeEditor::setupSubgraphCallbacks() {
-        m_state.connectionCreatedCallback = [this](int connectionId, const UUID &connectionUuid) {
+        if (m_subgraphCallbacksRegistered) return;
+        m_subgraphCallbacksRegistered = true;
+
+        m_state.connectionCreatedListeners.add([this](int connectionId, const UUID &) {
             Connection *connection = nullptr;
             for (auto &conn: m_state.connections) {
                 if (conn.id == connectionId) {
@@ -754,36 +925,22 @@ namespace NodeEditorCore {
                 Node *endNode = nullptr;
 
                 for (auto &node: m_state.nodes) {
-                    if (node.id == connection->startNodeId) {
-                        startNode = &node;
-                    }
-                    if (node.id == connection->endNodeId) {
-                        endNode = &node;
-                    }
+                    if (node.id == connection->startNodeId) startNode = &node;
+                    if (node.id == connection->endNodeId)   endNode   = &node;
                     if (startNode && endNode) break;
                 }
 
                 if (startNode && startNode->isSubgraph) {
-                    try {
-                        synchronizeSubgraphConnections(startNode->subgraphId, startNode->id);
-                    } catch (...) {
-                    }
+                    try { synchronizeSubgraphConnections(startNode->subgraphId, startNode->id); } catch (...) {}
                 }
-
                 if (endNode && endNode->isSubgraph) {
-                    try {
-                        synchronizeSubgraphConnections(endNode->subgraphId, endNode->id);
-                    } catch (...) {
-                    }
+                    try { synchronizeSubgraphConnections(endNode->subgraphId, endNode->id); } catch (...) {}
                 }
             }
-        };
+        });
 
-        m_state.connectionRemovedCallback = [this](int connectionId, const UUID &connectionUuid) {
-            try {
-                updateAllSubgraphs();
-            } catch (...) {
-            }
-        };
+        m_state.connectionRemovedListeners.add([this](int, const UUID &) {
+            try { updateAllSubgraphs(); } catch (...) {}
+        });
     }
 }

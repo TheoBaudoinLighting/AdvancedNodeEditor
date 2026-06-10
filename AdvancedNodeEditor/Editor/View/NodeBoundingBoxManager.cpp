@@ -91,7 +91,7 @@ namespace NodeEditorCore {
     Vec2 NodeBoundingBoxManager::findNearestPointOnLine(const Vec2 &point, const Vec2 &lineStart,
                                                         const Vec2 &lineEnd) const {
         Vec2 line = Vec2(lineEnd.x - lineStart.x, lineEnd.y - lineStart.y);
-        float lineLen = std::sqrt(line.x * line.x + line.y * line.y);
+        float lineLen = Math::distance(Vec2(0, 0), Vec2(line.x, line.y));
         if (lineLen <= 0.0001f) {
             return lineStart;
         }

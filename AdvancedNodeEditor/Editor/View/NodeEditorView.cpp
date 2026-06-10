@@ -57,18 +57,6 @@ namespace NodeEditorCore {
             m_coreEditor->removeGroup(groupId);
         });
 
-        m_coreEditor->setNodeCreatedCallback([this](int nodeId, const UUID &nodeUuid) {
-        });
-
-        m_coreEditor->setNodeRemovedCallback([this](int nodeId, const UUID &nodeUuid) {
-        });
-
-        m_coreEditor->setConnectionCreatedCallback([this](int connectionId, const UUID &connectionUuid) {
-        });
-
-        m_coreEditor->setConnectionRemovedCallback([this](int connectionId, const UUID &connectionUuid) {
-        });
-
         addLayer("Grid", 0, [this](ImDrawList *drawList, const ImVec2 &canvasPos) {
         });
 

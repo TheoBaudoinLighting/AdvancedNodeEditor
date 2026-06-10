@@ -115,7 +115,7 @@ namespace NodeEditorCore {
         }
 
         Uuid generateV4() {
-            std::lock_guard<std::mutex> lock(m_mutex);
+            std::lock_guard lock(m_mutex);
 
             Uuid::value_type data;
             for (size_t i = 0; i < data.size(); ++i) {
@@ -137,7 +137,7 @@ namespace NodeEditorCore {
         }
 
         Uuid generateV1() {
-            std::lock_guard<std::mutex> lock(m_mutex);
+            std::lock_guard lock(m_mutex);
 
             auto now = std::chrono::high_resolution_clock::now();
             auto epochNanos = std::chrono::duration_cast<std::chrono::nanoseconds>(
@@ -180,7 +180,7 @@ namespace NodeEditorCore {
         }
 
         void reseed(uint64_t seed = 0) {
-            std::lock_guard<std::mutex> lock(m_mutex);
+            std::lock_guard lock(m_mutex);
             if (seed == 0) {
                 std::random_device rd;
                 seed = static_cast<uint64_t>(rd()) << 32 | rd();

@@ -27,6 +27,7 @@ namespace NodeEditorCore {
             NodeEditorCore::NodeLabelPosition labelPosition;
             bool isSubgraph;
             int subgraphId;
+            bool isProtected;
             NodeEditorCore::Metadata metadata;
         };
 
@@ -147,6 +148,8 @@ namespace NodeEditorCore {
         void dispatchEvent(const NodeEditorCore::Event &event);
 
     private:
+        void syncSubgraphBoundaryNodesFromInterface(int subgraphId);
+
         std::vector<std::shared_ptr<Node> > m_nodes;
         std::vector<std::shared_ptr<Connection> > m_connections;
         std::vector<std::shared_ptr<NodeEditorCore::Group> > m_groups;

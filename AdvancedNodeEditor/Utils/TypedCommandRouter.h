@@ -10,39 +10,40 @@ template<typename T>
 class TypedCommandRouter {
 private:
     struct HandlerInfo {
-        std::function<void(const T&)> handler;
+        std::function<void(const T &)> handler;
         std::type_index expectedType;
 
-        HandlerInfo(std::function<void(const T&)> h, std::type_index t)
-            : handler(std::move(h)), expectedType(t) {}
+        HandlerInfo(std::function<void(const T &)> h, std::type_index t)
+            : handler(std::move(h)), expectedType(t) {
+        }
     };
 
     std::unordered_map<std::string, HandlerInfo> handlers;
 
 public:
     template<typename PayloadType>
-    void bind(const std::string& command, std::function<void(const PayloadType&)> handler) {
-        auto wrappedHandler = [handler, command](const T& data) {
+    void bind(const std::string &command, std::function<void(const PayloadType &)> handler) {
+        auto wrappedHandler = [handler, command](const T &data) {
             try {
-                const PayloadType& typedData = std::any_cast<const PayloadType&>(data);
+                const PayloadType &typedData = std::any_cast<const PayloadType &>(data);
                 handler(typedData);
-            } catch (const std::bad_any_cast& e) {
+            } catch (const std::bad_any_cast &e) {
                 throw std::runtime_error("Type mismatch for command '" + command +
-                                        "'. Expected: " + typeid(PayloadType).name() +
-                                        ", Received: " + data.type().name());
+                                         "'. Expected: " + typeid(PayloadType).name() +
+                                         ", Received: " + data.type().name());
             }
         };
 
         handlers.insert_or_assign(command, HandlerInfo{
-            wrappedHandler,
-            std::type_index(typeid(PayloadType))
-        });
+                                      wrappedHandler,
+                                      std::type_index(typeid(PayloadType))
+                                  });
     }
 
-    void dispatch(const std::string& command, const T& data) {
+    void dispatch(const std::string &command, const T &data) {
         auto it = handlers.find(command);
         if (it != handlers.end()) {
-            const HandlerInfo& info = it->second;
+            const HandlerInfo &info = it->second;
             if (data.type() != info.expectedType) {
                 throw std::runtime_error("Type mismatch for command '" + command +
                                          "'. Expected: " + info.expectedType.name() +
@@ -55,15 +56,15 @@ public:
     }
 
     template<typename PayloadType>
-    void dispatchTyped(const std::string& command, const PayloadType& payload) {
+    void dispatchTyped(const std::string &command, const PayloadType &payload) {
         dispatch(command, T(payload));
     }
 
-    bool isBound(const std::string& command) const {
+    bool isBound(const std::string &command) const {
         return handlers.find(command) != handlers.end();
     }
 
-    std::type_index getExpectedType(const std::string& command) const {
+    std::type_index getExpectedType(const std::string &command) const {
         auto it = handlers.find(command);
         if (it != handlers.end()) {
             return it->second.expectedType;

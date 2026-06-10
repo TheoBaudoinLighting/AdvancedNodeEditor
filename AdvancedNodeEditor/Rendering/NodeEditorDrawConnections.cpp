@@ -1,5 +1,6 @@
 #include "../Core/NodeEditor.h"
 #include <algorithm>
+#include <cmath>
 
 namespace NodeEditorCore {
     void NodeEditor::drawConnections(ImDrawList *drawList, const ImVec2 &canvasPos) {
@@ -86,8 +87,8 @@ namespace NodeEditorCore {
         std::string pinType = pinTypeToString(pin.type);
 
         const internal::PinColors &pinColors = m_state.style.pinColors.count(pinType)
-                                                ? m_state.style.pinColors.at(pinType)
-                                                : m_state.style.pinColors.at("Default");
+                                                   ? m_state.style.pinColors.at(pinType)
+                                                   : m_state.style.pinColors.at("Default");
 
         return Color(
             pinColors.connected.r,
@@ -98,8 +99,8 @@ namespace NodeEditorCore {
     }
 
     void NodeEditor::drawConnectionLine(ImDrawList *drawList, const ImVec2 &p1, const ImVec2 &p2,
-                                      const Connection &connection, const Pin &startPin, const Pin &endPin,
-                                      const Color &startCol, const Color &endCol) {
+                                        const Connection &connection, const Pin &startPin, const Pin &endPin,
+                                        const Color &startCol, const Color &endCol) {
         m_connectionStyleManager.drawConnection(
             drawList, p1, p2,
             startPin.isInput, endPin.isInput,
@@ -109,9 +110,9 @@ namespace NodeEditorCore {
     }
 
     void NodeEditor::drawConnectionAnimation(ImDrawList *drawList, const ImVec2 &p1, const ImVec2 &p2,
-                                           const Connection &connection, const Pin &startPin, const Pin &endPin,
-                                           const Color &startCol, const Color &endCol) {
-        auto& connAnimState = m_animationManager.getConnectionAnimationState(connection.id);
+                                             const Connection &connection, const Pin &startPin, const Pin &endPin,
+                                             const Color &startCol, const Color &endCol) {
+        auto &connAnimState = m_animationManager.getConnectionAnimationState(connection.id);
 
         if (connAnimState.flowSpeed <= 0.0f) return;
 
@@ -130,8 +131,8 @@ namespace NodeEditorCore {
     }
 
     std::vector<ImVec2> NodeEditor::calculateAnimationPath(const ImVec2 &p1, const ImVec2 &p2,
-                                                         const Pin &startPin, const Pin &endPin,
-                                                         const ConnectionAnimationState &animState) const {
+                                                           const Pin &startPin, const Pin &endPin,
+                                                           const ConnectionAnimationState &animState) const {
         std::vector<ImVec2> pathPoints;
 
         ConnectionStyleManager::ConnectionStyle style = m_connectionStyleManager.getDefaultStyle();
@@ -163,11 +164,14 @@ namespace NodeEditorCore {
     }
 
     std::vector<ImVec2> NodeEditor::calculateBezierAnimationPath(const ImVec2 &p1, const ImVec2 &p2,
-                                                               const Pin &startPin, const Pin &endPin,
-                                                               const ConnectionAnimationState &animState, int particleCount) const {
+                                                                 const Pin &startPin, const Pin &endPin,
+                                                                 const ConnectionAnimationState &animState,
+                                                                 int particleCount) const {
         std::vector<ImVec2> pathPoints;
 
-        const float distance = std::sqrt(std::pow(p2.x - p1.x, 2) + std::pow(p2.y - p1.y, 2));
+        const float distance = Math::distance(
+            Vec2(p1.x, p1.y),
+            Vec2(p2.x, p2.y));
         const float tension = m_connectionStyleManager.getConfig().curveTension;
         const float cpDistance = distance * tension;
 
@@ -185,8 +189,8 @@ namespace NodeEditorCore {
         }
 
         for (int i = 0; i < particleCount; i++) {
-            float t = (animState.flowAnimation + (float)i / particleCount) -
-                    std::floor(animState.flowAnimation + (float)i / particleCount);
+            float t = (animState.flowAnimation + (float) i / particleCount) -
+                      std::floor(animState.flowAnimation + (float) i / particleCount);
 
             float u = 1.0f - t;
             float w1 = u * u * u;
@@ -206,12 +210,13 @@ namespace NodeEditorCore {
     }
 
     std::vector<ImVec2> NodeEditor::calculateStraightAnimationPath(const ImVec2 &p1, const ImVec2 &p2,
-                                                                 const ConnectionAnimationState &animState, int particleCount) const {
+                                                                   const ConnectionAnimationState &animState,
+                                                                   int particleCount) const {
         std::vector<ImVec2> pathPoints;
 
         for (int i = 0; i < particleCount; i++) {
-            float t = (animState.flowAnimation + (float)i / particleCount) -
-                    std::floor(animState.flowAnimation + (float)i / particleCount);
+            float t = (animState.flowAnimation + (float) i / particleCount) -
+                      std::floor(animState.flowAnimation + (float) i / particleCount);
 
             ImVec2 particlePos = ImVec2(
                 p1.x + (p2.x - p1.x) * t,
@@ -224,13 +229,14 @@ namespace NodeEditorCore {
     }
 
     std::vector<ImVec2> NodeEditor::calculateAngleAnimationPath(const ImVec2 &p1, const ImVec2 &p2,
-                                                              const ConnectionAnimationState &animState, int particleCount) const {
+                                                                const ConnectionAnimationState &animState,
+                                                                int particleCount) const {
         std::vector<ImVec2> pathPoints;
         ImVec2 middle = ImVec2(p2.x, p1.y);
 
         for (int i = 0; i < particleCount; i++) {
-            float t = (animState.flowAnimation + (float)i / particleCount) -
-                    std::floor(animState.flowAnimation + (float)i / particleCount);
+            float t = (animState.flowAnimation + (float) i / particleCount) -
+                      std::floor(animState.flowAnimation + (float) i / particleCount);
 
             ImVec2 particlePos;
             if (t < 0.5f) {
@@ -253,7 +259,8 @@ namespace NodeEditorCore {
     }
 
     std::vector<ImVec2> NodeEditor::calculateMetroAnimationPath(const ImVec2 &p1, const ImVec2 &p2,
-                                                              const ConnectionAnimationState &animState, int particleCount) const {
+                                                                const ConnectionAnimationState &animState,
+                                                                int particleCount) const {
         std::vector<ImVec2> pathPoints;
 
         float dx = p2.x - p1.x;
@@ -268,15 +275,15 @@ namespace NodeEditorCore {
             middle2 = ImVec2(p2.x, p1.y + dy * 0.5f);
         }
 
-        std::vector<ImVec2> metroPoints = {p1, middle1, middle2, p2};
+        std::vector metroPoints = {p1, middle1, middle2, p2};
 
         for (int i = 0; i < particleCount; i++) {
-            float t = (animState.flowAnimation + (float)i / particleCount) -
-                    std::floor(animState.flowAnimation + (float)i / particleCount);
+            float t = (animState.flowAnimation + (float) i / particleCount) -
+                      std::floor(animState.flowAnimation + (float) i / particleCount);
 
             float segmentLength = 1.0f / (metroPoints.size() - 1);
             int segment = std::min(static_cast<int>(t / segmentLength),
-                                static_cast<int>(metroPoints.size()) - 2);
+                                   static_cast<int>(metroPoints.size()) - 2);
 
             float segmentT = (t - segment * segmentLength) / segmentLength;
 
@@ -292,7 +299,7 @@ namespace NodeEditorCore {
     }
 
     void NodeEditor::renderAnimationParticles(ImDrawList *drawList, const std::vector<ImVec2> &pathPoints,
-                                            const Color &startCol, const Color &endCol) {
+                                              const Color &startCol, const Color &endCol) {
         if (pathPoints.empty()) return;
 
         ImVec4 startColVec4 = ImGui::ColorConvertU32ToFloat4(startCol.toImU32());
@@ -308,7 +315,7 @@ namespace NodeEditorCore {
                 (startColVec4.w * (1.0f - t) + endColVec4.w * t) * 1.5f
             );
 
-            float pulseScale = std::sin(t * 6.28318f) * 0.3f + 1.0f;
+            float pulseScale = std::sin(t * Math::TWO_PI) * 0.3f + 1.0f;
             float particleSize = 3.5f * m_state.viewScale * pulseScale;
 
             drawList->AddCircleFilled(
@@ -331,17 +338,17 @@ namespace NodeEditorCore {
     }
 
     void NodeEditor::drawConnectionWithReroutes(ImDrawList *drawList, const Connection &connection,
-                                              const ImVec2 &p1, const ImVec2 &p2,
-                                              const Color &startCol, const Color &endCol) {
+                                                const ImVec2 &p1, const ImVec2 &p2,
+                                                const Color &startCol, const Color &endCol) {
         std::vector<Reroute> reroutes = getReroutesForConnection(connection.id);
 
         if (reroutes.empty()) {
-            const Node* startNode = getNode(connection.startNodeId);
-            const Node* endNode = getNode(connection.endNodeId);
+            const Node *startNode = getNode(connection.startNodeId);
+            const Node *endNode = getNode(connection.endNodeId);
             if (!startNode || !endNode) return;
 
-            const Pin* startPin = startNode->findPin(connection.startPinId);
-            const Pin* endPin = endNode->findPin(connection.endPinId);
+            const Pin *startPin = startNode->findPin(connection.startPinId);
+            const Pin *endPin = endNode->findPin(connection.endPinId);
             if (!startPin || !endPin) return;
 
             Pin apiStartPin;
@@ -363,12 +370,12 @@ namespace NodeEditorCore {
             return;
         }
 
-        const Node* startNode = getNode(connection.startNodeId);
-        const Node* endNode = getNode(connection.endNodeId);
+        const Node *startNode = getNode(connection.startNodeId);
+        const Node *endNode = getNode(connection.endNodeId);
         if (!startNode || !endNode) return;
 
-        const Pin* startPin = startNode->findPin(connection.startPinId);
-        const Pin* endPin = endNode->findPin(connection.endPinId);
+        const Pin *startPin = startNode->findPin(connection.startPinId);
+        const Pin *endPin = endNode->findPin(connection.endPinId);
         if (!startPin || !endPin) return;
 
         Pin apiStartPin;
@@ -384,7 +391,7 @@ namespace NodeEditorCore {
         std::vector<ImVec2> pathPoints;
         pathPoints.push_back(p1);
 
-        for (const auto& reroute : reroutes) {
+        for (const auto &reroute: reroutes) {
             Vec2 rerouteScreenPos = canvasToScreen(reroute.position);
             pathPoints.push_back(rerouteScreenPos.toImVec2());
         }
@@ -442,41 +449,126 @@ namespace NodeEditorCore {
         }
     }
 
-    void NodeEditor::updateConnectionAnimationWithReroutes(const Connection& connection, const ImVec2& p1, const ImVec2& p2,
-                                                          const ConnectionAnimationState& animState,
-                                                          std::vector<ImVec2>& particlePoints) const {
+    void NodeEditor::updateConnectionAnimationWithReroutes(const Connection &connection, const ImVec2 &p1,
+                                                           const ImVec2 &p2,
+                                                           const ConnectionAnimationState &animState,
+                                                           std::vector<ImVec2> &particlePoints) const {
         std::vector<ImVec2> pathPoints = getConnectionPathWithReroutes(connection, p1, p2);
 
         if (pathPoints.size() < 2) return;
 
+        const Node *startNode = getNode(connection.startNodeId);
+        const Node *endNode = getNode(connection.endNodeId);
+        if (!startNode || !endNode) return;
+
+        const Pin *startPin = startNode->findPin(connection.startPinId);
+        const Pin *endPin = endNode->findPin(connection.endPinId);
+        if (!startPin || !endPin) return;
+
+        std::vector<ImVec2> sampledPath;
+        auto appendPoint = [&sampledPath](const ImVec2 &point) {
+            if (!sampledPath.empty()) {
+                const ImVec2 &last = sampledPath.back();
+                const float dx = point.x - last.x;
+                const float dy = point.y - last.y;
+                if ((dx * dx + dy * dy) <= 0.01f) {
+                    return;
+                }
+            }
+            sampledPath.push_back(point);
+        };
+
+        const auto style = m_connectionStyleManager.getDefaultStyle();
+        const float tension = m_connectionStyleManager.getConfig().curveTension;
+        constexpr int curveSamples = 16;
+
+        for (size_t i = 0; i + 1 < pathPoints.size(); ++i) {
+            const ImVec2 segmentStart = pathPoints[i];
+            const ImVec2 segmentEnd = pathPoints[i + 1];
+            const bool segmentStartInput = i == 0 ? startPin->isInput : false;
+            const bool segmentEndInput = i + 2 == pathPoints.size() ? endPin->isInput : true;
+
+            appendPoint(segmentStart);
+
+            switch (style) {
+                case ConnectionStyleManager::ConnectionStyle::Bezier: {
+                    const auto [cp1, cp2] = calculateBezierControlPoints(
+                        segmentStart, segmentEnd, segmentStartInput, segmentEndInput, tension);
+
+                    for (int sample = 1; sample <= curveSamples; ++sample) {
+                        const float t = static_cast<float>(sample) / static_cast<float>(curveSamples);
+                        appendPoint(evaluateBezierCubic(segmentStart, cp1, cp2, segmentEnd, t));
+                    }
+                    break;
+                }
+
+                case ConnectionStyleManager::ConnectionStyle::AngleLine:
+                    appendPoint(ImVec2(segmentEnd.x, segmentStart.y));
+                    appendPoint(segmentEnd);
+                    break;
+
+                case ConnectionStyleManager::ConnectionStyle::MetroLine: {
+                    const float dx = segmentEnd.x - segmentStart.x;
+                    const float dy = segmentEnd.y - segmentStart.y;
+
+                    if (std::abs(dx) > std::abs(dy)) {
+                        appendPoint(ImVec2(segmentStart.x + dx * 0.5f, segmentStart.y));
+                        appendPoint(ImVec2(segmentStart.x + dx * 0.5f, segmentEnd.y));
+                    } else {
+                        appendPoint(ImVec2(segmentStart.x, segmentStart.y + dy * 0.5f));
+                        appendPoint(ImVec2(segmentEnd.x, segmentStart.y + dy * 0.5f));
+                    }
+                    appendPoint(segmentEnd);
+                    break;
+                }
+
+                case ConnectionStyleManager::ConnectionStyle::StraightLine:
+                default:
+                    appendPoint(segmentEnd);
+                    break;
+            }
+        }
+
+        if (sampledPath.size() < 2) return;
+
         float totalLength = 0.0f;
         std::vector<float> segmentLengths;
+        segmentLengths.reserve(sampledPath.size() - 1);
 
-        for (size_t i = 0; i < pathPoints.size() - 1; i++) {
-            float dx = pathPoints[i + 1].x - pathPoints[i].x;
-            float dy = pathPoints[i + 1].y - pathPoints[i].y;
-            float length = sqrt(dx * dx + dy * dy);
+        for (size_t i = 0; i + 1 < sampledPath.size(); ++i) {
+            const float dx = sampledPath[i + 1].x - sampledPath[i].x;
+            const float dy = sampledPath[i + 1].y - sampledPath[i].y;
+            const float length = Math::distance(
+                Vec2(0, 0),
+                Vec2(dx, dy));
             segmentLengths.push_back(length);
             totalLength += length;
         }
+
+        if (totalLength <= 0.001f) return;
 
         const int particleCount = 5;
         particlePoints.clear();
 
         for (int i = 0; i < particleCount; i++) {
-            float t = (animState.flowAnimation + (float)i / particleCount);
+            float t = (animState.flowAnimation + (float) i / particleCount);
             t = t - std::floor(t);
 
             float targetDistance = t * totalLength;
             float currentDistance = 0.0f;
 
             for (size_t j = 0; j < segmentLengths.size(); j++) {
+                if (segmentLengths[j] <= 0.001f) {
+                    currentDistance += segmentLengths[j];
+                    continue;
+                }
+
                 if (currentDistance + segmentLengths[j] >= targetDistance) {
                     float segmentT = (targetDistance - currentDistance) / segmentLengths[j];
 
                     ImVec2 particlePos = ImVec2(
-                        pathPoints[j].x + (pathPoints[j + 1].x - pathPoints[j].x) * segmentT,
-                        pathPoints[j].y + (pathPoints[j + 1].y - pathPoints[j].y) * segmentT
+                        sampledPath[j].x + (sampledPath[j + 1].x - sampledPath[j].x) * segmentT,
+                        sampledPath[j].y + (sampledPath[j + 1].y - sampledPath[j].y) * segmentT
                     );
 
                     particlePoints.push_back(particlePos);
@@ -484,16 +576,21 @@ namespace NodeEditorCore {
                 }
                 currentDistance += segmentLengths[j];
             }
+
+            if (particlePoints.size() <= static_cast<size_t>(i)) {
+                particlePoints.push_back(sampledPath.back());
+            }
         }
     }
 
-    std::vector<ImVec2> NodeEditor::getConnectionPathWithReroutes(const Connection& connection, const ImVec2& p1, const ImVec2& p2) const {
+    std::vector<ImVec2> NodeEditor::getConnectionPathWithReroutes(const Connection &connection, const ImVec2 &p1,
+                                                                  const ImVec2 &p2) const {
         std::vector<ImVec2> pathPoints;
         std::vector<Reroute> reroutes = getReroutesForConnection(connection.id);
 
         pathPoints.push_back(p1);
 
-        for (const auto& reroute : reroutes) {
+        for (const auto &reroute: reroutes) {
             Vec2 rerouteScreenPos = canvasToScreen(reroute.position);
             pathPoints.push_back(rerouteScreenPos.toImVec2());
         }

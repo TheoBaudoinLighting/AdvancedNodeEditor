@@ -145,28 +145,27 @@ namespace NodeEditorCore {
 
         if (m_nodePositionProvider) {
             auto nodePositions = m_nodePositionProvider();
-            ImU32 nodeColor = ImGui::ColorConvertFloat4ToU32(ImVec4(0.7f, 0.7f, 0.7f, 0.7f * m_config.opacity));
+            ImU32 nodeColor = ImGui::ColorConvertFloat4ToU32(ImVec4(0.85f, 0.85f, 0.85f, 0.9f * m_config.opacity));
+
+            Vec2 graphExtent = m_viewMax - m_viewMin;
+            float innerW = minimapSize.x - 2.0f * m_config.padding;
+            float innerH = minimapSize.y - 2.0f * m_config.padding;
+            float scaleX = innerW / graphExtent.x;
+            float scaleY = innerH / graphExtent.y;
 
             for (const auto &nodePair: nodePositions) {
                 ImVec2 nodePos = graphToMinimap(nodePair.first, minimapPos, minimapSize);
-                Vec2 nodeSize = nodePair.second;
-
-                float scaleX = minimapSize.x / (m_viewMax.x - m_viewMin.x);
-                float scaleY = minimapSize.y / (m_viewMax.y - m_viewMin.y);
-                float scaledWidth = nodeSize.x * scaleX;
-                float scaledHeight = nodeSize.y * scaleY;
+                float scaledWidth  = std::max(4.0f, nodePair.second.x * scaleX);
+                float scaledHeight = std::max(3.0f, nodePair.second.y * scaleY);
 
                 drawList->AddRectFilled(
                     nodePos,
                     ImVec2(nodePos.x + scaledWidth, nodePos.y + scaledHeight),
-                    nodeColor
+                    nodeColor,
+                    1.0f
                 );
             }
         }
-
-        ImVec2 viewSize = canvasSize;
-        float viewRatioX = viewSize.x / m_viewScale;
-        float viewRatioY = viewSize.y / m_viewScale;
 
         ImVec2 viewRectMin = graphToMinimap(Vec2(
                                                 -m_viewPosition.x / m_viewScale,
@@ -174,8 +173,8 @@ namespace NodeEditorCore {
                                             ), minimapPos, minimapSize);
 
         ImVec2 viewRectMax = graphToMinimap(Vec2(
-                                                (-m_viewPosition.x + viewSize.x) / m_viewScale,
-                                                (-m_viewPosition.y + viewSize.y) / m_viewScale
+                                                (-m_viewPosition.x + canvasSize.x) / m_viewScale,
+                                                (-m_viewPosition.y + canvasSize.y) / m_viewScale
                                             ), minimapPos, minimapSize);
 
         viewRectMin.x = ImClamp(viewRectMin.x, minimapPos.x, minimapPos.x + minimapSize.x);

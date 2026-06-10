@@ -1,10 +1,38 @@
 #include "../Core/NodeEditor.h"
 #include "../Core/Style/InteractionMode.h"
 #include "../Editor/View/MinimapManager.h"
+#include "../Utils/NodeEditorLogging.h"
 #include <algorithm>
 #include <cmath>
 
 namespace NodeEditorCore {
+    namespace {
+        void drawDashedLine(ImDrawList *drawList,
+                            const ImVec2 &start,
+                            const ImVec2 &end,
+                            ImU32 color,
+                            float thickness,
+                            float dashLength = 8.0f,
+                            float gapLength = 6.0f) {
+            const float dx = end.x - start.x;
+            const float dy = end.y - start.y;
+            const float length = std::sqrt(dx * dx + dy * dy);
+            if (length <= 0.01f) return;
+
+            const ImVec2 direction(dx / length, dy / length);
+            float distance = 0.0f;
+            while (distance < length) {
+                const float segmentEnd = std::min(distance + dashLength, length);
+                const ImVec2 a(start.x + direction.x * distance,
+                               start.y + direction.y * distance);
+                const ImVec2 b(start.x + direction.x * segmentEnd,
+                               start.y + direction.y * segmentEnd);
+                drawList->AddLine(a, b, color, thickness);
+                distance += dashLength + gapLength;
+            }
+        }
+    }
+
     void NodeEditor::render() {
         ImGui::BeginChild("Canvas", ImVec2(0, 0), false,
                           ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoScrollWithMouse);
@@ -12,6 +40,13 @@ namespace NodeEditorCore {
         ImVec2 canvasPos = ImGui::GetCursorScreenPos();
         ImVec2 canvasSize = ImGui::GetContentRegionAvail();
         ImDrawList *drawList = ImGui::GetWindowDrawList();
+
+        m_state.canvasPos = Vec2(canvasPos.x, canvasPos.y);
+        m_viewManager.setWindowSize(Vec2(canvasSize.x, canvasSize.y));
+        if (m_zoomToFitOnNextRender) {
+            zoomToFitWithSize(canvasSize.x, canvasSize.y, m_zoomToFitOnNextRenderPadding);
+            m_zoomToFitOnNextRender = false;
+        }
 
         float deltaTime = ImGui::GetIO().DeltaTime;
         m_animationManager.update(deltaTime);
@@ -51,11 +86,49 @@ namespace NodeEditorCore {
 
         ImGui::InvisibleButton("canvas", canvasSize);
 
+        if (ImGui::BeginDragDropTarget()) {
+            if (const ImGuiPayload *payload = ImGui::AcceptDragDropPayload("NODE_TYPE")) {
+                const char *nodeType = static_cast<const char *>(payload->Data);
+                if (nodeType) {
+                    ImVec2 mousePos = ImGui::GetMousePos();
+                    Vec2 dropPos = screenToCanvas(Vec2(mousePos.x, mousePos.y));
+                    Node *node = createNodeOfType(nodeType, dropPos);
+                    if (node) {
+                        selectNode(node->id, false);
+                    }
+                }
+            }
+            ImGui::EndDragDropTarget();
+        }
+
         if (ImGui::IsItemHovered() || ImGui::IsItemActive()) {
             processInteraction();
         }
 
         drawGrid(drawList, canvasPos);
+        if (m_state.interactionMode == InteractionMode::DragNode &&
+            (m_nodeSnapGuideVertical || m_nodeSnapGuideHorizontal)) {
+            const ImU32 guideColor = IM_COL32(90, 190, 255, 210);
+            const float guideThickness = std::max(1.0f, 1.5f * m_state.viewScale);
+            const ImVec2 sourceCenter = canvasToScreen(m_nodeSnapGuideSourceCenter).toImVec2();
+            const ImVec2 targetCenter = canvasToScreen(m_nodeSnapGuideTargetCenter).toImVec2();
+
+            if (m_nodeSnapGuideVertical) {
+                drawDashedLine(drawList,
+                               sourceCenter,
+                               targetCenter,
+                               guideColor,
+                               guideThickness);
+            }
+
+            if (m_nodeSnapGuideHorizontal) {
+                drawDashedLine(drawList,
+                               sourceCenter,
+                               targetCenter,
+                               guideColor,
+                               guideThickness);
+            }
+        }
         drawGroups(drawList, canvasPos);
         drawConnections(drawList, canvasPos);
         drawReroutes(drawList, canvasPos);
@@ -73,20 +146,7 @@ namespace NodeEditorCore {
             drawContextMenu(drawList);
         }
 
-        if (m_state.currentSubgraphId >= 0) {
-            std::vector<std::string> path;
-            int parentId = m_state.currentSubgraphId;
-
-            while (parentId >= 0) {
-                Subgraph *sg = getSubgraph(parentId);
-                if (sg) {
-                    path.insert(path.begin(), sg->name);
-                    parentId = sg->parentSubgraphId;
-                } else {
-                    break;
-                }
-            }
-        }
+        drawSubgraphBreadcrumbs(drawList, canvasPos);
 
         if (isNodeAvoidanceEnabled()) {
             updateNodeBoundingBoxes();
@@ -146,7 +206,7 @@ namespace NodeEditorCore {
 
             case ArrangementType::Circle: {
                 float radius = std::max(200.0f, nodeIds.size() * 40.0f);
-                float angleStep = 2.0f * 3.14159f / nodeIds.size();
+                float angleStep = Math::TWO_PI / nodeIds.size();
 
                 for (size_t i = 0; i < nodeIds.size(); ++i) {
                     float angle = i * angleStep;
@@ -355,18 +415,46 @@ namespace NodeEditorCore {
             );
         }
 
-        if (m_state.viewScale > 0.3f) {
-            const float originSize = 3.0f + 2.0f * m_state.viewScale;
-            const ImVec2 originPos = ImVec2(
-                canvasPos.x - m_state.viewPosition.x * m_state.viewScale,
-                canvasPos.y - m_state.viewPosition.y * m_state.viewScale
-            );
+        {
+            const float originX = canvasPos.x + m_state.viewPosition.x;
+            const float originY = canvasPos.y + m_state.viewPosition.y;
 
-            if (originPos.x >= canvasPos.x - 50 && originPos.x <= canvasPos.x + windowSize.x + 50 &&
-                originPos.y >= canvasPos.y - 50 && originPos.y <= canvasPos.y + windowSize.y + 50) {
-                drawList->AddCircleFilled(originPos, originSize + 4.0f, IM_COL32(0, 0, 0, 40), 16);
-                drawList->AddCircleFilled(originPos, originSize + 2.0f, IM_COL32(30, 35, 45, 120), 16);
-                drawList->AddCircleFilled(originPos, originSize, IM_COL32(70, 140, 200, 180), 12);
+            const bool xOnScreen = originX >= canvasPos.x && originX <= canvasPos.x + windowSize.x;
+            const bool yOnScreen = originY >= canvasPos.y && originY <= canvasPos.y + windowSize.y;
+
+            // Axe X (horizontal, rouge) — visible si l'origine Y est dans le canvas
+            if (yOnScreen) {
+                drawList->AddLine(
+                    ImVec2(canvasPos.x, originY),
+                    ImVec2(canvasPos.x + windowSize.x, originY),
+                    IM_COL32(160, 50, 50, 35), 3.0f
+                );
+                drawList->AddLine(
+                    ImVec2(canvasPos.x, originY),
+                    ImVec2(canvasPos.x + windowSize.x, originY),
+                    IM_COL32(200, 70, 70, 120), 1.5f
+                );
+            }
+
+            // Axe Y (vertical, vert) — visible si l'origine X est dans le canvas
+            if (xOnScreen) {
+                drawList->AddLine(
+                    ImVec2(originX, canvasPos.y),
+                    ImVec2(originX, canvasPos.y + windowSize.y),
+                    IM_COL32(50, 160, 50, 35), 3.0f
+                );
+                drawList->AddLine(
+                    ImVec2(originX, canvasPos.y),
+                    ImVec2(originX, canvasPos.y + windowSize.y),
+                    IM_COL32(70, 200, 70, 120), 1.5f
+                );
+            }
+
+            // Point central à l'intersection
+            if (xOnScreen && yOnScreen) {
+                const float r = 3.5f;
+                drawList->AddCircleFilled(ImVec2(originX, originY), r + 3.0f, IM_COL32(0, 0, 0, 60), 16);
+                drawList->AddCircleFilled(ImVec2(originX, originY), r, IM_COL32(220, 220, 220, 200), 16);
             }
         }
     }
@@ -400,51 +488,100 @@ namespace NodeEditorCore {
     }
 
     void NodeEditor::drawSubgraphBreadcrumbs(ImDrawList *drawList, const ImVec2 &canvasPos) {
-        std::vector<std::string> path;
-        int parentId = m_state.currentSubgraphId;
+        if (!drawList || m_state.currentSubgraphId < 0) return;
 
-        while (parentId >= 0) {
-            Subgraph *sg = getSubgraph(parentId);
-            if (sg) {
-                path.insert(path.begin(), sg->name);
-                parentId = sg->parentSubgraphId;
-            } else {
-                break;
+        const std::vector<int> path = getCurrentSubgraphPath();
+        if (path.empty()) return;
+
+        const ImVec2 windowSize = ImGui::GetWindowSize();
+        const float breadcrumbHeight = 30.0f;
+        const float itemPaddingX = 8.0f;
+        const float itemPaddingY = 3.0f;
+        const float separatorWidth = 14.0f;
+        const ImU32 bgColor = IM_COL32(40, 44, 52, 220);
+        const ImU32 textColor = IM_COL32(210, 216, 226, 255);
+        const ImU32 mutedTextColor = IM_COL32(145, 150, 160, 255);
+        const ImU32 hoverColor = IM_COL32(74, 84, 104, 210);
+        const ImU32 currentColor = IM_COL32(62, 70, 88, 210);
+
+        drawList->AddRectFilled(
+            canvasPos,
+            ImVec2(canvasPos.x + windowSize.x, canvasPos.y + breadcrumbHeight),
+            bgColor
+        );
+
+        auto navigateTo = [&](int targetSubgraphId) {
+            navigateToSubgraphInCurrentPath(targetSubgraphId);
+        };
+
+        float x = canvasPos.x + 10.0f;
+        const float y = canvasPos.y + 5.0f;
+        int itemIndex = 0;
+
+        auto drawItem = [&](const std::string &label, int targetSubgraphId, bool current) {
+            const ImVec2 textSize = ImGui::CalcTextSize(label.c_str());
+            const ImVec2 itemMin(x, y);
+            const ImVec2 itemMax(x + textSize.x + itemPaddingX * 2.0f,
+                                 y + textSize.y + itemPaddingY * 2.0f);
+
+            ImGui::SetCursorScreenPos(itemMin);
+            ImGui::PushID(itemIndex++);
+            const bool pressed = ImGui::InvisibleButton(
+                "SubgraphBreadcrumbItem",
+                ImVec2(itemMax.x - itemMin.x, itemMax.y - itemMin.y)
+            );
+            const bool hovered = ImGui::IsItemHovered();
+            ImGui::PopID();
+
+            if (current) {
+                drawList->AddRectFilled(itemMin, itemMax, currentColor, 4.0f);
+            } else if (hovered) {
+                drawList->AddRectFilled(itemMin, itemMax, hoverColor, 4.0f);
+            }
+
+            drawList->AddText(ImVec2(itemMin.x + itemPaddingX, itemMin.y + itemPaddingY),
+                              current ? textColor : mutedTextColor,
+                              label.c_str());
+
+            if (pressed && !current) {
+                navigateTo(targetSubgraphId);
+            }
+
+            x = itemMax.x;
+        };
+
+        auto drawSeparator = [&]() {
+            drawList->AddText(ImVec2(x + 4.0f, y + itemPaddingY), mutedTextColor, ">");
+            x += separatorWidth;
+        };
+
+        drawItem("Root", -1, false);
+        drawSeparator();
+
+        for (size_t i = 0; i < path.size(); ++i) {
+            const std::string label = getSubgraphDisplayName(path[i]);
+            if (label.empty()) continue;
+
+            drawItem(label, path[i], i == path.size() - 1);
+            if (i + 1 < path.size()) {
+                drawSeparator();
             }
         }
-
-        if (path.empty()) return;
     }
 
     void NodeEditor::updateMinimapBounds() {
-        Vec2 min(std::numeric_limits<float>::max(), std::numeric_limits<float>::max());
-        Vec2 max(-std::numeric_limits<float>::max(), -std::numeric_limits<float>::max());
+        m_minimapManager.setViewBounds(m_viewManager.getGraphBoundsMin(), m_viewManager.getGraphBoundsMax());
+    }
 
-        bool hasNodes = false;
+    void NodeEditor::setGraphBounds(const Vec2 &min, const Vec2 &max) {
+        m_viewManager.setGraphBounds(min, max);
+    }
 
-        for (const auto &node: m_state.nodes) {
-            if (!isNodeInCurrentSubgraph(node)) continue;
+    Vec2 NodeEditor::getGraphBoundsMin() const {
+        return m_viewManager.getGraphBoundsMin();
+    }
 
-            min.x = std::min(min.x, node.position.x);
-            min.y = std::min(min.y, node.position.y);
-            max.x = std::max(max.x, node.position.x + node.size.x);
-            max.y = std::max(max.y, node.position.y + node.size.y);
-
-            hasNodes = true;
-        }
-
-        float margin = 200.0f;
-
-        if (hasNodes) {
-            min.x -= margin;
-            min.y -= margin;
-            max.x += margin;
-            max.y += margin;
-        } else {
-            min = Vec2(-1000.0f, -1000.0f);
-            max = Vec2(1000.0f, 1000.0f);
-        }
-
-        m_minimapManager.setViewBounds(min, max);
+    Vec2 NodeEditor::getGraphBoundsMax() const {
+        return m_viewManager.getGraphBoundsMax();
     }
 }

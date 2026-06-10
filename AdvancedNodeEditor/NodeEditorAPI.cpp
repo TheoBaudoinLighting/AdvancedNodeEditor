@@ -2,15 +2,25 @@
 #include <stdexcept>
 #include <algorithm>
 
+#include "Utils/NodeEditorLogging.h"
+
 namespace NodeEditorCore {
+    namespace {
+        std::string persistentOutputMetadataKey(const std::string &outputName) {
+            return "persistent_output_" + outputName;
+        }
+    }
+
     NodeEditorAPI::NodeEditorAPI()
         : m_editor(std::make_unique<NodeEditor>()) {
+        m_editor->setParentAPI(this);
     }
 
     NodeEditorAPI::~NodeEditorAPI() = default;
 
     void NodeEditorAPI::initialize() {
         m_editor->setupCommandSystem();
+        m_editor->setStyle(NodeEditorStyle{});
     }
 
     void NodeEditorAPI::setupWindow(void *, void *) {
@@ -46,6 +56,23 @@ namespace NodeEditorCore {
         );
     }
 
+    const NodeEditorAPI::NodeDefinition *NodeEditorAPI::getNodeDefinition(const std::string &type) const {
+        auto it = m_nodeDefinitions.find(type);
+        if (it == m_nodeDefinitions.end()) {
+            return nullptr;
+        }
+        return &it->second;
+    }
+
+    std::vector<NodeEditorAPI::NodeDefinition::ParameterDescriptor>
+    NodeEditorAPI::getParameterDescriptors(const std::string &type) const {
+        const NodeDefinition *definition = getNodeDefinition(type);
+        if (!definition) {
+            return {};
+        }
+        return definition->parameters;
+    }
+
     void NodeEditorAPI::beginFrame() {
         m_editor->beginFrame();
     }
@@ -75,6 +102,26 @@ namespace NodeEditorCore {
 
     void NodeEditorAPI::exitSubgraph() {
         m_editor->exitSubgraph();
+    }
+
+    std::vector<NodeEditorAPI::SubgraphBreadcrumbItem> NodeEditorAPI::getCurrentSubgraphBreadcrumb() const {
+        std::vector<SubgraphBreadcrumbItem> breadcrumb;
+        if (!m_editor) {
+            return breadcrumb;
+        }
+
+        for (int subgraphId: m_editor->getCurrentSubgraphPath()) {
+            const std::string label = m_editor->getSubgraphDisplayName(subgraphId);
+            if (!label.empty()) {
+                breadcrumb.push_back({subgraphId, label});
+            }
+        }
+
+        return breadcrumb;
+    }
+
+    bool NodeEditorAPI::navigateToSubgraphBreadcrumb(int subgraphId) {
+        return m_editor && m_editor->navigateToSubgraphInCurrentPath(subgraphId);
     }
 
     std::vector<UUID> NodeEditorAPI::traceConnectionPath(const UUID &startNodeId, const std::string &outputPinName,
@@ -368,8 +415,28 @@ namespace NodeEditorCore {
         m_editor->deselectNode(m_editor->getNodeId(nodeId));
     }
 
+    void NodeEditorAPI::selectAllNodes() {
+        m_editor->selectAllNodes();
+    }
+
     void NodeEditorAPI::deselectAllNodes() {
         m_editor->deselectAllNodes();
+    }
+
+    void NodeEditorAPI::alignSelectedNodesLeft() {
+        m_editor->alignSelectedNodesLeft();
+    }
+
+    void NodeEditorAPI::alignSelectedNodesRight() {
+        m_editor->alignSelectedNodesRight();
+    }
+
+    void NodeEditorAPI::autoLayoutSelectedNodesTopToBottom() {
+        m_editor->autoLayoutSelectedNodesTopToBottom();
+    }
+
+    void NodeEditorAPI::toggleNodeSnapEnabled() {
+        m_editor->toggleNodeSnapEnabled();
     }
 
     std::vector<UUID> NodeEditorAPI::getSelectedNodes() const {
@@ -393,8 +460,8 @@ namespace NodeEditorCore {
         return -1;
     }
 
-    UUID NodeEditorAPI::connectNodes(const UUID& startNodeId, const std::string& outputPinName,
-                                     const UUID& endNodeId, const std::string& inputPinName) {
+    UUID NodeEditorAPI::connectNodes(const UUID &startNodeId, const std::string &outputPinName,
+                                     const UUID &endNodeId, const std::string &inputPinName) {
         int startNodeRealId = m_editor->getNodeId(startNodeId);
         int endNodeRealId = m_editor->getNodeId(endNodeId);
 
@@ -413,26 +480,26 @@ namespace NodeEditorCore {
         return connectionUuid;
     }
 
-    UUID NodeEditorAPI::addRerouteToConnection(const UUID& connectionId, const Vec2& position) {
+    UUID NodeEditorAPI::addRerouteToConnection(const UUID &connectionId, const Vec2 &position) {
         int connectionRealId = m_editor->getConnectionId(connectionId);
         if (connectionRealId == -1) {
             return "";
         }
-        
+
         int rerouteId = m_editor->addReroute(connectionRealId, position, -1);
         if (rerouteId == -1) {
             return "";
         }
-        
-        const Reroute* reroute = m_editor->getReroute(rerouteId);
+
+        const Reroute *reroute = m_editor->getReroute(rerouteId);
         if (!reroute) {
             return "";
         }
-        
+
         return reroute->uuid;
     }
 
-    bool NodeEditorAPI::disconnectNodes(const UUID& connectionId) {
+    bool NodeEditorAPI::disconnectNodes(const UUID &connectionId) {
         int connectionRealId = m_editor->getConnectionId(connectionId);
         if (connectionRealId == -1) {
             return false;
@@ -516,38 +583,155 @@ namespace NodeEditorCore {
     }
 
     void NodeEditorAPI::setConstantValue(const UUID &nodeId, const std::any &value) {
-        m_constantValues[nodeId] = value;
+        setPersistentOutputValue(nodeId, "Value", value);
+    }
+
+    void NodeEditorAPI::setPersistentOutputValue(const UUID &nodeId,
+                                                 const std::string &outputName,
+                                                 const std::any &value) {
+        if (outputName.empty()) {
+            return;
+        }
+
+        if (outputName == "Value") {
+            m_constantValues[nodeId] = value;
+        }
+        if (m_editor) {
+            if (Node *node = m_editor->getNodeByUUID(nodeId)) {
+                node->setMetadata(persistentOutputMetadataKey(outputName), value);
+            }
+        }
     }
 
     std::any NodeEditorAPI::getConstantValue(const UUID &nodeId) const {
-        if (m_constantValues.count(nodeId)) {
+        return getPersistentOutputValue(nodeId, "Value");
+    }
+
+    std::any NodeEditorAPI::getPersistentOutputValue(const UUID &nodeId, const std::string &outputName) const {
+        if (outputName.empty()) {
+            return std::any();
+        }
+
+        if (m_editor) {
+            const Node *node = m_editor->getNodeByUUID(nodeId);
+            if (node) {
+                const auto key = persistentOutputMetadataKey(outputName);
+                const auto it = node->metadata.attributes.find(key);
+                if (it != node->metadata.attributes.end()) {
+                    return it->second;
+                }
+            }
+        }
+        if (outputName == "Value" && m_constantValues.count(nodeId)) {
             return m_constantValues.at(nodeId);
         }
         return std::any();
     }
 
-    void NodeEditorAPI::setNodeCreatedCallback(std::function<void(const UUID &)> callback) {
-        m_editor->setNodeCreatedCallback([callback](int, const UUID &uuid) {
-            callback(uuid);
-        });
+    void NodeEditorAPI::setNodeName(const UUID &nodeId, const std::string &name) {
+        Node *node = m_editor->getNodeByUUID(nodeId);
+        if (node) {
+            node->name = name;
+        }
     }
 
-    void NodeEditorAPI::setNodeRemovedCallback(std::function<void(const UUID &)> callback) {
-        m_editor->setNodeRemovedCallback([callback](int, const UUID &uuid) {
-            callback(uuid);
-        });
+    std::string NodeEditorAPI::getNodeName(const UUID &nodeId) const {
+        const Node *node = m_editor->getNodeByUUID(nodeId);
+        if (node) {
+            return node->name;
+        }
+        return "";
     }
 
-    void NodeEditorAPI::setConnectionCreatedCallback(std::function<void(const UUID &)> callback) {
-        m_editor->setConnectionCreatedCallback([callback](int, const UUID &uuid) {
-            callback(uuid);
-        });
+    void NodeEditorAPI::setNodePosition(const UUID &nodeId, const Vec2 &position) {
+        Node *node = m_editor->getNodeByUUID(nodeId);
+        if (node) {
+            node->position = position;
+        }
     }
 
-    void NodeEditorAPI::setConnectionRemovedCallback(std::function<void(const UUID &)> callback) {
-        m_editor->setConnectionRemovedCallback([callback](int, const UUID &uuid) {
-            callback(uuid);
-        });
+    Vec2 NodeEditorAPI::getNodePosition(const UUID &nodeId) const {
+        const Node *node = m_editor->getNodeByUUID(nodeId);
+        if (node) {
+            return node->position;
+        }
+        return Vec2(0, 0);
+    }
+
+    void NodeEditorAPI::setNodeEnabled(const UUID &nodeId, bool enabled) {
+        Node *node = m_editor->getNodeByUUID(nodeId);
+        if (node) {
+            node->disabled = !enabled;
+        }
+    }
+
+    bool NodeEditorAPI::getNodeEnabled(const UUID &nodeId) const {
+        if (!m_editor) return true;
+
+        Node *node = m_editor->getNodeByUUID(nodeId);
+        if (!node) return true;
+
+        return !node->disabled;
+    }
+
+    void NodeEditorAPI::setNodeInputValueSilent(const UUID &nodeId, const std::string &inputName, const std::any &value) {
+        if (!m_editor) return;
+        Node *node = m_editor->getNodeByUUID(nodeId);
+        if (!node) return;
+        node->setMetadata("input_" + inputName, value);
+        node->setMetadata("inputs_modified", true);
+    }
+
+    void NodeEditorAPI::setNodeInputValue(const UUID &nodeId, const std::string &inputName, const std::any &value) {
+        setNodeInputValueSilent(nodeId, inputName, value);
+    }
+
+    std::any NodeEditorAPI::getNodeInputValue(const UUID &nodeId, const std::string &inputName) const {
+        if (!m_editor) return std::any();
+
+        const Node *node = m_editor->getNodeByUUID(nodeId);
+        if (!node) return std::any();
+
+        std::string metadataKey = "input_" + inputName;
+
+        auto it = node->metadata.attributes.find(metadataKey);
+        if (it != node->metadata.attributes.end()) {
+            return it->second;
+        }
+
+        return std::any();
+    }
+
+    ListenerHandle NodeEditorAPI::addNodeCreatedListener(std::function<void(const UUID &)> callback) {
+        return m_editor->addNodeCreatedListener([callback](int, const UUID &uuid) { callback(uuid); });
+    }
+
+    ListenerHandle NodeEditorAPI::addNodeRemovedListener(std::function<void(const UUID &)> callback) {
+        return m_editor->addNodeRemovedListener([callback](int, const UUID &uuid) { callback(uuid); });
+    }
+
+    ListenerHandle NodeEditorAPI::addConnectionCreatedListener(std::function<void(const UUID &)> callback) {
+        return m_editor->addConnectionCreatedListener([callback](int, const UUID &uuid) { callback(uuid); });
+    }
+
+    ListenerHandle NodeEditorAPI::addConnectionRemovedListener(std::function<void(const UUID &)> callback) {
+        return m_editor->addConnectionRemovedListener([callback](int, const UUID &uuid) { callback(uuid); });
+    }
+
+    void NodeEditorAPI::removeNodeCreatedListener(ListenerHandle handle) {
+        m_editor->removeNodeCreatedListener(handle);
+    }
+
+    void NodeEditorAPI::removeNodeRemovedListener(ListenerHandle handle) {
+        m_editor->removeNodeRemovedListener(handle);
+    }
+
+    void NodeEditorAPI::removeConnectionCreatedListener(ListenerHandle handle) {
+        m_editor->removeConnectionCreatedListener(handle);
+    }
+
+    void NodeEditorAPI::removeConnectionRemovedListener(ListenerHandle handle) {
+        m_editor->removeConnectionRemovedListener(handle);
     }
 
     void NodeEditorAPI::executeCommand(const std::string &command, const std::any &data) {
@@ -556,5 +740,13 @@ namespace NodeEditorCore {
 
     NodeEditor *NodeEditorAPI::getUnderlyingEditor() {
         return m_editor.get();
+    }
+
+    void NodeEditorAPI::executeConnectedNodes() {
+        evaluateGraph();
+    }
+
+    void NodeEditorAPI::executeNodeChain(const UUID &startNodeId) {
+        evaluateGraph(startNodeId);
     }
 }

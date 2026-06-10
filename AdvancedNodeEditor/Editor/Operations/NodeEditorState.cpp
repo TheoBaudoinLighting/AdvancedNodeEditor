@@ -2,9 +2,12 @@
 #include "../../Core/Style/InteractionMode.h"
 #include <algorithm>
 
+#include "../../Utils/NodeEditorLogging.h"
+#include "../../Utils/CommandDefinitions.h"
+
 namespace NodeEditorCore {
     NodeEditor::State::State()
-        : viewPosition(0.0f, 0.0f), viewScale(1.0f)
+        : viewPosition(0.0f, 0.0f), viewScale(1.0f), canvasPos(0.0f, 0.0f)
           , nextNodeId(1), nextPinId(1), nextConnectionId(1), nextGroupId(1)
           , hoveredNodeId(-1), hoveredNodeUuid(""), hoveredPinId(-1), hoveredPinUuid("")
           , hoveredConnectionId(-1), hoveredConnectionUuid(""), hoveredGroupId(-1), hoveredGroupUuid("")
@@ -16,6 +19,7 @@ namespace NodeEditorCore {
           , interactionMode(InteractionMode::None)
           , contextMenuNodeId(-1), contextMenuNodeUuid(""), contextMenuConnectionId(-1), contextMenuConnectionUuid("")
           , contextMenuGroupId(-1), contextMenuGroupUuid(""), contextMenuPinId(-1), contextMenuPinUuid("")
+          , contextMenuShouldOpen(false)
           , dragStart(0.0f, 0.0f), groupStartSize(0.0f, 0.0f), contextMenuPos(0.0f, 0.0f) {
         nodeUuidMap.clear();
         connectionUuidMap.clear();
@@ -28,8 +32,10 @@ namespace NodeEditorCore {
           , m_connectionStyleManager()
           , m_nodeBoundingBoxManager(std::make_shared<NodeBoundingBoxManager>())
           , m_nodeAvoidanceEnabled(false)
+          , m_minimapEnabled(false)
           , m_isSynchronizing(false)
-          , m_commandsInitialized(false) {
+          , m_commandsInitialized(false)
+          , m_parentAPI(nullptr) {
         m_state = State();
 
         m_viewManager.setMinZoom(0.1f);
@@ -50,10 +56,14 @@ namespace NodeEditorCore {
 
         setupCommandSystem();
 
-       //m_debugMode = true;
+        //m_debugMode = true;
     }
 
     NodeEditor::~NodeEditor() {
+    }
+
+    void NodeEditor::setParentAPI(NodeEditorAPI *api) {
+        m_parentAPI = api;
     }
 
     void NodeEditor::beginFrame() {
@@ -71,10 +81,8 @@ namespace NodeEditorCore {
             firstFrame = false;
         }
 
-        if (!m_viewManager.isViewTransitioning()) {
-            m_viewManager.setViewPosition(m_state.viewPosition);
-            m_viewManager.setViewScale(m_state.viewScale);
-        }
+        m_state.viewPosition = m_viewManager.getViewPosition();
+        m_state.viewScale = m_viewManager.getViewScale();
 
         m_state.hoveredNodeId = -1;
         m_state.hoveredPinId = -1;
@@ -86,6 +94,8 @@ namespace NodeEditorCore {
         m_state.magnetPinNodeUuid = "";
         m_state.magnetPinUuid = "";
         m_state.canConnectToMagnetPin = true;
+        m_magnetRerouteId = -1;
+        m_canConnectToMagnetReroute = false;
 
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
     }
@@ -97,12 +107,13 @@ namespace NodeEditorCore {
     int NodeEditor::addNode(const std::string &name, const std::string &type, const Vec2 &pos, const UUID &uuid) {
         int nodeId = m_state.nextNodeId++;
         Node node(uuid.empty() ? generateUUID() : uuid, nodeId, name, type, pos);
+        node.size = m_state.style.defaultNodeSize;
 
         m_state.nodes.push_back(node);
         updateNodeUuidMap();
 
-        if (m_state.nodeCreatedCallback) {
-            m_state.nodeCreatedCallback(nodeId, node.uuid);
+        if (!m_callbacksSuppressed) {
+            m_state.nodeCreatedListeners.emit(nodeId, node.uuid);
         }
 
         return nodeId;
@@ -131,12 +142,21 @@ namespace NodeEditorCore {
                 }
             }
 
+            std::vector<int> removedConnectionIds;
             m_state.connections.erase(
                 std::remove_if(m_state.connections.begin(), m_state.connections.end(),
-                               [nodeId](const Connection &conn) {
-                                   return conn.startNodeId == nodeId || conn.endNodeId == nodeId;
+                               [nodeId, &removedConnectionIds](const Connection &conn) {
+                                   const bool remove = conn.startNodeId == nodeId || conn.endNodeId == nodeId;
+                                   if (remove) {
+                                       removedConnectionIds.push_back(conn.id);
+                                   }
+                                   return remove;
                                }),
                 m_state.connections.end());
+
+            for (int connectionId: removedConnectionIds) {
+                removeAllReroutesFromConnection(connectionId);
+            }
 
             if (it->groupId >= 0) {
                 auto groupIt = std::find_if(m_state.groups.begin(), m_state.groups.end(),
@@ -148,8 +168,9 @@ namespace NodeEditorCore {
                 }
             }
 
-            if (m_state.nodeRemovedCallback) {
-                m_state.nodeRemovedCallback(nodeId, it->uuid);
+            if (!m_callbacksSuppressed) {
+                UUID removedNodeUuid = it->uuid;
+                m_state.nodeRemovedListeners.emit(nodeId, removedNodeUuid);
             }
 
             m_state.nodes.erase(it);
@@ -485,7 +506,14 @@ namespace NodeEditorCore {
         m_state.nodes.clear();
         m_state.connections.clear();
         m_state.groups.clear();
+        m_reroutes.clear();
+        m_nextRerouteId = 1;
         m_subgraphs.clear();
+        m_subgraphsByUuid.clear();
+        m_subgraphStack = std::stack<int>();
+        m_subgraphUuidStack = std::stack<UUID>();
+        m_state.currentSubgraphId = -1;
+        m_state.currentSubgraphUuid.clear();
 
         for (const auto &serializedNode: state.nodes) {
             Node node;
@@ -581,6 +609,10 @@ namespace NodeEditorCore {
             subgraph->groupUuids = serializedSubgraph.groupUuids;
             subgraph->interfaceInputs = serializedSubgraph.interfaceInputs;
             subgraph->interfaceOutputs = serializedSubgraph.interfaceOutputs;
+            subgraph->interfacePins.clear();
+            for (const auto &serializedPin: serializedSubgraph.interfacePins) {
+                subgraph->interfacePins.push_back(serializedPin.toRuntime());
+            }
             subgraph->parentSubgraphId = serializedSubgraph.parentSubgraphId;
             subgraph->parentSubgraphUuid = serializedSubgraph.parentSubgraphUuid;
             subgraph->childSubgraphIds = serializedSubgraph.childSubgraphIds;
@@ -597,8 +629,7 @@ namespace NodeEditorCore {
             m_subgraphs[subgraph->id] = subgraph;
         }
 
-        m_state.viewPosition = state.viewPosition;
-        m_state.viewScale = state.viewScale;
+        applyViewTransform(state.viewPosition, state.viewScale);
 
         updateNodeUuidMap();
         updateConnectionUuidMap();
@@ -640,6 +671,12 @@ namespace NodeEditorCore {
             maxGroupId = std::max(maxGroupId, group.id);
         }
         m_state.nextGroupId = maxGroupId + 1;
+
+        int maxRerouteId = 0;
+        for (const auto &reroute: m_reroutes) {
+            maxRerouteId = std::max(maxRerouteId, reroute.id);
+        }
+        m_nextRerouteId = maxRerouteId + 1;
     }
 
     void NodeEditor::refreshPinConnectionStates() {

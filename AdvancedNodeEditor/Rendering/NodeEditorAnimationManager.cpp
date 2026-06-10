@@ -25,13 +25,13 @@ namespace NodeEditorCore {
                 const float breathingFrequency = 5.0f;
                 const float breathingAmplitude = 0.05f;
 
-                float breathingScale = 1.0f + std::sin(state.connectionGlow * breathingFrequency * 3.14159f * 2.0f) *
+                float breathingScale = 1.0f + std::sin(state.connectionGlow * breathingFrequency * Math::TWO_PI) *
                                        breathingAmplitude;
                 state.targetScaleFactor = breathingScale;
 
                 state.connectionGlowAngle += deltaTime * 4.0f;
-                if (state.connectionGlowAngle > 6.28318f) {
-                    state.connectionGlowAngle -= 6.28318f;
+                        if (state.connectionGlowAngle > Math::TWO_PI) {
+            state.connectionGlowAngle -= Math::TWO_PI;
                 }
 
                 state.connectionGlow += deltaTime;

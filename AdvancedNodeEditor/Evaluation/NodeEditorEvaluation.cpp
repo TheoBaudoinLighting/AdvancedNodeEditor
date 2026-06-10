@@ -211,7 +211,7 @@ namespace NodeEditorCore {
             }
         }
 
-        std::unordered_set<int> visited(result.begin(), result.end());
+        std::unordered_set visited(result.begin(), result.end());
         for (const auto &pair: dependencyGraph) {
             if (visited.find(pair.first) == visited.end()) {
                 result.push_back(pair.first);

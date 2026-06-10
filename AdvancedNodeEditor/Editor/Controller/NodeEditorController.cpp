@@ -27,6 +27,7 @@ namespace NodeEditorCore {
             tempNode.isCurrentFlag = node->isCurrentFlag;
             tempNode.isSubgraph = node->isSubgraph;
             tempNode.subgraphId = node->subgraphId;
+            tempNode.isProtected = node->isProtected;
             tempNode.metadata = node->metadata;
 
             updateFn(tempNode);
@@ -40,6 +41,7 @@ namespace NodeEditorCore {
             node->isCurrentFlag = tempNode.isCurrentFlag;
             node->isSubgraph = tempNode.isSubgraph;
             node->subgraphId = tempNode.subgraphId;
+            node->isProtected = tempNode.isProtected;
             node->metadata = tempNode.metadata;
 
             Event event(EventType::StateChanged);
@@ -142,8 +144,7 @@ namespace NodeEditorCore {
     int NodeEditorController::addNodeToSubgraph(int nodeId, int subgraphId) {
         NodeEditorModel::Node *node = m_model->getNode(nodeId);
         if (node && m_model->getSubgraph(subgraphId)) {
-            node->isSubgraph = true;
-            node->subgraphId = subgraphId;
+            m_model->addNodeToSubgraph(nodeId, subgraphId);
 
             Event event(EventType::StateChanged);
             event.setData("nodeId", nodeId);

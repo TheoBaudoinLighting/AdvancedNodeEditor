@@ -1,6 +1,7 @@
 #include "NodeEditor.h"
 
 #include "imgui_internal.h"
+#include "Style/InteractionMode.h"
 
 namespace NodeEditorCore {
     std::vector<int> NodeEditor::getEvaluationOrder() const {
@@ -47,7 +48,7 @@ namespace NodeEditorCore {
             outMin = Vec2(std::numeric_limits<float>::max(), std::numeric_limits<float>::max());
             outMax = Vec2(-std::numeric_limits<float>::max(), -std::numeric_limits<float>::max());
 
-            for (const auto &node : m_state.nodes) {
+            for (const auto &node: m_state.nodes) {
                 if (!isNodeInCurrentSubgraph(node)) continue;
                 outMin.x = std::min(outMin.x, node.position.x);
                 outMin.y = std::min(outMin.y, node.position.y);
@@ -60,7 +61,7 @@ namespace NodeEditorCore {
             outMin = Vec2(std::numeric_limits<float>::max(), std::numeric_limits<float>::max());
             outMax = Vec2(-std::numeric_limits<float>::max(), -std::numeric_limits<float>::max());
 
-            const Node* node = getNode(nodeId);
+            const Node *node = getNode(nodeId);
             if (node && isNodeInCurrentSubgraph(*node)) {
                 outMin.x = node->position.x;
                 outMin.y = node->position.y;
@@ -74,7 +75,7 @@ namespace NodeEditorCore {
             outMax = Vec2(-std::numeric_limits<float>::max(), -std::numeric_limits<float>::max());
 
             bool hasSelectedNodes = false;
-            for (const auto &node : m_state.nodes) {
+            for (const auto &node: m_state.nodes) {
                 if (!node.selected || !isNodeInCurrentSubgraph(node)) continue;
 
                 outMin.x = std::min(outMin.x, node.position.x);
@@ -87,93 +88,135 @@ namespace NodeEditorCore {
     }
 
     void NodeEditor::zoomToFit(float padding) {
+        const Vec2 windowSize = m_viewManager.getWindowSize();
+        zoomToFitWithSize(windowSize.x, windowSize.y, padding);
+    }
+
+    void NodeEditor::requestZoomToFitOnNextRender(float padding) {
+        m_zoomToFitOnNextRender = true;
+        m_zoomToFitOnNextRenderPadding = padding;
+    }
+
+    void NodeEditor::zoomToFitSelected(float padding) {
         Vec2 windowSize(0, 0);
 
         try {
             if (ImGui::GetCurrentContext() != nullptr) {
-                ImGuiContext* context = ImGui::GetCurrentContext();
+                ImGuiContext *context = ImGui::GetCurrentContext();
                 if (context && context->CurrentWindow) {
                     ImVec2 size = ImGui::GetWindowSize();
                     windowSize = Vec2(size.x, size.y);
+                    m_viewManager.setWindowSize(windowSize);
+                } else {
+                    windowSize = Vec2(1280, 720);
+                    m_viewManager.setWindowSize(windowSize);
                 }
+            } else {
+                windowSize = Vec2(1280, 720);
+                m_viewManager.setWindowSize(windowSize);
             }
         } catch (...) {
             windowSize = Vec2(1280, 720);
+            m_viewManager.setWindowSize(windowSize);
         }
 
-        m_viewManager.setWindowSize(windowSize);
-
-        m_viewManager.zoomToFit(padding);
-
-        m_state.viewPosition = m_viewManager.getViewPosition();
-        m_state.viewScale = m_viewManager.getViewScale();
-    }
-
-    void NodeEditor::zoomToFitSelected(float padding) {
-        ImVec2 windowSize = ImVec2(0, 0);
-        if (ImGui::GetCurrentContext() != nullptr && ImGui::GetCurrentWindow() != nullptr) {
-            windowSize = ImGui::GetWindowSize();
-            m_viewManager.setWindowSize(Vec2(windowSize.x, windowSize.y));
-        }
         m_viewManager.zoomToFitSelected(padding);
-        m_state.viewPosition = m_viewManager.getViewPosition();
-        m_state.viewScale = m_viewManager.getViewScale();
+        applyViewTransform(m_viewManager.getViewPosition(), m_viewManager.getViewScale());
     }
 
     void NodeEditor::centerView() {
-        ImVec2 windowSize = ImVec2(0, 0);
-        if (ImGui::GetCurrentContext() != nullptr && ImGui::GetCurrentWindow() != nullptr) {
-            windowSize = ImGui::GetWindowSize();
-            m_viewManager.setWindowSize(Vec2(windowSize.x, windowSize.y));
+        Vec2 windowSize(0, 0);
+
+        try {
+            if (ImGui::GetCurrentContext() != nullptr) {
+                ImGuiContext *context = ImGui::GetCurrentContext();
+                if (context && context->CurrentWindow) {
+                    ImVec2 size = ImGui::GetWindowSize();
+                    windowSize = Vec2(size.x, size.y);
+                    m_viewManager.setWindowSize(windowSize);
+                } else {
+                    windowSize = Vec2(1280, 720);
+                    m_viewManager.setWindowSize(windowSize);
+                }
+            } else {
+                windowSize = Vec2(1280, 720);
+                m_viewManager.setWindowSize(windowSize);
+            }
+        } catch (...) {
+            windowSize = Vec2(1280, 720);
+            m_viewManager.setWindowSize(windowSize);
         }
+
         m_viewManager.centerView();
-        m_state.viewPosition = m_viewManager.getViewPosition();
-        m_state.viewScale = m_viewManager.getViewScale();
+        applyViewTransform(m_viewManager.getViewPosition(), m_viewManager.getViewScale());
     }
 
     void NodeEditor::smoothCenterView(float duration) {
-        ImVec2 windowSize = ImVec2(0, 0);
-        if (ImGui::GetCurrentContext() != nullptr && ImGui::GetCurrentWindow() != nullptr) {
-            windowSize = ImGui::GetWindowSize();
-            m_viewManager.setWindowSize(Vec2(windowSize.x, windowSize.y));
+        Vec2 windowSize(0, 0);
+
+        try {
+            if (ImGui::GetCurrentContext() != nullptr) {
+                ImGuiContext *context = ImGui::GetCurrentContext();
+                if (context && context->CurrentWindow) {
+                    ImVec2 size = ImGui::GetWindowSize();
+                    windowSize = Vec2(size.x, size.y);
+                    m_viewManager.setWindowSize(windowSize);
+                } else {
+                    windowSize = Vec2(1280, 720);
+                    m_viewManager.setWindowSize(windowSize);
+                }
+            } else {
+                windowSize = Vec2(1280, 720);
+                m_viewManager.setWindowSize(windowSize);
+            }
+        } catch (...) {
+            windowSize = Vec2(1280, 720);
+            m_viewManager.setWindowSize(windowSize);
         }
 
-        m_viewManager.setViewPosition(m_state.viewPosition);
-        m_viewManager.setViewScale(m_state.viewScale);
         m_viewManager.centerView();
 
-        ViewManager::ViewState currentState(m_state.viewPosition, m_state.viewScale);
         ViewManager::ViewState targetState(m_viewManager.getViewPosition(), m_viewManager.getViewScale());
-
-        m_viewManager.setViewPosition(currentState.position);
-        m_viewManager.setViewScale(currentState.scale);
+        m_viewManager.setViewPosition(m_state.viewPosition);
+        m_viewManager.setViewScale(m_state.viewScale);
         m_viewManager.startViewTransition(targetState, duration, ViewManager::ViewTransitionType::EaseInOut);
     }
 
     void NodeEditor::smoothCenterOnNode(int nodeId, float duration) {
-        ImVec2 windowSize = ImVec2(0, 0);
-        if (ImGui::GetCurrentContext() != nullptr && ImGui::GetCurrentWindow() != nullptr) {
-            windowSize = ImGui::GetWindowSize();
-            m_viewManager.setWindowSize(Vec2(windowSize.x, windowSize.y));
+        Vec2 windowSize(0, 0);
+
+        try {
+            if (ImGui::GetCurrentContext() != nullptr) {
+                ImGuiContext *context = ImGui::GetCurrentContext();
+                if (context && context->CurrentWindow) {
+                    ImVec2 size = ImGui::GetWindowSize();
+                    windowSize = Vec2(size.x, size.y);
+                    m_viewManager.setWindowSize(windowSize);
+                } else {
+                    windowSize = Vec2(1280, 720);
+                    m_viewManager.setWindowSize(windowSize);
+                }
+            } else {
+                windowSize = Vec2(1280, 720);
+                m_viewManager.setWindowSize(windowSize);
+            }
+        } catch (...) {
+            windowSize = Vec2(1280, 720);
+            m_viewManager.setWindowSize(windowSize);
         }
 
-        const Node* node = getNode(nodeId);
+        const Node *node = getNode(nodeId);
         if (!node) return;
-
-        m_viewManager.setViewPosition(m_state.viewPosition);
-        m_viewManager.setViewScale(m_state.viewScale);
 
         m_viewManager.centerOnNode(nodeId);
 
-        ViewManager::ViewState currentState(m_state.viewPosition, m_state.viewScale);
         ViewManager::ViewState targetState(m_viewManager.getViewPosition(), m_viewManager.getViewScale());
-
-        m_viewManager.setViewPosition(currentState.position);
-        m_viewManager.setViewScale(currentState.scale);
+        m_viewManager.setViewPosition(m_state.viewPosition);
+        m_viewManager.setViewScale(m_state.viewScale);
         m_viewManager.startViewTransition(targetState, duration, ViewManager::ViewTransitionType::EaseInOut);
     }
 
-    void NodeEditor::smoothCenterOnNodeByUUID(const UUID& uuid, float duration) {
+    void NodeEditor::smoothCenterOnNodeByUUID(const UUID &uuid, float duration) {
         int nodeId = getNodeId(uuid);
         if (nodeId != -1) {
             smoothCenterOnNode(nodeId, duration);
@@ -181,17 +224,33 @@ namespace NodeEditorCore {
     }
 
     void NodeEditor::centerOnNode(int nodeId) {
-        ImVec2 windowSize = ImVec2(0, 0);
-        if (ImGui::GetCurrentContext() != nullptr && ImGui::GetCurrentWindow() != nullptr) {
-            windowSize = ImGui::GetWindowSize();
-            m_viewManager.setWindowSize(Vec2(windowSize.x, windowSize.y));
+        Vec2 windowSize(0, 0);
+
+        try {
+            if (ImGui::GetCurrentContext() != nullptr) {
+                ImGuiContext *context = ImGui::GetCurrentContext();
+                if (context && context->CurrentWindow) {
+                    ImVec2 size = ImGui::GetWindowSize();
+                    windowSize = Vec2(size.x, size.y);
+                    m_viewManager.setWindowSize(windowSize);
+                } else {
+                    windowSize = Vec2(1280, 720);
+                    m_viewManager.setWindowSize(windowSize);
+                }
+            } else {
+                windowSize = Vec2(1280, 720);
+                m_viewManager.setWindowSize(windowSize);
+            }
+        } catch (...) {
+            windowSize = Vec2(1280, 720);
+            m_viewManager.setWindowSize(windowSize);
         }
+
         m_viewManager.centerOnNode(nodeId);
-        m_state.viewPosition = m_viewManager.getViewPosition();
-        m_state.viewScale = m_viewManager.getViewScale();
+        applyViewTransform(m_viewManager.getViewPosition(), m_viewManager.getViewScale());
     }
 
-    void NodeEditor::centerOnNodeByUUID(const UUID& uuid) {
+    void NodeEditor::centerOnNodeByUUID(const UUID &uuid) {
         int nodeId = getNodeId(uuid);
         if (nodeId != -1) {
             centerOnNode(nodeId);
@@ -266,6 +325,7 @@ namespace NodeEditorCore {
     }
 
     void NodeEditor::enableMinimap(bool enable) {
+        m_minimapEnabled = enable;
         m_minimapManager.getConfig().interactable = enable;
         m_minimapManager.setNodePositionProvider([this]() {
             std::vector<std::pair<Vec2, Vec2> > nodes;
@@ -276,15 +336,15 @@ namespace NodeEditorCore {
             }
             return nodes;
         });
-        m_minimapManager.setViewportChangeCallback([this](const Vec2 &newViewPos) {
-            m_state.viewPosition = newViewPos;
-            m_viewManager.setViewPosition(newViewPos);
+        m_minimapManager.setViewportChangeCallback([this](const Vec2 &graphPos) {
+            Vec2 viewPos(-graphPos.x * m_state.viewScale, -graphPos.y * m_state.viewScale);
+            applyViewTransform(viewPos, m_state.viewScale);
         });
         updateMinimapBounds();
     }
 
     bool NodeEditor::isMinimapEnabled() const {
-        return m_minimapManager.getConfig().interactable;
+        return m_minimapEnabled;
     }
 
     void NodeEditor::setMinimapPosition(const Vec2 &position) {
@@ -421,12 +481,18 @@ namespace NodeEditorCore {
                 if (data.type() == typeid(int)) {
                     int nodeId = std::any_cast<int>(data);
                     UUID nodeUuid = getNodeUUID(nodeId);
-                    removeNode(nodeId);
-                    dispatchToUI(NodeEditorCommands::UI::ShowNodeRemoved, nodeUuid);
+
+                    if (requestDeleteNode(nodeId)) {
+                        dispatchToUI(NodeEditorCommands::UI::ShowNodeRemoved, nodeUuid);
+                    }
                 } else if (data.type() == typeid(UUID)) {
                     UUID nodeUuid = std::any_cast<UUID>(data);
-                    removeNodeByUUID(nodeUuid);
-                    dispatchToUI(NodeEditorCommands::UI::ShowNodeRemoved, nodeUuid);
+                    int nodeId = getNodeId(nodeUuid);
+                    if (nodeId != -1) {
+                        if (requestDeleteNode(nodeId)) {
+                            dispatchToUI(NodeEditorCommands::UI::ShowNodeRemoved, nodeUuid);
+                        }
+                    }
                 }
             } catch (const std::bad_any_cast &) {
                 dispatchToUI(NodeEditorCommands::UI::ShowError,
@@ -932,38 +998,38 @@ namespace NodeEditorCore {
             }
         });
 
-        bindToUI(NodeEditorCommands::UI::ShowNodeRemoved, [](const std::any& data) {
-        try {
-            UUID nodeUuid = std::any_cast<UUID>(data);
-            std::cout << "Node removed: " << nodeUuid << std::endl;
-        } catch(const std::bad_any_cast&) {
-            std::cerr << "Invalid data format for node removal display" << std::endl;
-        }
-    });
+        bindToUI(NodeEditorCommands::UI::ShowNodeRemoved, [](const std::any &data) {
+            try {
+                UUID nodeUuid = std::any_cast<UUID>(data);
+                std::cout << "Node removed: " << nodeUuid << std::endl;
+            } catch (const std::bad_any_cast &) {
+                std::cerr << "Invalid data format for node removal display" << std::endl;
+            }
+        });
 
-        bindToUI(NodeEditorCommands::UI::ShowConnectionRemoved, [](const std::any& data) {
+        bindToUI(NodeEditorCommands::UI::ShowConnectionRemoved, [](const std::any &data) {
             try {
                 UUID connUuid = std::any_cast<UUID>(data);
                 std::cout << "Connection removed: " << connUuid << std::endl;
-            } catch(const std::bad_any_cast&) {
+            } catch (const std::bad_any_cast &) {
                 std::cerr << "Invalid data format for connection removal display" << std::endl;
             }
         });
 
-        bindToUI(NodeEditorCommands::UI::UpdateNodeList, [](const std::any& data) {
+        bindToUI(NodeEditorCommands::UI::UpdateNodeList, [](const std::any &data) {
             try {
-                auto nodes = std::any_cast<std::vector<UUID>>(data);
+                auto nodes = std::any_cast<std::vector<UUID> >(data);
                 std::cout << "Updated node list, count: " << nodes.size() << std::endl;
-            } catch(const std::bad_any_cast&) {
+            } catch (const std::bad_any_cast &) {
                 std::cerr << "Invalid data format for node list update" << std::endl;
             }
         });
 
-        bindToUI(NodeEditorCommands::UI::UpdateConnectionList, [](const std::any& data) {
+        bindToUI(NodeEditorCommands::UI::UpdateConnectionList, [](const std::any &data) {
             try {
-                auto connections = std::any_cast<std::vector<UUID>>(data);
+                auto connections = std::any_cast<std::vector<UUID> >(data);
                 std::cout << "Updated connection list, count: " << connections.size() << std::endl;
-            } catch(const std::bad_any_cast&) {
+            } catch (const std::bad_any_cast &) {
                 std::cerr << "Invalid data format for connection list update" << std::endl;
             }
         });
@@ -992,5 +1058,37 @@ namespace NodeEditorCore {
 
     void NodeEditor::dispatchToUI(const std::string &command, const std::any &data) {
         m_commandManager.dispatchToUI(command, data);
+    }
+
+    int NodeEditor::getComputationOutputNodeId() const {
+        for (const auto &node: m_state.nodes) {
+            if (isNodeInCurrentSubgraph(node) && node.isCurrentFlag) {
+                return node.id;
+            }
+        }
+        return -1;
+    }
+
+    UUID NodeEditor::getComputationOutputNodeUUID() const {
+        for (const auto &node: m_state.nodes) {
+            if (isNodeInCurrentSubgraph(node) && node.isCurrentFlag) {
+                return node.uuid;
+            }
+        }
+        return "";
+    }
+
+    bool NodeEditor::isNodeDragging() const {
+        return m_state.interactionMode == InteractionMode::DragNode;
+    }
+
+    bool NodeEditor::isNodeComputationOutput(int nodeId) const {
+        const Node *node = getNode(nodeId);
+        return node && node->isCurrentFlag && isNodeInCurrentSubgraph(*node);
+    }
+
+    bool NodeEditor::isNodeComputationOutput(const UUID &nodeUuid) const {
+        const Node *node = getNodeByUUID(nodeUuid);
+        return node && node->isCurrentFlag && isNodeInCurrentSubgraph(*node);
     }
 }
